@@ -5,6 +5,7 @@ import { addAmmo, isReloading } from './manual';
 import type { Player } from './player';
 import { emit } from './events';
 import { addXp } from './progression';
+import { pushOutOfShelves } from './shelves';
 import type { World } from './world';
 
 /** A floor pickup the magnet can grab. */
@@ -144,7 +145,9 @@ export function createChestObject(): Chest {
 
 export function dropChest(world: World, x: number, y: number): void {
   const c = world.chests.acquire();
-  if (c) setVec(c.pos, x, y);
+  if (!c) return;
+  setVec(c.pos, x, y);
+  pushOutOfShelves(c.pos, COUPONS.chestRadius, world.seed);
 }
 
 function collectChests(world: World): void {

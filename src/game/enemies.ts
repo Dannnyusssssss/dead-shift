@@ -8,8 +8,10 @@ import {
   type RangedBehavior,
   type ZigzagBehavior,
 } from '../data/enemies';
+import { SHELF_COLLISION } from '../data/map';
 import { WEAPON_IDS } from '../data/weapons';
 import { spawnPuddle, spawnShockwave, throwReceipt } from './hazards';
+import { createRect, pushOutOfShelves, type Rect } from './shelves';
 import type { World } from './world';
 
 /** States of the `charge` behavior (stored in `aiState`). */
@@ -50,6 +52,20 @@ export interface Enemy {
   aiDir: Vec2;
   /** Time until the next trail puddle. */
   trailTimer: number;
+  /** Shelf contact: remaining memory of the last touch, s (0 = not touching). */
+  contactTimer: number;
+  /** Outward normal of the shelf it last touched. */
+  contactNormal: Vec2;
+  /** The shelf it last touched. */
+  contactShelf: Rect;
+  /** Direction along the shelf while sliding to get around it (+1 / -1, 0 = not chosen). */
+  slideSign: number;
+  /** The behavior wanted to get closer to the player this step (before sliding). */
+  approaching: boolean;
+  /** Time pressed against a shelf without making progress, s. */
+  stuckTimer: number;
+  /** Where the current no-progress stretch started. */
+  stuckAnchor: Vec2;
 }
 
 /** Largest enemy radius; pads spatial queries so big enemies are not missed. */
@@ -81,6 +97,13 @@ export function createEnemyObject(): Enemy {
     aiPhase: 0,
     aiDir: vec2(),
     trailTimer: 0,
+    contactTimer: 0,
+    contactNormal: vec2(),
+    contactShelf: createRect(),
+    slideSign: 0,
+    approaching: false,
+    stuckTimer: 0,
+    stuckAnchor: vec2(),
   };
 }
 
@@ -141,8 +164,29 @@ export function spawnEnemy(
   e.poisonTimer = 0;
   e.lastHitBy = -1;
   e.weaponHitTimers.fill(0);
+  clearShelfContact(e);
+  // Spawns (waves, boss summons, debug hordes) never start inside a shelf.
+  pushOutOfShelves(e.pos, e.radius, world.seed);
+  setVec(e.prevPos, e.pos.x, e.pos.y);
   initBehavior(e, world);
   return e;
+}
+
+/** Forgets any shelf contact (new spawn or moved back to the ring). */
+export function clearShelfContact(e: Enemy): void {
+  e.contactTimer = 0;
+  e.slideSign = 0;
+  e.stuckTimer = 0;
+  setVec(e.stuckAnchor, e.pos.x, e.pos.y);
+  e.approaching = false;
+}
+
+/** A charging enemy that hits a shelf stops there instead of ramming it for the whole charge. */
+export function stopChargeAgainstShelf(e: Enemy): void {
+  const b = e.def.behavior;
+  if (b.kind !== 'charge' || e.aiState !== CHARGE_STATE.charging) return;
+  e.aiState = CHARGE_STATE.recover;
+  e.aiTimer = b.recover;
 }
 
 /** Unit vector and distance from the enemy to the player, written into `out`. */
@@ -303,11 +347,76 @@ export function enemyBehaviorSystem(world: World, dt: number): void {
   }
 }
 
+/** Out of the two ways around the touched shelf, the one with the shorter path to the player. */
+function chooseSlide(e: Enemy, world: World, tx: number, ty: number): number {
+  const s = e.contactShelf;
+  // Extent of the shelf along the tangent, measured from the enemy, padded by its radius.
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let k = 0; k < 4; k++) {
+    const cx = (k & 1 ? s.x + s.w : s.x) - e.pos.x;
+    const cy = (k & 2 ? s.y + s.h : s.y) - e.pos.y;
+    const t = cx * tx + cy * ty;
+    lo = Math.min(lo, t);
+    hi = Math.max(hi, t);
+  }
+  const p = world.player.pos;
+  // The player past one end of the shelf (along this edge): go that way.
+  const playerAlong = (p.x - e.pos.x) * tx + (p.y - e.pos.y) * ty;
+  if (playerAlong > hi) return 1;
+  if (playerAlong < lo) return -1;
+  // Otherwise the shorter way: along the shelf to a corner, then straight to the player.
+  const cost = (along: number): number => {
+    const x = e.pos.x + tx * along;
+    const y = e.pos.y + ty * along;
+    return Math.abs(along) + Math.hypot(p.x - x, p.y - y);
+  };
+  return cost(hi + e.radius) <= cost(lo - e.radius) ? 1 : -1;
+}
+
+/**
+ * While touching a shelf: drop the part of the velocity that pushes into it and, if little is
+ * left along it (a zombie chasing straight at a player hidden behind the shelf), slide along
+ * the shelf at full speed toward the corner with the shorter way around.
+ */
+function slideAlongShelf(e: Enemy, world: World): void {
+  const vx = e.vel.x;
+  const vy = e.vel.y;
+  const speed = Math.hypot(vx, vy);
+  const px = world.player.pos.x - e.pos.x;
+  const py = world.player.pos.y - e.pos.y;
+  e.approaching = speed > 0 && vx * px + vy * py > 0;
+  if (e.contactTimer <= 0) {
+    e.slideSign = 0;
+    return;
+  }
+  const nx = e.contactNormal.x;
+  const ny = e.contactNormal.y;
+  const into = vx * nx + vy * ny;
+  if (speed === 0 || into >= 0) return;
+  const tx = -ny;
+  const ty = nx;
+  const along = vx * tx + vy * ty;
+  const enough = speed * SHELF_COLLISION.slideThreshold;
+  if (e.slideSign === 0) {
+    if (Math.abs(along) >= enough) {
+      setVec(e.vel, vx - into * nx, vy - into * ny);
+      return;
+    }
+    e.slideSign = chooseSlide(e, world, tx, ty);
+  }
+  // Once a way around is chosen it is kept until the contact ends, or the zombie would turn
+  // back toward the middle of the shelf as the angle to the player changes and get nowhere.
+  if (along * e.slideSign >= enough) setVec(e.vel, vx - into * nx, vy - into * ny);
+  else setVec(e.vel, tx * e.slideSign * speed, ty * e.slideSign * speed);
+}
+
 export function enemyMovementSystem(world: World, dt: number): void {
   const { items, count } = world.enemies;
   const decay = Math.exp(-COMBAT.knockbackDecay * dt);
   for (let i = 0; i < count; i++) {
     const e = items[i] as Enemy;
+    slideAlongShelf(e, world);
     const speedScale = e.slowTimer > 0 ? 1 - e.slowFactor : 1;
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;

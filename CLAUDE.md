@@ -105,7 +105,8 @@ docs/DEBUG.md            # parámetros de URL y teclas de depuración (Hito 7)
 - **Victoria:** llegar a las 6:00 AM con vida. Amanece, los zombis se desmayan (animación simple).
 - **Derrota:** vida a 0. Mostrar hora a la que moriste, kills y nivel.
 - Mapa: arena infinita (el mundo se genera con tiles de piso de supermercado: baldosas claras con líneas y góndolas
-  derivadas de una función hash con semilla). Las góndolas son decorativas hasta el Hito 8, donde pasan a ser sólidas.
+  derivadas de una función hash con semilla). Desde el Hito 8 las góndolas son sólidas: frenan a Mati, a los zombis,
+  las balas y los recibos (no los barridos ni las ondas), con pasillos de al menos 80 px.
   Sin límites; la cámara sigue al jugador.
 
 ### 5.2 Jugador: "Mati, el repositor"
@@ -230,7 +231,7 @@ Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 8. Hitos (implementa UNO a la vez, en orden)
 
-**Estado actual:** Hitos 1 a 7 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 8.
+**Estado actual:** Hitos 1 a 8 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 9.
 Actualiza esta línea al cerrar cada hito.
 
 Al terminar cada hito: corre `npm run lint && npm run test && npm run build`, ejecuta el juego, verifica

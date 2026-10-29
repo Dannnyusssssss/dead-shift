@@ -3,6 +3,7 @@ import { ENEMIES } from '../src/data/enemies';
 import { spawnEnemy, type Enemy } from '../src/game/enemies';
 import { gunStats, hasAmmo } from '../src/game/manual';
 import type { Vec2 } from '../src/core/math';
+import { circleHitsShelf } from '../src/game/shelves';
 import { findNearestEnemy } from '../src/game/weapons';
 import { createWorld, type World } from '../src/game/world';
 
@@ -66,12 +67,26 @@ const BOT_FIRE_REACH = 0.85;
 /** With no zombie this close, the bot walks to coupons within `BOT_COUPON_RANGE`, px. */
 const BOT_SAFE_RADIUS = 140;
 const BOT_COUPON_RANGE = 350;
+/** Spacing of the samples of the line of fire checked against shelves, px. */
+const BOT_SIGHT_STEP = 16;
+
+/** No shelf between the two points (a person doesn't shoot into a shelf). */
+function clearShot(world: World, x0: number, y0: number, x1: number, y1: number): boolean {
+  const d = Math.hypot(x1 - x0, y1 - y0);
+  const n = Math.ceil(d / BOT_SIGHT_STEP);
+  for (let i = 1; i < n; i++) {
+    const t = i / n;
+    if (circleHitsShelf(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 2, world.seed)) return false;
+  }
+  return true;
+}
 
 /**
  * A crude stand-in for a human player, used by the long simulations: aims at the nearest
  * zombie and holds the trigger, kites away from the crowd (weighted by closeness, with a
  * sideways drift so it circles instead of backing into a wall of zombies), closes in with
- * the broom, and walks to the nearest ammo box when it is running dry.
+ * the broom, and walks to the nearest ammo box when it is running dry. It holds fire while a
+ * shelf is in the way.
  * With `useMelee` false it never swings: with the gun dry it only kites and looks for boxes.
  */
 export function playerBot(world: World, useMelee = true): void {
@@ -84,7 +99,9 @@ export function playerBot(world: World, useMelee = true): void {
   const g = gunStats(m);
   const reach = g.speed * g.lifetime * BOT_FIRE_REACH;
   const inReach =
-    target !== undefined && Math.hypot(target.pos.x - p.x, target.pos.y - p.y) <= reach;
+    target !== undefined &&
+    Math.hypot(target.pos.x - p.x, target.pos.y - p.y) <= reach &&
+    clearShot(world, p.x, p.y, target.pos.x, target.pos.y);
   world.triggerHeld = meleeActive ? target !== undefined && useMelee : inReach;
   let mx = 0;
   let my = 0;

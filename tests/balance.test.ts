@@ -72,6 +72,7 @@ function playRun(scenario: Scenario, seed: number, newWeapons = true): RunResult
     `0/0=${((dryShots / steps) * 100).toFixed(0).padStart(3)}%`,
     `hp=${world.player.hp.toFixed(0).padStart(3)}`,
     `broom/manual=${(broomShare * 100).toFixed(0).padStart(3)}%`,
+    `stuck=${world.stuckRelocations}`,
     weaponKills(world),
   ].join('  ');
   return { time: world.time, kills: world.kills, broomShare, row };

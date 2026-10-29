@@ -160,6 +160,8 @@ describe('full simulation', () => {
   it('a full 10-minute shift with pistol and broom can be survived and won at 6:00 AM', () => {
     const world = emptyWorld(11);
     world.player.invincible = true;
+    // No reserve: the first magazine runs dry, so the broom takeover and the return are exercised.
+    world.player.manual.reserve = 0;
     let maxEnemies = 0;
     let steps = 0;
     let autoSwitches = 0;

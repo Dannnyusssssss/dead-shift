@@ -29,6 +29,7 @@ import { contactDamageSystem, separationSystem, spatialIndexSystem } from './sys
 import { timersSystem } from './systems/damage';
 import { deathSystem } from './systems/death';
 import { movementSystem } from './systems/movement';
+import { shelfCollisionSystem } from './systems/shelves';
 import { statusSystem } from './systems/status';
 import { createTurretObject, turretSystem, type Turret } from './turrets';
 import { weaponSystem } from './weapons';
@@ -47,6 +48,8 @@ export interface World {
   time: number;
   tick: number;
   kills: number;
+  /** Enemies moved back to the spawn ring after getting stuck against a shelf (debug stats). */
+  stuckRelocations: number;
   /** Kills per weapon, indexed like WEAPON_IDS (debug stats and balance reports). */
   killsByWeapon: Int32Array;
   player: Player;
@@ -96,6 +99,7 @@ const SYSTEMS: readonly System[] = [
   enemyMovementSystem,
   spatialIndexSystem,
   separationSystem,
+  shelfCollisionSystem,
   manualWeaponSystem,
   weaponSystem,
   turretSystem,
@@ -116,6 +120,7 @@ export function createWorld(seed: number): World {
     time: 0,
     tick: 0,
     kills: 0,
+    stuckRelocations: 0,
     killsByWeapon: new Int32Array(WEAPON_IDS.length),
     player: createPlayer(),
     moveInput: vec2(0, 0),

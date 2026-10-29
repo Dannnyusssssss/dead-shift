@@ -3,6 +3,7 @@ import { COMBAT } from '../data/combat';
 import type { TrailSpec } from '../data/enemies';
 import { emit } from './events';
 import { damagePlayer } from './systems/damage';
+import { circleHitsShelf } from './shelves';
 import type { World } from './world';
 
 /** Enemy-made dangers: slowing puddles, thrown receipts that explode, boss shockwaves. */
@@ -145,7 +146,10 @@ function updateReceipt(world: World, h: Hazard, dt: number): boolean {
   if (d > step && h.age < h.duration) {
     h.pos.x += (dx / d) * step;
     h.pos.y += (dy / d) * step;
-    return false;
+    // A shelf in the way stops the receipt: it blows up right there.
+    if (!circleHitsShelf(h.pos.x, h.pos.y, COMBAT.receiptRadius, world.seed)) return false;
+    h.target.x = h.pos.x;
+    h.target.y = h.pos.y;
   }
   h.pos.x = h.target.x;
   h.pos.y = h.target.y;

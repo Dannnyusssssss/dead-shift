@@ -23,9 +23,9 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   ~~**Reemplazada en Hito 5:** la línea de FPS / CPU / zombis solo aparece con los parámetros de depuración.~~
   **Reemplazada en Hito 7:** se muestra con F3, con la casilla de la pausa (se guarda) o con los parámetros de depuración.
 - **devicePixelRatio limitado a 2** para no disparar el costo de relleno en móviles 3x.
-- **Góndolas decorativas.** El mundo se divide en bloques de 10×6 tiles; cada bloque tiene una góndola
-  (75 % de probabilidad) con largo y posición derivados de `hash2(bloque, semilla)`. Así el mapa es infinito,
-  estable y no requiere guardar nada. Sin colisión.
+- **Góndolas** derivadas de `hash2(bloque, semilla)`: el mundo se divide en bloques de 10×6 tiles y cada uno tiene una
+  góndola (75 % de probabilidad) con largo y posición derivados del hash. Así el mapa es infinito, estable y no requiere
+  guardar nada. ~~Decorativas, sin colisión.~~ **Reemplazada en Hito 8:** son sólidas (ver allí).
 - **Semilla de la partida.** `Date.now()` al arrancar; se podrá fijar para reproducir bugs o para el modo diario.
 - ~~**Favicon vacío** (`data:,`) para que no haya un 404 en consola; el favicon real llega en el Hito 6.~~
   **Reemplazada en Hito 6:** favicon SVG en `public/favicon.svg`.
@@ -368,3 +368,83 @@ de un apuro. El bot es una aproximación: falta confirmarlo con partidas reales.
 - Los sorteos usan el RNG sembrado, después del de la caja de munición. Con el pool lleno no cae nada.
 - Sonidos propios (`medkitPickup`, `magnetPickup`). Se dibujan como una caja blanca con cruz roja y una herradura roja
   con halo pulsante.
+
+## Hito 8
+
+### Layout y colisión
+
+- **Una sola función de layout:** `shelfInBlock(bx, by, seed)` en `game/shelves.ts` es la fuente de verdad. El render
+  la usa para dibujar y la colisión para chocar; no se guarda estado.
+- **Datos separados:** la geometría pasó de `SHELVES` (`data/render.ts`) a `SHELF_LAYOUT` en `data/map.ts`, para que
+  `game/` no dependa de datos de render. `data/render.ts` conserva solo colores y estilo. **Reemplaza** la indicación
+  de CLAUDE.md de ajustar los largos "en `data/render.ts`".
+- **Pasillos ≥ 80 px:** se deja 1 tile libre a cada lado del bloque (`marginTiles`). Antes el hueco mínimo entre
+  góndolas de bloques vecinos en la misma fila era de 64 px; ahora es de 128 px. Entre filas ya eran ≥ 148 px.
+  Como todas las góndolas son horizontales y están separadas en vertical, no hay callejones sin salida. Cambia la
+  posición horizontal de algunas góndolas respecto del decorado anterior.
+- **Consulta local:** cada entidad mira solo los bloques que toca su caja (1 a 4) y calcula el hash de cada uno al
+  momento. Con 300 zombis el juego se mantiene a 60 FPS con ~1 ms de CPU por frame.
+- **Círculo contra rectángulo:** el punto más cercano con `clamp`; si el centro quedó adentro, sale por el borde más
+  cercano. Como los pasillos son más anchos que cualquier entidad (radio máx. 30), una pasada alcanza.
+- **Sistema propio** `shelfCollisionSystem`, después de la separación de la horda, así también corrige lo que empujan
+  la separación y el retroceso. Mati sale al borde libre más cercano si queda superpuesto.
+
+### Zombis y góndolas
+
+- **Deslizarse:** con contacto se quita la parte de la velocidad que entra en la góndola. Si casi no queda nada a lo
+  largo del borde (Mati justo detrás), el zombi elige un sentido y desliza a velocidad completa:
+  - Hacia el extremo del lado donde está Mati, si Mati queda más allá de la góndola en ese eje.
+  - Si no, por el camino más corto: hasta la esquina y de ahí en línea recta.
+
+  El sentido se mantiene mientras dure el contacto. Sin eso, al avanzar cambia el ángulo hacia Mati y el zombi
+  vuelve hacia el centro y oscila.
+
+- **Contacto con margen de 1 px** (`contactSkin`): un zombi que desliza pegado al borde sigue "tocando", así no pierde
+  el sentido elegido.
+- **Atasco = no desplazarse:** el zombi cuenta tiempo de atasco si toca una góndola, quiere acercarse a Mati, no se
+  movió 24 px desde que empezó a contar y está a más de 100 px de Mati. A los 1.5 s vuelve al anillo de spawn
+  (`relocateToRing`).
+  - La primera versión medía "no se acerca a Mati". Daba 866 reubicaciones por partida: rodear una góndola larga aleja
+    al zombi durante segundos, y la horda apilada contra un estante junto a Mati no puede acercarse más.
+  - Con la métrica de desplazamiento, una partida simulada completa da entre 0 y 61 reubicaciones (14 en promedio),
+    contra cientos de bajas.
+  - No cuenta un Cajero que retrocede (no quiere acercarse) ni a la horda que pelea junto a Mati.
+- **Carrito:** si choca con una góndola mientras embiste, la embestida termina y pasa a recuperarse.
+
+### Qué bloquean
+
+- **Bloquean** todas las balas del jugador: la Pistola y también las latas, que comparten el pool de proyectiles. Al
+  chocar sueltan unas chispas (evento `shelfHit`, sin sonido). Los recibos del Cajero explotan al tocar una góndola.
+- **No bloquean:** barridos de la Escoba, onda del jefe, aerosol, bolsas de hielo e imantado de pickups (como pide el
+  hito). Los rayos del microondas tampoco: el hito no los menciona y es lo más simple.
+
+### Spawns
+
+- `spawnEnemy` expulsa al enemigo de cualquier góndola. Eso cubre oleadas, grupos, jefe, invocaciones del jefe, horda
+  de debug y reubicaciones. El microondas (radio 16) y el cofre también se expulsan al colocarse.
+- Mati arranca en (0, 0), que siempre está libre: las góndolas empiezan ≥ 74 px dentro de su bloque. Hay un test con
+  500 semillas.
+
+### Aspecto
+
+Se dibujan exactamente sobre su huella de colisión, con una sombra más oscura y desplazada, una franja frontal oscura de
+10 px que da altura y un borde superior iluminado.
+
+### Efecto en el balance
+
+El bot de prueba ahora retiene el disparo si hay una góndola en la línea de tiro. Una persona no dispara contra un
+estante, y sin esa regla el bot gastaba munición. Reporte de 12 semillas:
+
+| Escenario                     | Hito 7 (sin góndolas) | Hito 8 (con góndolas) |
+| ----------------------------- | --------------------- | --------------------- |
+| `mixed` (con automáticas)     | 295 s / 97 kpm        | 240 s / 89 kpm        |
+| `broomOnly` (con automáticas) | 276 s / 108 kpm       | 256 s / 103 kpm       |
+| `gunOnly` (con automáticas)   | 407 s / 88 kpm        | 330 s / 79 kpm        |
+| `mixed` (solo manuales)       | 238 s / 83 kpm        | 172 s / 64 kpm        |
+| `broomOnly` (solo manuales)   | 292 s / 81 kpm        | 248 s / 66 kpm        |
+| `gunOnly` (solo manuales)     | 362 s / 79 kpm        | 318 s / 70 kpm        |
+
+Las góndolas frenan las balas pero no la Escoba, así que el cuerpo a cuerpo gana fuerza relativa: con automáticas,
+"solo Escoba" (256 s) vuelve a durar más que el juego normal (240 s). Parte de la caída es del bot, que no se mueve
+para buscar tiro limpio. **No se rebalanceó en este hito:** queda pendiente decidir si se compensa (por ejemplo, con
+más alcance de la Pistola o más munición) después de probar partidas reales.

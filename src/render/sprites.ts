@@ -1,6 +1,7 @@
 import type { Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
+import { BLOCK_H, BLOCK_W, createRect, shelfInBlock, type Rect } from '../game/shelves';
 import {
   ACCESSORY_STYLE,
   AMMO_BOX_STYLE,
@@ -65,6 +66,9 @@ export function drawFloor(
   drawShelves(ctx, left, top, w, h, seed);
 }
 
+const shelf = createRect();
+
+/** Draws the solid shelves in view, from the same layout function the collision uses. */
 function drawShelves(
   ctx: CanvasRenderingContext2D,
   left: number,
@@ -73,67 +77,64 @@ function drawShelves(
   h: number,
   seed: number,
 ): void {
-  const T = FLOOR.tileSize;
-  const blockW = SHELVES.blockTilesX * T;
-  const blockH = SHELVES.blockTilesY * T;
-  const bx0 = Math.floor(left / blockW);
-  const by0 = Math.floor(top / blockH);
-  const bx1 = Math.floor((left + w) / blockW);
-  const by1 = Math.floor((top + h) / blockH);
-  const lengthRange = SHELVES.maxLengthTiles - SHELVES.minLengthTiles + 1;
-
+  const bx0 = Math.floor(left / BLOCK_W);
+  const by0 = Math.floor(top / BLOCK_H);
+  const bx1 = Math.floor((left + w) / BLOCK_W);
+  const by1 = Math.floor((top + h) / BLOCK_H);
   for (let by = by0; by <= by1; by++) {
     for (let bx = bx0; bx <= bx1; bx++) {
-      if (hash2(bx, by, seed) >= SHELVES.density) continue;
-      const lenTiles = SHELVES.minLengthTiles + Math.floor(hash2(bx, by, seed + 1) * lengthRange);
-      const offX = Math.floor(hash2(bx, by, seed + 2) * (SHELVES.blockTilesX - lenTiles));
-      const offY = 1 + Math.floor(hash2(bx, by, seed + 3) * (SHELVES.blockTilesY - 2));
-      const x = bx * blockW + offX * T;
-      const y = by * blockH + offY * T + (T - SHELVES.depth) / 2;
-      const len = lenTiles * T;
-      if (x > left + w || x + len < left || y > top + h || y + SHELVES.depth < top) continue;
-      drawShelf(ctx, x, y, lenTiles, bx, by, seed);
+      if (!shelfInBlock(bx, by, seed, shelf)) continue;
+      const r = shelf;
+      if (r.x > left + w || r.x + r.w < left || r.y > top + h || r.y + r.h < top) continue;
+      drawShelf(ctx, r, bx, by, seed);
     }
   }
 }
 
+/**
+ * One shelf drawn exactly on its collision footprint: a cast shadow and a dark front face give
+ * it height, so it reads as solid instead of floor decoration.
+ */
 function drawShelf(
   ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  lenTiles: number,
+  r: Readonly<Rect>,
   bx: number,
   by: number,
   seed: number,
 ): void {
-  const T = FLOOR.tileSize;
-  const len = lenTiles * T;
-  const depth = SHELVES.depth;
-  const inset = SHELVES.productInset;
+  const s = SHELVES;
+  const { x, y, w: len } = r;
+  const front = s.frontHeight;
+  const depth = r.h - front;
+  const inset = s.productInset;
   const half = depth / 2;
 
-  ctx.fillStyle = SHELVES.shadowColor;
-  ctx.fillRect(x + 4, y + 6, len, depth);
-  ctx.fillStyle = SHELVES.frameColor;
+  ctx.fillStyle = s.shadowColor;
+  ctx.fillRect(x + s.shadowOffsetX, y + s.shadowOffsetY, len, r.h);
+  ctx.fillStyle = s.frontColor;
+  ctx.fillRect(x, y + depth, len, front);
+  ctx.fillStyle = s.frameColor;
   ctx.fillRect(x, y, len, depth);
-  ctx.fillStyle = SHELVES.topColor;
+  ctx.fillStyle = s.topColor;
   ctx.fillRect(x + 2, y + 2, len - 4, depth - 4);
 
-  const slots = lenTiles * SHELVES.productsPerTile;
+  const slots = Math.round(len / FLOOR.tileSize) * s.productsPerTile;
   const slotW = len / slots;
-  const colors = SHELVES.productColors;
+  const colors = s.productColors;
   for (let side = 0; side < 2; side++) {
     const py = side === 0 ? y + inset : y + half + 1;
     const ph = half - inset - 1;
     for (let i = 0; i < slots; i++) {
       const c = Math.floor(hash2(bx * 97 + i, by * 31 + side, seed + 4) * colors.length);
-      ctx.fillStyle = colors[c] ?? SHELVES.topColor;
+      ctx.fillStyle = colors[c] ?? s.topColor;
       ctx.fillRect(x + i * slotW + 2, py, slotW - 3, ph);
     }
   }
 
-  ctx.fillStyle = SHELVES.dividerColor;
+  ctx.fillStyle = s.dividerColor;
   ctx.fillRect(x, y + half - 1, len, 2);
+  ctx.fillStyle = s.rimColor;
+  ctx.fillRect(x, y, len, 2);
 }
 
 /** Top-down "Mati": body, reflective vest, head and a cap whose brim points where he faces. */

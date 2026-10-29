@@ -2,6 +2,8 @@ import { setVec, vec2, type Vec2 } from '../core/math';
 import { COMBAT } from '../data/combat';
 import type { ProjectileLevel, ProjectileLook } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
+import { emit } from './events';
+import { circleHitsShelf } from './shelves';
 import { hitEnemy } from './systems/damage';
 import type { World } from './world';
 
@@ -101,6 +103,11 @@ export function projectileSystem(world: World, dt: number): void {
     p.pos.x += p.vel.x * dt;
     p.pos.y += p.vel.y * dt;
     p.life -= dt;
+    if (circleHitsShelf(p.pos.x, p.pos.y, p.radius, world.seed)) {
+      emit(world.events, 'shelfHit', p.pos.x, p.pos.y);
+      pool.releaseAt(i);
+      continue;
+    }
     if (p.life <= 0 || collide(world, p)) pool.releaseAt(i);
   }
 }

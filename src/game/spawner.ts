@@ -2,6 +2,7 @@ import { COMBAT } from '../data/combat';
 import { ENEMIES } from '../data/enemies';
 import { BOSSES, WAVES, type BossEntry, type WaveEntry } from '../data/waves';
 import { spawnEnemy, type Enemy } from './enemies';
+import { pushOutOfShelves } from './shelves';
 import { emit } from './events';
 import type { World } from './world';
 
@@ -91,6 +92,16 @@ export function fastForward(world: World, time: number): void {
   world.spawner.nextBoss = next;
 }
 
+/** Moves an enemy to a random free point of the spawn ring. */
+export function relocateToRing(world: World, e: Enemy): void {
+  ringPoint(world, world.rng.range(0, Math.PI * 2), scratch);
+  e.pos.x = scratch.x;
+  e.pos.y = scratch.y;
+  pushOutOfShelves(e.pos, e.radius, world.seed);
+  e.prevPos.x = e.pos.x;
+  e.prevPos.y = e.pos.y;
+}
+
 /** Moves enemies left far behind back onto the ring so the arena never empties. */
 function relocateFarEnemies(world: World): void {
   const limit = world.spawnRadius * COMBAT.relocateFactor;
@@ -102,9 +113,7 @@ function relocateFarEnemies(world: World): void {
     const dx = e.pos.x - p.x;
     const dy = e.pos.y - p.y;
     if (dx * dx + dy * dy <= limit2) continue;
-    ringPoint(world, world.rng.range(0, Math.PI * 2), scratch);
-    e.pos.x = e.prevPos.x = scratch.x;
-    e.pos.y = e.prevPos.y = scratch.y;
+    relocateToRing(world, e);
   }
 }
 

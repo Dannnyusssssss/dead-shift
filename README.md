@@ -26,6 +26,8 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
   - Pasivos: zapatillas, café, imán, chaleco, termo con sopa y calculadora.
 - **El Gerente Zombi** (jefe) llega a las 2:00 AM y vuelve, más fuerte, a las 5:12 AM. Al vencerlo suelta un cofre
   con una mejora de arma gratis.
+- **Las góndolas son sólidas:** frenan a Mati, a los zombis y a las balas (la escoba barre por encima). Úsalas para
+  cortar el paso a la horda.
 - **Ganas** si llegas a las 6:00 AM con vida: amanece y los zombis se desmayan. Tu mejor hora y tus bajas totales
   quedan guardadas en el navegador.
 

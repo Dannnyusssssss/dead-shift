@@ -1,4 +1,5 @@
 import type { JoystickConfig } from '../core/input';
+import { TILE_SIZE } from './map';
 
 /** Max devicePixelRatio we render at (keeps fill-rate sane on 3x phones). */
 export const MAX_DPR = 2;
@@ -18,27 +19,27 @@ export const JOYSTICK_STYLE = {
 } as const;
 
 export const FLOOR = {
-  tileSize: 64,
+  tileSize: TILE_SIZE,
   colorA: '#d9d6cc',
   colorB: '#cfccc1',
   groutColor: 'rgba(90, 85, 75, 0.35)',
   groutWidth: 2,
 } as const;
 
-/** Decorative shelves (no collision). The world is split into blocks; each may hold one shelf. */
+/** Look of the solid shelves; their layout lives in `data/map.ts` (SHELF_LAYOUT). */
 export const SHELVES = {
-  /** Block size in tiles. */
-  blockTilesX: 10,
-  blockTilesY: 6,
-  /** Probability a block has a shelf. */
-  density: 0.75,
-  minLengthTiles: 3,
-  maxLengthTiles: 7,
-  depth: 44,
   frameColor: '#5b6470',
   topColor: '#7c8794',
   dividerColor: '#3f4650',
-  shadowColor: 'rgba(0, 0, 0, 0.18)',
+  shadowColor: 'rgba(0, 0, 0, 0.3)',
+  /** Shadow offset to the lower right, px. */
+  shadowOffsetX: 6,
+  shadowOffsetY: 10,
+  /** Dark front face along the bottom of the footprint that reads as height, px. */
+  frontHeight: 10,
+  frontColor: '#2f353d',
+  /** Light edge along the top of the shelf. */
+  rimColor: 'rgba(255, 255, 255, 0.35)',
   productsPerTile: 3,
   productInset: 4,
   productColors: ['#e94f37', '#f6c445', '#3f88c5', '#44bba4', '#f78f3f', '#a05cc8', '#f2f2f2'],
@@ -319,6 +320,17 @@ export const PARTICLES = {
     sizeMax: 4,
   },
   hitColor: '#e23b3b',
+  /** A shot stopped by a shelf. */
+  shelfHit: {
+    count: 4,
+    speedMin: 40,
+    speedMax: 120,
+    lifeMin: 0.1,
+    lifeMax: 0.25,
+    sizeMin: 1.5,
+    sizeMax: 3,
+  },
+  shelfHitColor: '#ffe9a8',
   explosionColor: '#f29d38',
   explosion: {
     count: 16,

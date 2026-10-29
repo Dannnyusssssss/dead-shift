@@ -37,6 +37,10 @@ export const COMBAT = {
   hazardCapacity: 160,
   /** Receipts explode after this long even if they never reach the target, s. */
   receiptMaxLife: 3,
+  /** Size of a flying receipt for shelf collisions, px. */
+  receiptRadius: 5,
+  /** Footprint of a placed microwave, kept clear of shelves, px. */
+  turretRadius: 16,
   /** Shockwave ring thickness that counts as a hit, px. */
   shockwaveThickness: 26,
 } as const;

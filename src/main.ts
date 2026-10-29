@@ -87,6 +87,7 @@ const EVENT_SOUNDS: Readonly<Record<GameEventType, SoundId | null>> = {
   bossSpawn: 'bossSpawn',
   bossDeath: 'bossDeath',
   shockwave: 'shockwave',
+  shelfHit: null,
 };
 
 /** `menu`: title screen over an idle world. `run`: a run is in progress (or just ended). */
@@ -334,6 +335,9 @@ function boot(): void {
         case 'bossDeath':
           addShake(camera, SHAKE.bossDeath);
           break;
+        case 'shelfHit':
+          particles.burst(ev.x, ev.y, PARTICLES.shelfHitColor, PARTICLES.shelfHit);
+          break;
         default:
           break;
       }
@@ -489,6 +493,12 @@ function boot(): void {
         }
         ds.floorItems = JSON.stringify(floorKinds);
         ds.hp = world.player.hp.toFixed(1);
+        let stuck = 0;
+        for (let i = 0; i < world.enemies.count; i++) {
+          if ((world.enemies.items[i]?.stuckTimer ?? 0) > 0) stuck++;
+        }
+        ds.stuck = String(stuck);
+        ds.stuckRelocations = String(world.stuckRelocations);
       }
     },
   });

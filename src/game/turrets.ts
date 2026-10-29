@@ -1,6 +1,8 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
 import type { TurretLevel } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
+import { COMBAT } from '../data/combat';
+import { pushOutOfShelves } from './shelves';
 import { hitEnemy } from './systems/damage';
 import type { World } from './world';
 
@@ -55,6 +57,7 @@ export function placeTurret(
   if (!t) return undefined;
   const mods = world.player.mods;
   setVec(t.pos, x, y);
+  pushOutOfShelves(t.pos, COMBAT.turretRadius, world.seed);
   t.life = t.maxLife = stats.duration;
   t.fireTimer = 0;
   t.damage = stats.damage * mods.damage;

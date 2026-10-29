@@ -56,22 +56,23 @@ Ejemplos útiles:
 Con el overlay visible, cada 500 ms se publica el estado en `document.body.dataset`, para leerlo desde un navegador
 headless (`document.body.dataset.fps`, etc.):
 
-| Clave                                         | Contenido                                                                  |
-| --------------------------------------------- | -------------------------------------------------------------------------- |
-| `fps`, `cpu`                                  | FPS y ms de CPU por frame (promedio de 0.5 s)                              |
-| `enemies`                                     | Zombis vivos                                                               |
-| `kills`                                       | Bajas de la partida                                                        |
-| `weaponKills`                                 | Bajas por arma en JSON, solo las que tienen alguna (`{"labelGun":40,...}`) |
-| `level`, `hp`                                 | Nivel y vida de Mati                                                       |
-| `status`                                      | `playing`, `levelup`, `dead`, `won` o `paused`                             |
-| `time`, `clock`                               | Segundos de partida y hora del turno                                       |
-| `loadout`                                     | Armas automáticas y pasivos con su nivel (`cans:2,coffee:1`)               |
-| `kinds`                                       | Zombis por tipo en JSON (más `aiming`: carritos apuntando)                 |
-| `hazards`, `hazardKinds`                      | Peligros activos (charcos, recibos, ondas)                                 |
-| `chests`, `ammoBoxes`, `floorItems`           | Cofres, cajas de munición y botiquines / imanes en el suelo                |
-| `active`, `ammo`, `reloading`, `manualLevels` | Arma manual activa, `cargador/reserva`, recarga, niveles `pistola/escoba`  |
-| `trauma`                                      | Pico de screen shake desde la publicación anterior                         |
-| `muted`, `showDebug`                          | Ajustes guardados                                                          |
+| Clave                                         | Contenido                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------ |
+| `fps`, `cpu`                                  | FPS y ms de CPU por frame (promedio de 0.5 s)                                  |
+| `enemies`                                     | Zombis vivos                                                                   |
+| `kills`                                       | Bajas de la partida                                                            |
+| `weaponKills`                                 | Bajas por arma en JSON, solo las que tienen alguna (`{"labelGun":40,...}`)     |
+| `level`, `hp`                                 | Nivel y vida de Mati                                                           |
+| `status`                                      | `playing`, `levelup`, `dead`, `won` o `paused`                                 |
+| `time`, `clock`                               | Segundos de partida y hora del turno                                           |
+| `loadout`                                     | Armas automáticas y pasivos con su nivel (`cans:2,coffee:1`)                   |
+| `kinds`                                       | Zombis por tipo en JSON (más `aiming`: carritos apuntando)                     |
+| `hazards`, `hazardKinds`                      | Peligros activos (charcos, recibos, ondas)                                     |
+| `chests`, `ammoBoxes`, `floorItems`           | Cofres, cajas de munición y botiquines / imanes en el suelo                    |
+| `active`, `ammo`, `reloading`, `manualLevels` | Arma manual activa, `cargador/reserva`, recarga, niveles `pistola/escoba`      |
+| `trauma`                                      | Pico de screen shake desde la publicación anterior                             |
+| `stuck`, `stuckRelocations`                   | Zombis contando tiempo de atasco contra una góndola y reubicados en la partida |
+| `muted`, `showDebug`                          | Ajustes guardados                                                              |
 
 ## Reporte de balance
 
@@ -89,4 +90,4 @@ y tres escenarios, cada uno con y sin armas automáticas:
 - `gunOnly`: la Pistola con reserva infinita y nunca la Escoba (poder puro de la Pistola).
 
 Imprime por escenario el tiempo sobrevivido, las bajas por minuto (`kpm`), la parte de las bajas manuales que hizo la
-Escoba y, por semilla, las bajas por arma. Los resultados del Hito 7 están en `DECISIONS.md`.
+Escoba y, por semilla, las reubicaciones por atasco contra góndolas (`stuck=`) y las bajas por arma. Los resultados del Hito 7 están en `DECISIONS.md`.
