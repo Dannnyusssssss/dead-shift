@@ -35,6 +35,21 @@ const KEY_MAP: Readonly<Record<string, keyof KeyState>> = {
   ArrowRight: 'right',
 };
 
+/** One-shot actions bound to keys (held keys such as movement and Space are handled apart). */
+export type KeyAction = 'swap' | 'reload' | 'pause' | 'mute';
+
+const ACTION_KEYS: Readonly<Record<string, KeyAction>> = {
+  KeyQ: 'swap',
+  KeyR: 'reload',
+  Escape: 'pause',
+  KeyP: 'pause',
+  KeyM: 'mute',
+};
+
+export function keyAction(code: string): KeyAction | undefined {
+  return ACTION_KEYS[code];
+}
+
 /** Keyboard direction, normalized so diagonals are not faster. */
 export function keysToAxis(keys: KeyState, out: Vec2): Vec2 {
   setVec(out, (keys.right ? 1 : 0) - (keys.left ? 1 : 0), (keys.down ? 1 : 0) - (keys.up ? 1 : 0));
@@ -134,12 +149,17 @@ export interface Input {
   getMoveAxis(out: Vec2): Vec2;
   /** Aim and trigger for a player drawn at (playerScreenX, playerScreenY) in CSS px. */
   getAim(playerScreenX: number, playerScreenY: number, out: AimResult): AimResult;
-  /** One-shot presses since the last call (Q / wheel / touch button, and R). */
+  /** The last pointer used was a finger (touch hints and buttons). */
+  readonly touchMode: boolean;
+  /** One-shot presses since the last call (Q / wheel / touch button, R, Esc / P, M). */
   consumeSwap(): boolean;
   consumeReload(): boolean;
-  /** Drops pending one-shot presses (e.g. while a menu is open). */
+  consumePause(): boolean;
+  consumeMute(): boolean;
+  /** Drops pending gameplay presses (swap, reload) e.g. while a menu is open. */
   clearEdges(): void;
   requestSwap(): void;
+  requestReload(): void;
   dispose(): void;
 }
 
@@ -163,6 +183,10 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   let fireKey = false;
   let swapPressed = false;
   let reloadPressed = false;
+  let pausePressed = false;
+  let mutePressed = false;
+  // Until the first pointer arrives, guess from the device (phones and tablets report "coarse").
+  let touchMode = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   let lastWheelSwap = 0;
 
   const onKeyDown = (e: KeyboardEvent): void => {
@@ -175,10 +199,24 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     if (e.code === 'Space') {
       fireKey = true;
       e.preventDefault();
-    } else if (e.code === 'KeyQ' && !e.repeat) {
-      swapPressed = true;
-    } else if (e.code === 'KeyR' && !e.repeat) {
-      reloadPressed = true;
+      return;
+    }
+    if (e.repeat) return;
+    switch (keyAction(e.code)) {
+      case 'swap':
+        swapPressed = true;
+        break;
+      case 'reload':
+        reloadPressed = true;
+        break;
+      case 'pause':
+        pausePressed = true;
+        break;
+      case 'mute':
+        mutePressed = true;
+        break;
+      case undefined:
+        break;
     }
   };
   const onKeyUp = (e: KeyboardEvent): void => {
@@ -209,6 +247,11 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       : aimStick.pointerId === pointerId
         ? aimStick
         : undefined;
+
+  // Listens on the window so taps on DOM buttons also switch the mode.
+  const onAnyPointerDown = (e: PointerEvent): void => {
+    touchMode = e.pointerType === 'touch';
+  };
 
   const onPointerDown = (e: PointerEvent): void => {
     if (e.pointerType === 'mouse') {
@@ -274,6 +317,7 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
   window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointerdown', onAnyPointerDown, true);
   target.addEventListener('pointerdown', onPointerDown);
   target.addEventListener('pointermove', onPointerMove);
   target.addEventListener('pointercancel', onPointerUp);
@@ -288,6 +332,19 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     joystickConfig,
     getMoveAxis: (out) => combineAxis(keys, joystick, joystickConfig, out),
     getAim: (px, py, out) => readAim(aimStick, mouse, fireKey, px, py, joystickConfig, out),
+    get touchMode() {
+      return touchMode;
+    },
+    consumePause() {
+      const v = pausePressed;
+      pausePressed = false;
+      return v;
+    },
+    consumeMute() {
+      const v = mutePressed;
+      mutePressed = false;
+      return v;
+    },
     consumeSwap() {
       const v = swapPressed;
       swapPressed = false;
@@ -305,11 +362,15 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     requestSwap() {
       swapPressed = true;
     },
+    requestReload() {
+      reloadPressed = true;
+    },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('blur', releaseAll);
       window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointerdown', onAnyPointerDown, true);
       target.removeEventListener('pointerdown', onPointerDown);
       target.removeEventListener('pointermove', onPointerMove);
       target.removeEventListener('pointercancel', onPointerUp);

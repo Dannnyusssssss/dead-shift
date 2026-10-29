@@ -7,13 +7,20 @@ export interface RunStats {
   level: number;
   /** In-game clock at the end, e.g. "1:36 AM". */
   clock: string;
+  /** The run beat the stored best time. */
+  newRecord: boolean;
 }
 
 export type EndVariant = 'victory' | 'defeat';
 
 export interface EndScreen {
   readonly visible: boolean;
-  show(variant: EndVariant, stats: Readonly<RunStats>, onRetry: () => void): void;
+  show(
+    variant: EndVariant,
+    stats: Readonly<RunStats>,
+    onRetry: () => void,
+    onMenu: () => void,
+  ): void;
   hide(): void;
 }
 
@@ -28,6 +35,12 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
+function button(className: string, text: string): HTMLButtonElement {
+  const b = el('button', className, text);
+  b.type = 'button';
+  return b;
+}
+
 function statRow(label: string): { row: HTMLElement; value: HTMLElement } {
   const row = el('div', 'ds-stat');
   const value = el('span', 'ds-stat-value');
@@ -35,39 +48,54 @@ function statRow(label: string): { row: HTMLElement; value: HTMLElement } {
   return { row, value };
 }
 
-/** Victory / defeat screen with run stats and a retry button. */
-export function createEndScreen(root: HTMLElement): EndScreen {
+/** Full-screen overlay with a centered dialog panel, hidden at first. */
+function dialog(root: HTMLElement): { overlay: HTMLElement; panel: HTMLElement } {
   const overlay = el('div', 'ds-overlay');
   overlay.hidden = true;
   const panel = el('div', 'ds-panel');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
+  overlay.append(panel);
+  root.append(overlay);
+  return { overlay, panel };
+}
+
+const soundLabel = (muted: boolean): string => (muted ? t('soundOff') : t('soundOn'));
+
+/** Victory / defeat screen with run stats, retry and back-to-menu buttons. */
+export function createEndScreen(root: HTMLElement): EndScreen {
+  const { overlay, panel } = dialog(root);
   const title = el('h1', 'ds-title');
   const subtitle = el('p', 'ds-subtitle');
+  const record = el('p', 'ds-record', t('newRecord'));
+  const clock = statRow(t('statClock'));
   const time = statRow(t('statTime'));
   const kills = statRow(t('statKills'));
   const level = statRow(t('statLevel'));
-  const retry = el('button', 'ds-button', t('retry'));
-  retry.type = 'button';
-  panel.append(title, subtitle, time.row, kills.row, level.row, retry);
-  overlay.append(panel);
-  root.append(overlay);
+  const retry = button('ds-button', t('retry'));
+  const menu = button('ds-button ds-button-secondary', t('menuButton'));
+  panel.append(title, subtitle, record, clock.row, time.row, kills.row, level.row, retry, menu);
 
   let onRetry: (() => void) | undefined;
+  let onMenu: (() => void) | undefined;
   retry.addEventListener('click', () => onRetry?.());
+  menu.addEventListener('click', () => onMenu?.());
 
   return {
     get visible() {
       return !overlay.hidden;
     },
-    show(variant, stats, retryHandler) {
+    show(variant, stats, retryHandler, menuHandler) {
       onRetry = retryHandler;
+      onMenu = menuHandler;
       const won = variant === 'victory';
       title.textContent = won ? t('victoryTitle') : t('gameOverTitle');
       title.className = `ds-title ${won ? 'ds-title-victory' : 'ds-title-danger'}`;
       subtitle.textContent = won
         ? t('victorySubtitle')
         : t('gameOverSubtitle', { clock: stats.clock });
+      record.hidden = !stats.newRecord;
+      clock.value.textContent = stats.clock;
       time.value.textContent = formatDuration(stats.timeSurvived);
       kills.value.textContent = String(stats.kills);
       level.value.textContent = String(stats.level);
@@ -77,7 +105,110 @@ export function createEndScreen(root: HTMLElement): EndScreen {
     hide() {
       retry.blur();
       overlay.hidden = true;
-      onRetry = undefined;
+      onRetry = onMenu = undefined;
+    },
+  };
+}
+
+export interface MainMenuInfo {
+  /** Best in-game clock reached, or null before the first run. */
+  bestClock: string | null;
+  totalKills: number;
+  muted: boolean;
+  /** Show the touch controls summary instead of the keyboard one. */
+  touch: boolean;
+}
+
+export interface MainMenu {
+  readonly visible: boolean;
+  show(info: Readonly<MainMenuInfo>): void;
+  hide(): void;
+  setMuted(muted: boolean): void;
+}
+
+/** Title screen: play, best clock, lifetime kills, sound toggle and a controls summary. */
+export function createMainMenu(
+  root: HTMLElement,
+  onPlay: () => void,
+  onToggleMute: () => void,
+): MainMenu {
+  const { overlay, panel } = dialog(root);
+  panel.classList.add('ds-panel-menu');
+  const title = el('h1', 'ds-title ds-title-game', t('gameTitle'));
+  const tagline = el('p', 'ds-subtitle', t('menuTagline'));
+  const goal = el('p', 'ds-goal', t('menuGoal'));
+  const play = button('ds-button', t('play'));
+  const best = statRow(t('bestClock'));
+  const kills = statRow(t('totalKills'));
+  const sound = button('ds-button ds-button-secondary', '');
+  const controls = el('p', 'ds-controls');
+  panel.append(title, tagline, goal, play, best.row, kills.row, sound, controls);
+
+  play.addEventListener('click', onPlay);
+  sound.addEventListener('click', onToggleMute);
+
+  return {
+    get visible() {
+      return !overlay.hidden;
+    },
+    show(info) {
+      best.value.textContent = info.bestClock ?? t('bestNone');
+      kills.value.textContent = String(info.totalKills);
+      sound.textContent = soundLabel(info.muted);
+      controls.textContent = info.touch ? t('controlsTouch') : t('controlsDesktop');
+      overlay.hidden = false;
+      play.focus();
+    },
+    hide() {
+      play.blur();
+      overlay.hidden = true;
+    },
+    setMuted(muted) {
+      sound.textContent = soundLabel(muted);
+    },
+  };
+}
+
+export interface PauseMenu {
+  readonly visible: boolean;
+  show(muted: boolean): void;
+  hide(): void;
+  setMuted(muted: boolean): void;
+}
+
+export interface PauseHandlers {
+  onResume(): void;
+  onToggleMute(): void;
+  onQuit(): void;
+}
+
+export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): PauseMenu {
+  const { overlay, panel } = dialog(root);
+  const title = el('h1', 'ds-title', t('pauseTitle'));
+  const resume = button('ds-button', t('resume'));
+  const sound = button('ds-button ds-button-secondary', '');
+  const quit = button('ds-button ds-button-secondary', t('quitToMenu'));
+  panel.append(title, resume, sound, quit);
+
+  resume.addEventListener('click', handlers.onResume);
+  sound.addEventListener('click', handlers.onToggleMute);
+  quit.addEventListener('click', handlers.onQuit);
+
+  return {
+    get visible() {
+      return !overlay.hidden;
+    },
+    show(muted) {
+      sound.textContent = soundLabel(muted);
+      overlay.hidden = false;
+      resume.focus();
+    },
+    hide() {
+      resume.blur();
+      overlay.hidden = true;
+    },
+    setMuted(muted) {
+      sound.textContent = soundLabel(muted);
     },
   };
 }

@@ -44,6 +44,29 @@ const es = {
   swapHint: 'Q / rueda: cambiar',
   reloadHint: 'R: recargar',
   swapButton: 'Cambiar arma',
+  reloadButton: 'Recargar',
+  pauseButton: 'Pausa',
+  touchHint: 'Botones: cambiar arma y recargar',
+
+  menuTagline:
+    'Turno de noche en el súper. A las 10 PM se cortó la luz y los clientes volvieron… distintos.',
+  menuGoal: 'Sobrevive hasta las 6:00 AM.',
+  play: 'Jugar',
+  bestClock: 'Mejor hora alcanzada',
+  bestNone: '—',
+  totalKills: 'Zombis derribados en total',
+  soundOn: '🔊 Sonido: sí',
+  soundOff: '🔇 Sonido: no',
+  controlsDesktop:
+    'WASD: moverse · Mouse: apuntar · Clic: disparar · R: recargar · Q / rueda: cambiar arma · Esc: pausa · M: silencio',
+  controlsTouch:
+    'Mitad izquierda: moverse · Mitad derecha: apuntar y disparar · Botones para cambiar arma, recargar y pausar',
+  pauseTitle: 'Pausa',
+  resume: 'Continuar',
+  quitToMenu: 'Salir al menú',
+  statClock: 'Hora del turno',
+  newRecord: '¡Nuevo récord!',
+  menuButton: 'Menú principal',
 
   passiveShoes: 'Zapatillas antideslizantes',
   passiveShoesDesc: '+8% velocidad de movimiento',

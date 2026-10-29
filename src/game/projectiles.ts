@@ -2,7 +2,7 @@ import { setVec, vec2, type Vec2 } from '../core/math';
 import { COMBAT } from '../data/combat';
 import type { ProjectileLevel, ProjectileLook } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
-import { damageEnemy } from './systems/damage';
+import { hitEnemy } from './systems/damage';
 import type { World } from './world';
 
 export interface Projectile {
@@ -78,7 +78,7 @@ function collide(world: World, p: Projectile): boolean {
     const dy = e.pos.y - p.pos.y;
     const r = e.radius + p.radius;
     if (dx * dx + dy * dy > r * r) continue;
-    damageEnemy(e, p.damage, (p.vel.x / speed) * p.knockback, (p.vel.y / speed) * p.knockback);
+    hitEnemy(world, e, p.damage, (p.vel.x / speed) * p.knockback, (p.vel.y / speed) * p.knockback);
     p.hits[p.hitCount++] = e;
     p.pierce--;
     if (p.pierce < 0) return true;

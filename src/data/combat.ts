@@ -23,6 +23,8 @@ export const COMBAT = {
   queryBufferSize: 512,
   /** Max gameplay events buffered between two renders. */
   eventCapacity: 512,
+  /** Max enemy hits (floating damage numbers) buffered between two renders. */
+  hitCapacity: 512,
   projectileCapacity: 300,
   turretCapacity: 4,
   /** Nearest-enemy targeting ignores anything farther than this, px. */

@@ -7,6 +7,7 @@ import {
   type GunWeaponDef,
   type MeleeWeaponDef,
 } from '../data/weapons';
+import { emit } from './events';
 import type { Player } from './player';
 import { createWeapon, fireVolley, statsAt, swingArc, type WeaponInstance } from './weapons';
 import type { World } from './world';
@@ -26,6 +27,8 @@ export interface ManualState {
   reloadTimer: number;
   /** The melee weapon was selected automatically because the gun ran dry. */
   autoSwitched: boolean;
+  /** Trigger state of the previous step, to detect fresh presses (dry-fire click). */
+  triggerWasHeld: boolean;
 }
 
 function gunDef(): Readonly<GunWeaponDef> {
@@ -61,6 +64,7 @@ export function createManualState(): ManualState {
     reserve: gunDef().ammo.startReserve,
     reloadTimer: 0,
     autoSwitched: false,
+    triggerWasHeld: false,
   };
   m.mag = gunStats(m).magazine;
   return m;
@@ -102,24 +106,37 @@ export function swapManual(m: ManualState): boolean {
   return true;
 }
 
-/** Adds rounds to the reserve (capped). Switches back to the gun if it had run dry. */
-export function addAmmo(player: Player, amount: number): void {
+/**
+ * Adds rounds to the reserve (capped). Switches back to the gun if it had run dry.
+ * Returns true when it switched back.
+ */
+export function addAmmo(player: Player, amount: number): boolean {
   const m = player.manual;
   m.reserve = Math.min(maxReserve(), m.reserve + amount);
-  if (m.active === 'melee' && m.autoSwitched) {
-    selectManual(m, 'gun');
-    startReload(m);
-  }
+  if (m.active !== 'melee' || !m.autoSwitched) return false;
+  selectManual(m, 'gun');
+  startReload(m);
+  return true;
 }
 
 function updateGun(world: World, m: ManualState, dt: number, aimAngle: number): void {
+  const { x, y } = world.player.pos;
   if (isReloading(m)) {
+    if (world.triggerHeld && !m.triggerWasHeld) emit(world.events, 'dryFire', x, y);
     m.reloadTimer = Math.max(0, m.reloadTimer - dt);
-    if (m.reloadTimer === 0) finishReload(m);
+    if (m.reloadTimer === 0) {
+      finishReload(m);
+      emit(world.events, 'reloadDone', x, y);
+    }
     return;
   }
   if (m.mag === 0) {
-    if (!startReload(m)) selectManual(m, 'melee', true);
+    if (startReload(m)) {
+      emit(world.events, 'reloadStart', x, y);
+    } else {
+      selectManual(m, 'melee', true);
+      emit(world.events, 'weaponSwap', x, y);
+    }
     return;
   }
   if (!world.triggerHeld || m.gun.cooldown > 0) return;
@@ -127,6 +144,9 @@ function updateGun(world: World, m: ManualState, dt: number, aimAngle: number): 
   fireVolley(m.gun, s, gunDef().look, world, aimAngle);
   m.mag--;
   m.gun.cooldown = s.cooldown * world.player.mods.cooldown;
+  emit(world.events, 'gunFire', x, y);
+  // The hammer clicks on an empty chamber.
+  if (m.mag === 0) emit(world.events, 'dryFire', x, y);
 }
 
 function updateMelee(world: World, m: ManualState, aimAngle: number): void {
@@ -134,6 +154,7 @@ function updateMelee(world: World, m: ManualState, aimAngle: number): void {
   const s = meleeStats(m);
   swingArc(m.melee, s, world, aimAngle);
   m.melee.cooldown = s.cooldown * world.player.mods.cooldown;
+  emit(world.events, 'meleeSwing', world.player.pos.x, world.player.pos.y);
 }
 
 /** Aim, trigger, reload and weapon switching for the two manual weapons. */
@@ -146,8 +167,8 @@ export function manualWeaponSystem(world: World, dt: number): void {
 
   m.gun.cooldown = Math.max(0, m.gun.cooldown - dt);
   m.melee.cooldown = Math.max(0, m.melee.cooldown - dt);
-  if (world.swapRequested) swapManual(m);
-  if (world.reloadRequested) startReload(m);
+  if (world.swapRequested && swapManual(m)) emit(world.events, 'weaponSwap', p.pos.x, p.pos.y);
+  if (world.reloadRequested && startReload(m)) emit(world.events, 'reloadStart', p.pos.x, p.pos.y);
   world.swapRequested = false;
   world.reloadRequested = false;
 
@@ -155,4 +176,5 @@ export function manualWeaponSystem(world: World, dt: number): void {
   if (m.active === 'gun') updateGun(world, m, dt, aimAngle);
   // Not `else`: the gun may have just handed over to the melee weapon this step.
   if (m.active === 'melee') updateMelee(world, m, aimAngle);
+  m.triggerWasHeld = world.triggerHeld;
 }

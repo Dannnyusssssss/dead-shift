@@ -15,8 +15,9 @@ import {
   type WeaponLevel,
 } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
+import { emit } from './events';
 import { spawnProjectile } from './projectiles';
-import { damageEnemy } from './systems/damage';
+import { hitEnemy } from './systems/damage';
 import { placeTurret } from './turrets';
 import type { World } from './world';
 
@@ -108,7 +109,7 @@ export function hitSector(
     }
     const nx = d > 1e-6 ? dx / d : Math.cos(angle);
     const ny = d > 1e-6 ? dy / d : Math.sin(angle);
-    damageEnemy(e, damage, nx * knockback, ny * knockback);
+    hitEnemy(world, e, damage, nx * knockback, ny * knockback);
     if (poisonDps > 0) {
       e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, poisonDps);
       e.poisonTimer = Math.max(e.poisonTimer, poisonTime);
@@ -186,6 +187,7 @@ function fireAtNearest(
   if (!target) return false;
   const angle = Math.atan2(target.pos.y - p.pos.y, target.pos.x - p.pos.x);
   fireVolley(w, statsAt(def.levels, w.level), def.look, world, angle);
+  emit(world.events, 'canThrow', p.pos.x, p.pos.y);
   return true;
 }
 
@@ -220,7 +222,7 @@ function updateOrbit(
       const ex = e.pos.x - p.pos.x;
       const ey = e.pos.y - p.pos.y;
       const d = Math.hypot(ex, ey) || 1;
-      damageEnemy(e, damage, (ex / d) * s.knockback, (ey / d) * s.knockback);
+      hitEnemy(world, e, damage, (ex / d) * s.knockback, (ey / d) * s.knockback);
       e.weaponHitTimers[w.slot] = s.hitInterval;
       e.slowFactor = Math.max(e.slowTimer > 0 ? e.slowFactor : 0, s.slowFactor);
       e.slowTimer = Math.max(e.slowTimer, s.slowTime);

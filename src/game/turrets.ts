@@ -1,7 +1,7 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
 import type { TurretLevel } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
-import { damageEnemy } from './systems/damage';
+import { hitEnemy } from './systems/damage';
 import type { World } from './world';
 
 /** Max rays any turret level fires; sizes the beam buffers. */
@@ -115,7 +115,7 @@ function zap(world: World, t: Turret): void {
     const e = hit[i] as Enemy;
     t.beamX[i] = e.pos.x;
     t.beamY[i] = e.pos.y;
-    damageEnemy(e, t.damage, 0, 0);
+    hitEnemy(world, e, t.damage, 0, 0);
   }
   if (hit.length > 0) t.lastFireTime = world.time;
 }

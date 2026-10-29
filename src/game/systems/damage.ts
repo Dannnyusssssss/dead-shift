@@ -1,5 +1,6 @@
 import { COMBAT } from '../../data/combat';
 import type { Enemy } from '../enemies';
+import { emitHit } from '../events';
 import type { Player } from '../player';
 import type { World } from '../world';
 
@@ -11,6 +12,18 @@ export function damageEnemy(enemy: Enemy, amount: number, kx: number, ky: number
   enemy.knockback.y = ky * push;
   enemy.hitTimer = COMBAT.hitFlashTime;
   return enemy.hp <= 0;
+}
+
+/** `damageEnemy` plus a floating damage number. Weapons use this one. */
+export function hitEnemy(
+  world: World,
+  enemy: Enemy,
+  amount: number,
+  kx: number,
+  ky: number,
+): boolean {
+  emitHit(world.hits, enemy.pos.x, enemy.pos.y - enemy.radius, amount);
+  return damageEnemy(enemy, amount, kx, ky);
 }
 
 /** Applies a hit (reduced by armor, min 1) unless invulnerable. Returns true if it landed. */

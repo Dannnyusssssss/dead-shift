@@ -2,7 +2,9 @@ import type { Camera } from '../core/camera';
 import type { Input } from '../core/input';
 import { lerp, type Vec2 } from '../core/math';
 import {
+  AIM_LINE,
   BACKGROUND_COLOR,
+  HURT_FLASH,
   MAX_DPR,
   MICROWAVE_STYLE,
   PLAYER_BLINK_RATE,
@@ -19,7 +21,8 @@ import type { Projectile } from '../game/projectiles';
 import type { Turret } from '../game/turrets';
 import { orbitBagAngle, statsAt } from '../game/weapons';
 import type { World } from '../game/world';
-import { drawHud, drawJoystick, type HudDebug } from './hud';
+import type { Floaters } from './floaters';
+import { drawHud, drawJoystick, type HudOptions } from './hud';
 import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
@@ -53,7 +56,10 @@ export interface RenderFrame {
   alpha: number;
   input: Readonly<Input>;
   particles: Particles;
-  debug: HudDebug;
+  floaters: Floaters;
+  hud: HudOptions;
+  /** 0..1 strength of the red "you got hit" vignette. */
+  hurtFlash: number;
   /** 0..1 progress of the dawn "fainting" animation (0 while the night goes on). */
   faint: number;
 }
@@ -66,6 +72,29 @@ export interface Renderer {
 }
 
 const toRad = (deg: number): number => (deg * Math.PI) / 180;
+
+/** Touch aim has no crosshair; a short line shows where the shots will go. */
+function drawAimLine(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  dx: number,
+  dy: number,
+): void {
+  ctx.strokeStyle = AIM_LINE.color;
+  ctx.lineWidth = AIM_LINE.width;
+  ctx.setLineDash(AIM_LINE.dash);
+  ctx.beginPath();
+  ctx.moveTo(x + dx * AIM_LINE.from, y + dy * AIM_LINE.from);
+  ctx.lineTo(
+    x + dx * (AIM_LINE.from + AIM_LINE.length),
+    y + dy * (AIM_LINE.from + AIM_LINE.length),
+  );
+  ctx.stroke();
+  ctx.setLineDash(NO_DASH);
+}
+
+const NO_DASH: number[] = [];
 /** Off-screen margin for culling, px. */
 const CULL_PAD = 40;
 
@@ -236,6 +265,33 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
+  let vignette: CanvasGradient | undefined;
+  let vignetteW = 0;
+  let vignetteH = 0;
+
+  /** Red edges; the gradient is rebuilt only when the view size changes. */
+  function drawHurtFlash(strength: number): void {
+    if (!vignette || viewW !== vignetteW || viewH !== vignetteH) {
+      const outer = Math.hypot(viewW, viewH) / 2;
+      vignette = ctx.createRadialGradient(
+        viewW / 2,
+        viewH / 2,
+        outer * HURT_FLASH.inner,
+        viewW / 2,
+        viewH / 2,
+        outer,
+      );
+      vignette.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignette.addColorStop(1, HURT_FLASH.color);
+      vignetteW = viewW;
+      vignetteH = viewH;
+    }
+    ctx.globalAlpha = Math.min(1, strength);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, viewW, viewH);
+    ctx.globalAlpha = 1;
+  }
+
   return {
     get viewW() {
       return viewW;
@@ -252,9 +308,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       ctx.fillStyle = BACKGROUND_COLOR;
       ctx.fillRect(0, 0, viewW, viewH);
 
-      // Snap the camera to device pixels to avoid shimmering tile lines.
-      const camX = Math.round(camera.x * dpr) / dpr;
-      const camY = Math.round(camera.y * dpr) / dpr;
+      // Snap the camera (plus shake) to device pixels to avoid shimmering tile lines.
+      const camX = Math.round((camera.x + camera.offsetX) * dpr) / dpr;
+      const camY = Math.round((camera.y + camera.offsetY) * dpr) / dpr;
       left = camX - viewW / 2;
       top = camY - viewH / 2;
 
@@ -277,6 +333,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         const held = player.manual.active;
         drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius, held);
       }
+      if (frame.input.aimStick.active && world.status === 'playing') {
+        drawAimLine(ctx, playerPos.x, playerPos.y, player.facing.x, player.facing.y);
+      }
       ctx.restore();
 
       lighting.draw(
@@ -287,13 +346,19 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         viewH,
         shiftProgress(world.time),
       );
+      // Damage numbers go above the darkness so they stay readable at night.
+      ctx.save();
+      ctx.translate(-left, -top);
+      frame.floaters.draw(ctx);
+      ctx.restore();
       const input = frame.input;
       drawJoystick(ctx, input.joystick, input.joystickConfig);
       drawJoystick(ctx, input.aimStick, input.joystickConfig, true);
       if (input.mouse.seen && !input.aimStick.active && world.status === 'playing') {
         drawCrosshair(ctx, input.mouse.x, input.mouse.y, input.mouse.down);
       }
-      drawHud(ctx, viewW, viewH, world, frame.debug);
+      if (frame.hurtFlash > 0) drawHurtFlash(frame.hurtFlash);
+      drawHud(ctx, viewW, viewH, world, frame.hud);
     },
   };
 }

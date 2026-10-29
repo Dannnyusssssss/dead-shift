@@ -3,6 +3,7 @@ import {
   aimFromScreen,
   combineAxis,
   joystickToAxis,
+  keyAction,
   keysToAxis,
   readAim,
   touchRole,
@@ -143,5 +144,21 @@ describe('readAim', () => {
     const r = readAim(idle, mouse({ seen: false }), true, 100, 100, cfg, out());
     expect(r.active).toBe(false);
     expect(r.trigger).toBe(true);
+  });
+});
+
+describe('keyAction', () => {
+  it('maps the one-shot keys', () => {
+    expect(keyAction('KeyQ')).toBe('swap');
+    expect(keyAction('KeyR')).toBe('reload');
+    expect(keyAction('Escape')).toBe('pause');
+    expect(keyAction('KeyP')).toBe('pause');
+    expect(keyAction('KeyM')).toBe('mute');
+  });
+
+  it('ignores movement and unbound keys', () => {
+    expect(keyAction('KeyW')).toBeUndefined();
+    expect(keyAction('Space')).toBeUndefined();
+    expect(keyAction('KeyZ')).toBeUndefined();
   });
 });

@@ -107,6 +107,7 @@ export function spawnShockwave(
   h.radius = maxRadius;
   h.duration = duration;
   h.damage = damage;
+  emit(world.events, 'shockwave', x, y);
 }
 
 /** Current ring radius of a shockwave (0 during the wind-up). */

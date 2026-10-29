@@ -198,6 +198,8 @@ export const CHEST_STYLE = {
 export const CLOCK_HUD = {
   font: '700 22px system-ui, sans-serif',
   y: 26,
+  /** On narrow screens the clock goes top-right, below the pause button. */
+  narrowY: 78,
 } as const;
 
 export const BOSS_BAR = {
@@ -326,3 +328,58 @@ export const HUD = {
 } as const;
 
 export const BACKGROUND_COLOR = '#111111';
+
+export const FLOATERS = {
+  capacity: 150,
+  /** Seconds on screen. */
+  life: 0.7,
+  /** Fades out during the last this-many seconds. */
+  fadeTime: 0.3,
+  /** Upward speed, px/s. */
+  rise: 48,
+  /** Random sideways speed, px/s. */
+  drift: 18,
+  /** Random horizontal offset at spawn, px. */
+  jitter: 6,
+  /** Hits of at least this much use the big style. */
+  bigThreshold: 20,
+  /** Values below this keep their string cached. */
+  cachedValues: 1000,
+  font: '700 13px system-ui, sans-serif',
+  bigFont: '800 17px system-ui, sans-serif',
+  color: '#ffffff',
+  bigColor: '#ffd84a',
+  outline: 'rgba(0, 0, 0, 0.85)',
+  outlineWidth: 3,
+} as const;
+
+/** Screen shake: trauma added per event (0..1); the view moves with trauma². */
+export const SHAKE = {
+  maxOffset: 16,
+  decay: 1.3,
+  frequency: 38,
+  playerHit: 0.32,
+  /** Explosions shake only this close to the player, px. */
+  explosionRange: 260,
+  explosion: 0.25,
+  bossSpawn: 0.75,
+  shockwave: 0.6,
+  bossDeath: 0.9,
+} as const;
+
+/** Red vignette when the player is hit. */
+export const HURT_FLASH = {
+  duration: 0.35,
+  color: 'rgba(220, 30, 30, 0.55)',
+  /** Inner radius of the vignette as a fraction of the view's half diagonal. */
+  inner: 0.55,
+} as const;
+
+/** Faint line showing where the touch aim stick points. */
+export const AIM_LINE = {
+  from: 22,
+  length: 120,
+  width: 2,
+  dash: [6, 6],
+  color: 'rgba(255, 210, 90, 0.45)',
+} as const;

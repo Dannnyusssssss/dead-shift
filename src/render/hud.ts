@@ -18,9 +18,17 @@ import { shiftClock } from '../game/shift';
 import type { World } from '../game/world';
 
 export interface HudDebug {
+  /** Draw the performance line (debug URL parameters only). */
+  visible: boolean;
   fps: number;
   /** Average CPU time of update + render per frame, ms. */
   cpuMs: number;
+}
+
+export interface HudOptions {
+  debug: HudDebug;
+  /** The last pointer was a finger: show touch hints instead of keys. */
+  touch: boolean;
 }
 
 export function drawHud(
@@ -28,7 +36,7 @@ export function drawHud(
   viewW: number,
   viewH: number,
   world: Readonly<World>,
-  debug: Readonly<HudDebug>,
+  options: Readonly<HudOptions>,
 ): void {
   const m = HUD.margin;
   const player = world.player;
@@ -79,11 +87,14 @@ export function drawHud(
   const wide = viewW >= HUD.wideLayoutMinWidth;
   ctx.font = CLOCK_HUD.font;
   ctx.textAlign = wide ? 'center' : 'right';
-  drawText(ctx, shiftClock(world.time), wide ? viewW / 2 : viewW - m, CLOCK_HUD.y);
+  const clockY = wide ? CLOCK_HUD.y : CLOCK_HUD.narrowY;
+  drawText(ctx, shiftClock(world.time), wide ? viewW / 2 : viewW - m, clockY);
 
   drawBossBar(ctx, viewW, world, wide);
-  drawManualPanel(ctx, viewH, world);
+  drawManualPanel(ctx, viewH, world, options.touch);
 
+  const debug = options.debug;
+  if (!debug.visible) return;
   ctx.font = HUD.smallFont;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -100,6 +111,7 @@ function drawManualPanel(
   ctx: CanvasRenderingContext2D,
   viewH: number,
   world: Readonly<World>,
+  touch: boolean,
 ): void {
   const s = MANUAL_HUD;
   const mState = world.player.manual;
@@ -152,7 +164,8 @@ function drawManualPanel(
   } else {
     ctx.font = s.hintFont;
     ctx.textAlign = 'left';
-    drawText(ctx, `${t('swapHint')} · ${t('reloadHint')}`, x + 8, y + s.height - 7);
+    const hint = touch ? t('touchHint') : `${t('swapHint')} · ${t('reloadHint')}`;
+    drawText(ctx, hint, x + 8, y + s.height - 7);
   }
   ctx.textAlign = 'left';
 }

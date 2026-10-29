@@ -215,8 +215,8 @@
 
 .ds-touch-btn {
   position: fixed;
-  right: 16px;
-  bottom: 16px;
+  right: calc(16px + env(safe-area-inset-right));
+  bottom: calc(80px + env(safe-area-inset-bottom));
   min-width: 96px;
   min-height: 56px;
   padding: 8px 14px;
@@ -238,4 +238,84 @@
 
 .ds-touch-btn:active {
   background: rgba(200, 240, 60, 0.45);
+}
+
+.ds-touch-btn-reload {
+  bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+.ds-pause-btn {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  background: rgba(20, 24, 20, 0.55);
+  color: #f2f2f2;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ds-pause-btn::before {
+  content: '';
+  display: block;
+  width: 5px;
+  height: 16px;
+  margin: 0 auto;
+  transform: translateX(-5px);
+  background: currentColor;
+  box-shadow: 10px 0 0 currentColor;
+}
+
+.ds-pause-btn[hidden] {
+  display: none;
+}
+
+.ds-pause-btn:active {
+  background: rgba(200, 240, 60, 0.45);
+}
+
+.ds-button + .ds-button {
+  margin-top: 10px;
+}
+
+.ds-panel-menu {
+  width: min(420px, 100%);
+}
+
+.ds-title-game {
+  color: #c8f03c;
+  font-size: 44px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-shadow: 0 3px 0 #3b4a36;
+}
+
+.ds-goal {
+  margin: -10px 0 0;
+  color: #ffc46b;
+  font-weight: 700;
+}
+
+.ds-record {
+  margin: -8px 0 12px;
+  color: #c8f03c;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.ds-record[hidden] {
+  display: none;
+}
+
+.ds-controls {
+  margin: 18px 0 0;
+  color: #8f9a8a;
+  font-size: 13px;
+  line-height: 1.45;
 }

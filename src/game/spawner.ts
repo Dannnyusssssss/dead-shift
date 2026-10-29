@@ -2,6 +2,7 @@ import { COMBAT } from '../data/combat';
 import { ENEMIES } from '../data/enemies';
 import { BOSSES, WAVES, type BossEntry, type WaveEntry } from '../data/waves';
 import { spawnEnemy, type Enemy } from './enemies';
+import { emit } from './events';
 import type { World } from './world';
 
 export interface SpawnerState {
@@ -62,7 +63,7 @@ function spawnBoss(world: World, entry: Readonly<BossEntry>): void {
   // A boss must always appear, even when the arena is at the enemy cap.
   makeRoom(world);
   ringPoint(world, world.rng.range(0, Math.PI * 2), scratch);
-  spawnEnemy(
+  const boss = spawnEnemy(
     world,
     ENEMIES[entry.enemyId],
     scratch.x,
@@ -70,6 +71,7 @@ function spawnBoss(world: World, entry: Readonly<BossEntry>): void {
     entry.hpMultiplier,
     entry.damageMultiplier,
   );
+  if (boss) emit(world.events, 'bossSpawn', boss.pos.x, boss.pos.y);
 }
 
 /** Evenly spaced horde on the ring (debug / stress testing). */

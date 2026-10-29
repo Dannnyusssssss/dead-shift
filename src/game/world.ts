@@ -6,7 +6,7 @@ import { COMBAT } from '../data/combat';
 import { COUPONS, PROGRESSION } from '../data/progression';
 import { AMMO } from '../data/weapons';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
-import { createEventQueue, type EventQueue } from './events';
+import { createEventQueue, createHitQueue, type EventQueue, type HitQueue } from './events';
 import { createHazardObject, hazardSystem, type Hazard } from './hazards';
 import { manualWeaponSystem } from './manual';
 import {
@@ -68,6 +68,8 @@ export interface World {
   /** Reusable output buffer for spatial queries. */
   queryBuf: Int32Array;
   events: EventQueue;
+  /** Damage dealt this frame, drained by the host like `events`. */
+  hits: HitQueue;
   spawner: SpawnerState;
   /** Distance from the player at which enemies appear. The host sets it from the view size. */
   spawnRadius: number;
@@ -125,6 +127,7 @@ export function createWorld(seed: number): World {
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),
     queryBuf: new Int32Array(COMBAT.queryBufferSize),
     events: createEventQueue(COMBAT.eventCapacity),
+    hits: createHitQueue(COMBAT.hitCapacity),
     spawner: createSpawnerState(),
     spawnRadius: COMBAT.spawnRingMinRadius,
     offers: [],

@@ -2,6 +2,7 @@ import type { Rng } from '../core/rng';
 import { PROGRESSION } from '../data/progression';
 import { PASSIVE_IDS, type PassiveId } from '../data/upgrades';
 import { WEAPON_IDS, WEAPONS, isManual, type WeaponId } from '../data/weapons';
+import { emit } from './events';
 import { addPassive, findOwnedWeapon, findPassive, recomputeStats, type Player } from './player';
 import { createWeapon } from './weapons';
 import type { World } from './world';
@@ -141,8 +142,14 @@ function openNextChoice(world: World): void {
     world.status = 'playing';
     return;
   }
+  const wasChoosing = world.status === 'levelup';
   world.status = 'levelup';
   world.offers = rollFor(world);
+  // Only the first screen of a chain gets a fanfare; the rest follow right after a click.
+  if (!wasChoosing) {
+    const type = world.offerSource === 'chest' ? 'chestOpen' : 'levelUp';
+    emit(world.events, type, p.pos.x, p.pos.y);
+  }
 }
 
 /** Pauses the run for an upgrade choice whenever level-ups or chests are pending. */

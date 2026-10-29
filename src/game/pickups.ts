@@ -1,8 +1,9 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
 import { COUPONS } from '../data/progression';
 import { AMMO } from '../data/weapons';
-import { addAmmo } from './manual';
+import { addAmmo, isReloading } from './manual';
 import type { Player } from './player';
+import { emit } from './events';
 import { addXp } from './progression';
 import type { World } from './world';
 
@@ -118,6 +119,7 @@ export function pickupSystem(world: World, dt: number): void {
     const c = coupons.items[i] as Coupon;
     if (!pull(c, p, p.radius + COUPONS.radius, dt)) continue;
     addXp(p, c.value);
+    emit(world.events, 'couponPickup', c.pos.x, c.pos.y);
     coupons.releaseAt(i);
   }
 
@@ -125,7 +127,11 @@ export function pickupSystem(world: World, dt: number): void {
   for (let i = boxes.count - 1; i >= 0; i--) {
     const b = boxes.items[i] as AmmoBox;
     if (!pull(b, p, p.radius + AMMO.radius, dt)) continue;
-    addAmmo(p, AMMO.boxAmount);
+    emit(world.events, 'ammoPickup', b.pos.x, b.pos.y);
+    if (addAmmo(p, AMMO.boxAmount)) {
+      emit(world.events, 'weaponSwap', p.pos.x, p.pos.y);
+      if (isReloading(p.manual)) emit(world.events, 'reloadStart', p.pos.x, p.pos.y);
+    }
     boxes.releaseAt(i);
   }
 }

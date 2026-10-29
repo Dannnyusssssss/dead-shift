@@ -19,7 +19,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Cámara.** Seguimiento exponencial independiente del framerate (rigidez 10/s). Es estado de vista,
   no de juego: se actualiza en `main.ts` en el paso de render, no dentro de `world`.
 - **HUD dibujado en canvas**, no en el DOM (un solo sistema de coordenadas, sin layout).
-- **FPS visible** en la esquina superior derecha durante el desarrollo para verificar el objetivo de rendimiento.
+- ~~**FPS visible** en la esquina superior derecha durante el desarrollo para verificar el objetivo de rendimiento.~~
+  **Reemplazada en Hito 5:** la línea de FPS / CPU / zombis solo aparece con los parámetros de depuración.
 - **devicePixelRatio limitado a 2** para no disparar el costo de relleno en móviles 3x.
 - **Góndolas decorativas.** El mundo se divide en bloques de 10×6 tiles; cada bloque tiene una góndola
   (75 % de probabilidad) con largo y posición derivados de `hash2(bloque, semilla)`. Así el mapa es infinito,
@@ -144,7 +145,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   - Escritorio: WASD/flechas para moverse, mouse para apuntar, clic mantenido (o Espacio) para disparar o golpear,
     R para recargar, Q o la rueda para cambiar de arma (la rueda espera 200 ms entre cambios por los trackpads).
   - Táctil: la mitad izquierda es el joystick de movimiento y la mitad derecha el de apuntado, que dispara mientras está empujado.
-    Un botón "Cambiar arma" aparece con el primer toque. No hay botón de recarga: es automática al vaciar el cargador.
+    Un botón "Cambiar arma" aparece con el primer toque. ~~No hay botón de recarga: es automática al vaciar el cargador.~~
+    **Reemplazada en Hito 5:** hay botón "Recargar" (ver Hito 5); la recarga automática al vaciar se mantiene.
   - Las pulsaciones de una vez (Q, R, rueda, botón) se descartan mientras hay un menú abierto, para que la R del reroll
     no dispare una recarga.
   - El canvas oculta el cursor y dibuja una mira.
@@ -186,3 +188,64 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Depuración:** `?ammo=N` arranca con el cargador vacío y N balas de reserva (con `?ammo=0` arranca directo en la Escoba).
   `?weapons=all` deja las 4 automáticas y las 2 manuales en nivel 5, con la reserva llena.
   El dataset suma `active`, `ammo`, `reloading`, `ammoBoxes` y `manualLevels`.
+
+## Hito 5
+
+- **Eventos para el feedback.** La lógica emite eventos nuevos (`gunFire`, `reloadStart`, `reloadDone`, `dryFire`,
+  `weaponSwap`, `ammoPickup`, `couponPickup`, `meleeSwing`, `canThrow`, `levelUp`, `chestOpen`, `bossSpawn`,
+  `bossDeath`, `shockwave`) a la misma cola de siempre; `main.ts` los traduce en sonido, partículas y shake con una
+  tabla `evento → sonido`. Victoria y derrota no son eventos: el host ya ve el cambio de `status`.
+  - **Cargador vacío** (`dryFire`): suena al disparar la última bala y cada vez que se aprieta el gatillo (flanco)
+    mientras se recarga.
+  - Subir de nivel suena una sola vez aunque haya varios niveles encolados.
+- **Números de daño en una cola aparte** (`world.hits`, 512). Así una lluvia de golpes del aerosol nunca desplaza
+  un evento importante. Las armas usan `hitEnemy` (= `damageEnemy` + número); `damageEnemy` queda pura.
+  - El **veneno no muestra números** (se descuenta por paso, en fracciones).
+  - Se muestra el daño redondeado (mínimo 1). Desde 20 de daño el número es más grande y amarillo.
+  - Pool de 150 en el render y caché de strings por valor. Se dibujan **encima de la oscuridad** para que se lean de noche.
+- **Golpe a zombi:** un solo sonido por frame si hubo algún golpe, con un intervalo mínimo de 50 ms.
+- **Audio.** Cada sonido es un dato en `data/audio.ts` (capas de oscilador o ruido filtrado con barrido de frecuencia);
+  los jingles son capas con `delay`. Hay un intervalo mínimo por sonido y un tope de 28 voces simultáneas.
+  - El `AudioContext` se crea en el primer gesto real (`navigator.userActivation`). En táctil eso es al soltar el dedo,
+    no al apoyarlo, así que se escucha `pointerdown`, `pointerup`, `touchend`, `keydown` y `click`.
+  - El ruido blanco usa `Math.random`: es cosmético y nunca toca la simulación.
+- **Screen shake** por "trauma" (0..1) en la cámara; el desplazamiento es `16 px × trauma²` con senos desfasados y
+  decae 1.3/s. Valores en `SHAKE` (`data/render.ts`):
+
+  | Evento               | Trauma |
+  | -------------------- | ------ |
+  | Golpe recibido       | 0.32   |
+  | Explosión a ≤ 260 px | 0.25   |
+  | Aparece el jefe      | 0.75   |
+  | Onda del jefe        | 0.6    |
+  | Muere el jefe        | 0.9    |
+
+  El desplazamiento se suma solo al dibujar: el apuntado sigue usando la cámara sin temblor.
+
+- **Destello de daño:** viñeta roja en los bordes durante 0.35 s (gradiente cacheado por tamaño de vista).
+- **Menú principal** en DOM. El mundo queda congelado detrás hasta pulsar Jugar. Con cualquier parámetro de
+  depuración se salta el menú y la partida empieza directo (para las pruebas automáticas).
+- **Pausa** con Esc / P, botón en pantalla (arriba a la derecha, táctil y mouse), `blur` y `visibilitychange`.
+  - Es estado del host (`main.ts` no llama a `updateWorld`), no un `WorldStatus`.
+  - Durante la pausa se congelan también las partículas, los números y el shake.
+  - No se abre en la pantalla de mejora ni en las de fin.
+  - Panel: Continuar, Sonido, Salir al menú.
+- **Silencio:** tecla M en cualquier momento y botón en el menú principal y en la pausa. Se guarda al cambiarlo.
+- **Guardado** (`deadshift:v1`): `{ bestTime, totalKills, muted }`.
+  - Se valida campo por campo: un campo inválido vuelve a su valor por defecto sin perder los demás.
+    `bestTime` se limita a 600 s.
+  - Se escribe al terminar la partida (victoria o derrota) y al cambiar el silencio. Salir al menú desde la pausa
+    no guarda la partida (no terminó).
+  - Se lee al arrancar para mostrar el récord. `localStorage` no requiere gesto; si no existe o lanza, el juego
+    sigue con la copia en memoria.
+  - "Mejor hora alcanzada" = `shiftClock(bestTime)`; "Nuevo récord" solo si se supera estrictamente.
+- **Pantalla de fin:** fila "Hora del turno", aviso "¡Nuevo récord!" y botón secundario "Menú principal".
+- **Táctil, revisión con el apuntado nuevo:**
+  - Botón "Recargar" debajo de "Cambiar arma" en la esquina inferior derecha (respetan `safe-area-inset`).
+    Los dos se ocultan fuera de la partida y en los menús.
+  - Línea de apuntado punteada desde Mati mientras el joystick derecho está activo (en táctil no hay mira).
+  - El panel del arma muestra "Botones: cambiar arma y recargar" en vez de las teclas. El modo táctil arranca según
+    `pointer: coarse` y luego sigue al último puntero usado.
+  - En pantallas angostas el reloj baja debajo del botón de pausa (antes se montaba sobre la barra de vida).
+- **Depuración:** el dataset suma `trauma` (pico desde la última publicación) y `muted`; `status` vale `paused`
+  durante la pausa.

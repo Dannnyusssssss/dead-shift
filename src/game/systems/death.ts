@@ -12,7 +12,10 @@ export function deathSystem(world: World): void {
     emit(world.events, 'enemyDeath', e.pos.x, e.pos.y, e.def.look.blood);
     dropCoupon(world, e.pos.x, e.pos.y, e.def.xp);
     maybeDropAmmo(world, e.pos.x, e.pos.y, e.def.xp);
-    if (e.def.dropsChest) dropChest(world, e.pos.x, e.pos.y);
+    if (e.def.dropsChest) {
+      dropChest(world, e.pos.x, e.pos.y);
+      emit(world.events, 'bossDeath', e.pos.x, e.pos.y);
+    }
     world.kills++;
     enemies.releaseAt(i);
   }
