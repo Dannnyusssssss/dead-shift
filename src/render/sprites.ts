@@ -3,13 +3,16 @@ import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
 import {
   ACCESSORY_STYLE,
+  AMMO_BOX_STYLE,
   CHEST_STYLE,
   COUPON_STYLE,
   CLOUD_STYLE,
+  CROSSHAIR,
   ENEMY_SPRITE,
   FAINT,
   FLOOR,
   HAZARD_STYLE,
+  HELD_STYLE,
   ICE_STYLE,
   MICROWAVE_STYLE,
   PLAYER_SPRITE,
@@ -138,6 +141,7 @@ export function drawPlayer(
   y: number,
   facing: Vec2,
   radius: number,
+  held: 'gun' | 'melee' = 'gun',
 ): void {
   const angle = Math.atan2(facing.y, facing.x);
 
@@ -163,6 +167,19 @@ export function drawPlayer(
   // Vest stripes across the shoulders.
   ctx.fillStyle = PLAYER_SPRITE.vest;
   ctx.fillRect(-radius * 0.35, -radius * 0.85, radius * 0.22, radius * 1.7);
+
+  // What he holds, in the right hand, pointing where he faces.
+  if (held === 'gun') {
+    ctx.fillStyle = HELD_STYLE.gun;
+    ctx.fillRect(radius * 0.35, radius * 0.45, radius * 0.95, radius * 0.3);
+    ctx.fillStyle = HELD_STYLE.gunTip;
+    ctx.fillRect(radius * 1.2, radius * 0.45, radius * 0.15, radius * 0.3);
+  } else {
+    ctx.fillStyle = HELD_STYLE.broomStick;
+    ctx.fillRect(-radius * 0.2, radius * 0.5, radius * 1.7, radius * 0.16);
+    ctx.fillStyle = HELD_STYLE.broomHead;
+    ctx.fillRect(radius * 1.45, radius * 0.25, radius * 0.35, radius * 0.66);
+  }
 
   // Head.
   ctx.fillStyle = PLAYER_SPRITE.skin;
@@ -634,4 +651,51 @@ export function drawBeam(
   ctx.stroke();
   ctx.lineCap = 'butt';
   ctx.globalAlpha = 1;
+}
+
+/** Small green crate with a bullet mark. */
+export function drawAmmoBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const s = AMMO_BOX_STYLE;
+  const by = y + Math.sin(time * 5 + x * 0.05) * 1.5;
+  ctx.fillStyle = s.body;
+  ctx.strokeStyle = s.edge;
+  ctx.lineWidth = 2;
+  ctx.fillRect(x - s.width / 2, by - s.height / 2, s.width, s.height);
+  ctx.strokeRect(x - s.width / 2, by - s.height / 2, s.width, s.height);
+  ctx.fillStyle = s.bullet;
+  ctx.fillRect(x - 5, by - 2, 8, 4);
+  ctx.beginPath();
+  ctx.arc(x + 3, by, 2, -Math.PI / 2, Math.PI / 2);
+  ctx.fill();
+}
+
+/** Screen-space crosshair at the mouse position. */
+export function drawCrosshair(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  firing: boolean,
+): void {
+  const r = CROSSHAIR.radius;
+  const g = CROSSHAIR.gap;
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.strokeStyle = pass === 0 ? CROSSHAIR.shadow : firing ? CROSSHAIR.firing : CROSSHAIR.color;
+    ctx.lineWidth = pass === 0 ? 4 : 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.moveTo(x - r - g, y);
+    ctx.lineTo(x - g, y);
+    ctx.moveTo(x + g, y);
+    ctx.lineTo(x + r + g, y);
+    ctx.moveTo(x, y - r - g);
+    ctx.lineTo(x, y - g);
+    ctx.moveTo(x, y + g);
+    ctx.lineTo(x, y + r + g);
+    ctx.stroke();
+  }
 }

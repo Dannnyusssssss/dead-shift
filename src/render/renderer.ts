@@ -12,7 +12,8 @@ import {
 } from '../data/render';
 import { CHARGE_STATE, type Enemy } from '../game/enemies';
 import { shockwaveRadius, type Hazard } from '../game/hazards';
-import type { Chest, Coupon } from '../game/pickups';
+import { meleeStats } from '../game/manual';
+import type { AmmoBox, Chest, Coupon } from '../game/pickups';
 import { shiftProgress } from '../game/shift';
 import type { Projectile } from '../game/projectiles';
 import type { Turret } from '../game/turrets';
@@ -22,9 +23,11 @@ import { drawHud, drawJoystick, type HudDebug } from './hud';
 import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
+  drawAmmoBox,
   drawBeam,
   drawCan,
   drawChest,
+  drawCrosshair,
   drawCloud,
   drawCoupon,
   drawEnemy,
@@ -186,21 +189,31 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
+  function drawBroomSwing(world: Readonly<World>, pp: Readonly<Vec2>): void {
+    const m = world.player.manual;
+    const progress = (world.time - m.melee.lastFireTime) / SWEEP.fadeTime;
+    if (progress >= 1) return;
+    const s = meleeStats(m);
+    const half = toRad(s.arcDegrees / 2);
+    const a = m.melee.fireAngle;
+    drawSweep(ctx, pp.x, pp.y, a, half, s.range, progress);
+    if (s.bothSides) drawSweep(ctx, pp.x, pp.y, a + Math.PI, half, s.range, progress);
+  }
+
+  function drawAmmoBoxes(world: Readonly<World>): void {
+    const { items, count } = world.ammoBoxes;
+    for (let i = 0; i < count; i++) {
+      const b = items[i] as AmmoBox;
+      if (visible(b.pos.x, b.pos.y)) drawAmmoBox(ctx, b.pos.x, b.pos.y, world.time);
+    }
+  }
+
   /** Effects attached to the player (swing, cloud, orbiting bags). */
   function drawWeaponEffects(world: Readonly<World>, pp: Readonly<Vec2>): void {
+    drawBroomSwing(world, pp);
     for (const w of world.player.weapons) {
       const def = w.def;
       switch (def.behavior) {
-        case 'arc': {
-          const progress = (world.time - w.lastFireTime) / SWEEP.fadeTime;
-          if (progress >= 1) break;
-          const s = statsAt(def.levels, w.level);
-          const half = toRad(s.arcDegrees / 2);
-          drawSweep(ctx, pp.x, pp.y, w.fireAngle, half, s.range, progress);
-          if (s.bothSides)
-            drawSweep(ctx, pp.x, pp.y, w.fireAngle + Math.PI, half, s.range, progress);
-          break;
-        }
         case 'cone': {
           if (w.activeTimer <= 0) break;
           const s = statsAt(def.levels, w.level);
@@ -251,6 +264,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       drawGroundHazards(world);
       frame.particles.draw(ctx);
       drawCoupons(world);
+      drawAmmoBoxes(world);
       drawChests(world);
       drawTurrets(world);
       drawEnemies(world, frame.alpha, frame.faint);
@@ -259,7 +273,10 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       drawWeaponEffects(world, playerPos);
       const blinkOff =
         player.invulnTimer > 0 && Math.floor(world.time * PLAYER_BLINK_RATE * 2) % 2 === 1;
-      if (!blinkOff) drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius);
+      if (!blinkOff) {
+        const held = player.manual.active;
+        drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius, held);
+      }
       ctx.restore();
 
       lighting.draw(
@@ -270,7 +287,12 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         viewH,
         shiftProgress(world.time),
       );
-      drawJoystick(ctx, frame.input.joystick, frame.input.joystickConfig);
+      const input = frame.input;
+      drawJoystick(ctx, input.joystick, input.joystickConfig);
+      drawJoystick(ctx, input.aimStick, input.joystickConfig, true);
+      if (input.mouse.seen && !input.aimStick.active && world.status === 'playing') {
+        drawCrosshair(ctx, input.mouse.x, input.mouse.y, input.mouse.down);
+      }
       drawHud(ctx, viewW, viewH, world, frame.debug);
     },
   };

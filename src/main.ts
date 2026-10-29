@@ -1,8 +1,8 @@
 import './ui/ui.css';
 import { createCamera, updateCamera } from './core/camera';
-import { createInput } from './core/input';
+import { createInput, type AimResult } from './core/input';
 import { createFixedLoop, createFrameStats } from './core/loop';
-import { vec2 } from './core/math';
+import { setVec, vec2 } from './core/math';
 import { PROGRESSION } from './data/progression';
 import { SHIFT } from './data/shift';
 import {
@@ -13,7 +13,8 @@ import {
   VICTORY_SCREEN_DELAY,
 } from './data/render';
 import { t } from './data/texts';
-import { WEAPON_IDS } from './data/weapons';
+import { WEAPON_IDS, WEAPONS, isManual } from './data/weapons';
+import { gunStats, maxReserve } from './game/manual';
 import { interpolatedPlayerPos } from './game/player';
 import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
 import { shiftClock } from './game/shift';
@@ -25,11 +26,13 @@ import { createRenderer, type RenderFrame } from './render/renderer';
 import { describeOffer } from './ui/describe';
 import { createLevelUpScreen } from './ui/levelup';
 import { createEndScreen } from './ui/menu';
+import { createTouchControls } from './ui/touch';
 
 /**
  * Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death,
  * `?weapons=all` starts with every weapon at max level (ignores the slot limit),
- * `?t=540` starts the shift clock at that many seconds.
+ * `?t=540` starts the shift clock at that many seconds,
+ * `?ammo=N` starts with an empty magazine and N rounds in reserve (0 = straight to the broom).
  */
 interface DebugOptions {
   enabled: boolean;
@@ -37,6 +40,8 @@ interface DebugOptions {
   god: boolean;
   allWeapons: boolean;
   startTime: number;
+  /** Starting reserve with an empty magazine, or null to keep the normal start. */
+  ammo: number | null;
 }
 
 function readDebugOptions(search: string): DebugOptions {
@@ -46,8 +51,10 @@ function readDebugOptions(search: string): DebugOptions {
   const startTime = Math.min(num('t'), SHIFT.durationSeconds - 1);
   const god = params.has('god');
   const allWeapons = params.get('weapons') === 'all';
-  const enabled = spawn > 0 || god || allWeapons || startTime > 0 || params.has('debug');
-  return { enabled, spawn, god, allWeapons, startTime };
+  const ammo = params.has('ammo') ? Math.floor(num('ammo')) : null;
+  const enabled =
+    spawn > 0 || god || allWeapons || startTime > 0 || ammo !== null || params.has('debug');
+  return { enabled, spawn, god, allWeapons, startTime, ammo };
 }
 
 function boot(): void {
@@ -62,17 +69,27 @@ function boot(): void {
   const stats = createFrameStats();
   const endScreen = createEndScreen(document.body);
   const levelUp = createLevelUpScreen(document.body);
+  createTouchControls(document.body, () => input.requestSwap());
   const playerPos = vec2();
+  const aim: AimResult = { dir: vec2(1, 0), active: false, trigger: false };
 
   const newWorld = (): World => {
     const w = createWorld(Date.now() >>> 0);
     w.player.invincible = debug.god;
     if (debug.allWeapons) {
-      w.player.weapons = WEAPON_IDS.map((id) => {
+      w.player.weapons = WEAPON_IDS.filter((id) => !isManual(WEAPONS[id])).map((id) => {
         const weapon = createWeapon(id);
         weapon.level = PROGRESSION.maxLevel;
         return weapon;
       });
+      const m = w.player.manual;
+      m.gun.level = m.melee.level = PROGRESSION.maxLevel;
+      m.mag = gunStats(m).magazine;
+      m.reserve = maxReserve();
+    }
+    if (debug.ammo !== null) {
+      w.player.manual.mag = 0;
+      w.player.manual.reserve = Math.min(debug.ammo, maxReserve());
     }
     if (debug.startTime > 0) fastForward(w, debug.startTime);
     if (debug.spawn > 0) spawnHorde(w, debug.spawn);
@@ -181,10 +198,22 @@ function boot(): void {
       if (frameStart === 0) frameStart = performance.now();
       world.spawnRadius = spawnRadiusForView(renderer.viewW, renderer.viewH);
       input.getMoveAxis(world.moveInput);
+      // The aim is measured from where the player is drawn on screen.
+      const p = world.player.pos;
+      const screenX = p.x - (camera.x - renderer.viewW / 2);
+      const screenY = p.y - (camera.y - renderer.viewH / 2);
+      input.getAim(screenX, screenY, aim);
+      world.aimActive = aim.active;
+      if (aim.active) setVec(world.aim, aim.dir.x, aim.dir.y);
+      world.triggerHeld = aim.trigger;
+      if (input.consumeSwap()) world.swapRequested = true;
+      if (input.consumeReload()) world.reloadRequested = true;
       updateWorld(world, dt);
     },
     render(alpha, frameDt) {
       if (frameStart === 0) frameStart = performance.now();
+      // Presses made while a menu is open (e.g. R to reroll) must not leak into the run.
+      if (world.status !== 'playing') input.clearEdges();
       drainEvents();
       particles.update(frameDt);
       interpolatedPlayerPos(world.player, alpha, playerPos);
@@ -232,6 +261,12 @@ function boot(): void {
         }
         ds.hazardKinds = JSON.stringify(hazardKinds);
         ds.chests = String(world.chests.count);
+        const m = world.player.manual;
+        ds.active = m.active;
+        ds.ammo = `${m.mag}/${m.reserve}`;
+        ds.reloading = String(m.reloadTimer > 0);
+        ds.ammoBoxes = String(world.ammoBoxes.count);
+        ds.manualLevels = `${m.gun.level}/${m.melee.level}`;
       }
     },
   });

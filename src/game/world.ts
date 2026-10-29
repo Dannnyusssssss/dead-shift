@@ -4,13 +4,17 @@ import { createRng, type Rng } from '../core/rng';
 import { createSpatialHash, type SpatialHash } from '../core/spatial-hash';
 import { COMBAT } from '../data/combat';
 import { COUPONS, PROGRESSION } from '../data/progression';
+import { AMMO } from '../data/weapons';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
 import { createEventQueue, type EventQueue } from './events';
 import { createHazardObject, hazardSystem, type Hazard } from './hazards';
+import { manualWeaponSystem } from './manual';
 import {
+  createAmmoBoxObject,
   createChestObject,
   createCouponObject,
   pickupSystem,
+  type AmmoBox,
   type Chest,
   type Coupon,
 } from './pickups';
@@ -44,11 +48,21 @@ export interface World {
   player: Player;
   /** Desired movement this step, magnitude <= 1. Written by the host from input. */
   moveInput: Vec2;
+  /** Unit aim direction. Written by the host while `aimActive`; otherwise it follows `facing`. */
+  aim: Vec2;
+  /** A mouse or aim stick is steering the aim (keyboard-only play leaves this false). */
+  aimActive: boolean;
+  /** Fire / swing button held this step. */
+  triggerHeld: boolean;
+  /** One-shot requests from the host, consumed by the manual weapon system. */
+  swapRequested: boolean;
+  reloadRequested: boolean;
   enemies: Pool<Enemy>;
   projectiles: Pool<Projectile>;
   turrets: Pool<Turret>;
   coupons: Pool<Coupon>;
   chests: Pool<Chest>;
+  ammoBoxes: Pool<AmmoBox>;
   hazards: Pool<Hazard>;
   hash: SpatialHash;
   /** Reusable output buffer for spatial queries. */
@@ -74,6 +88,7 @@ const SYSTEMS: readonly System[] = [
   enemyMovementSystem,
   spatialIndexSystem,
   separationSystem,
+  manualWeaponSystem,
   weaponSystem,
   turretSystem,
   projectileSystem,
@@ -95,11 +110,17 @@ export function createWorld(seed: number): World {
     kills: 0,
     player: createPlayer(),
     moveInput: vec2(0, 0),
+    aim: vec2(1, 0),
+    aimActive: false,
+    triggerHeld: false,
+    swapRequested: false,
+    reloadRequested: false,
     enemies: createPool(COMBAT.maxEnemies, createEnemyObject),
     projectiles: createPool(COMBAT.projectileCapacity, createProjectileObject),
     turrets: createPool(COMBAT.turretCapacity, createTurretObject),
     coupons: createPool(COUPONS.capacity, createCouponObject),
     chests: createPool(COUPONS.chestCapacity, createChestObject),
+    ammoBoxes: createPool(AMMO.capacity, createAmmoBoxObject),
     hazards: createPool(COMBAT.hazardCapacity, createHazardObject),
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),
     queryBuf: new Int32Array(COMBAT.queryBufferSize),

@@ -212,6 +212,55 @@ export const BOSS_BAR = {
   font: '700 12px system-ui, sans-serif',
 } as const;
 
+export const CROSSHAIR = {
+  radius: 10,
+  gap: 4,
+  color: 'rgba(255, 255, 255, 0.9)',
+  shadow: 'rgba(0, 0, 0, 0.6)',
+  /** Tint while the trigger is held. */
+  firing: 'rgba(255, 210, 90, 0.95)',
+} as const;
+
+export const AMMO_BOX_STYLE = {
+  body: '#4d7c3a',
+  edge: '#24401a',
+  bullet: '#f6c445',
+  width: 16,
+  height: 12,
+} as const;
+
+/** What Mati holds: label gun or broom, drawn in his local frame. */
+export const HELD_STYLE = {
+  gun: '#2b2f36',
+  gunTip: '#f6c445',
+  broomStick: '#8a5a2b',
+  broomHead: '#e0b84c',
+} as const;
+
+export const AIM_STICK_STYLE = {
+  baseColor: 'rgba(255, 200, 90, 0.12)',
+  baseStroke: 'rgba(255, 200, 90, 0.45)',
+  knobColor: 'rgba(255, 200, 90, 0.5)',
+} as const;
+
+export const MANUAL_HUD = {
+  width: 236,
+  height: 58,
+  bg: 'rgba(0, 0, 0, 0.55)',
+  border: 'rgba(255, 255, 255, 0.35)',
+  nameFont: '700 13px system-ui, sans-serif',
+  ammoFont: '700 20px system-ui, sans-serif',
+  hintFont: '11px system-ui, sans-serif',
+  iconFont: '24px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif',
+  reloadBg: 'rgba(255, 255, 255, 0.15)',
+  reloadFill: '#f6c445',
+  emptyColor: '#ff6b5a',
+  lowAmmoColor: '#ffc46b',
+  /** Magazine at or below this fraction shows in the warning color. */
+  lowAmmoFraction: 0.25,
+  cooldownShade: 'rgba(0, 0, 0, 0.6)',
+} as const;
+
 export const XP_BAR = {
   height: 10,
   bg: 'rgba(0, 0, 0, 0.55)',

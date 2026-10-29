@@ -8,8 +8,9 @@ import {
   type PassiveId,
   type StatId,
 } from '../data/upgrades';
-import { STARTING_WEAPON } from '../data/weapons';
-import { createWeapon, type WeaponInstance } from './weapons';
+import type { WeaponId } from '../data/weapons';
+import { createManualState, type ManualState } from './manual';
+import type { WeaponInstance } from './weapons';
 
 export interface PassiveInstance {
   def: Readonly<PassiveDef>;
@@ -33,7 +34,7 @@ export interface Player {
   pos: Vec2;
   /** Position at the previous fixed step, for render interpolation. */
   prevPos: Vec2;
-  /** Unit vector of the last movement direction. */
+  /** Unit vector the character faces: the aim, or the last movement direction without one. */
   facing: Vec2;
   hp: number;
   maxHp: number;
@@ -58,7 +59,10 @@ export interface Player {
   /** Fraction of speed removed while `slowTimer` > 0 (puddles). */
   slowFactor: number;
   slowTimer: number;
+  /** Automatic weapons (the slots filled by level-ups). */
   weapons: WeaponInstance[];
+  /** The always-owned manual gun and melee weapon. */
+  manual: ManualState;
   passives: PassiveInstance[];
   /** Debug only: hits land but never reduce hp. */
   invincible: boolean;
@@ -84,7 +88,8 @@ export function createPlayer(stats: Readonly<PlayerStats> = PLAYER_BASE): Player
     pendingChests: 0,
     slowFactor: 0,
     slowTimer: 0,
-    weapons: [createWeapon(STARTING_WEAPON)],
+    weapons: [],
+    manual: createManualState(),
     passives: [],
     invincible: false,
   };
@@ -114,6 +119,17 @@ export function recomputeStats(player: Player): void {
   player.mods.damage = statTotals.damage;
   player.mods.armor = statTotals.armor;
   player.mods.regen = statTotals.regen;
+}
+
+/** A weapon the player owns, manual or automatic. */
+export function findOwnedWeapon(
+  player: Readonly<Player>,
+  id: WeaponId,
+): WeaponInstance | undefined {
+  const m = player.manual;
+  if (m.gun.def.id === id) return m.gun;
+  if (m.melee.def.id === id) return m.melee;
+  return player.weapons.find((w) => w.def.id === id);
 }
 
 export function findPassive(player: Player, id: PassiveId): PassiveInstance | undefined {

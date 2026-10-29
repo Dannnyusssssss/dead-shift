@@ -12,5 +12,6 @@ export function movementSystem(world: World, dt: number): void {
   const speed = player.speed * (player.slowTimer > 0 ? 1 - player.slowFactor : 1);
   player.pos.x += input.x * scale * speed * dt;
   player.pos.y += input.y * scale * speed * dt;
-  setVec(player.facing, input.x / mag, input.y / mag);
+  // With a mouse or aim stick, the manual weapon system points `facing` at the aim instead.
+  if (!world.aimActive) setVec(player.facing, input.x / mag, input.y / mag);
 }

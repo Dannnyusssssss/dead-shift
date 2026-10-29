@@ -229,6 +229,19 @@ los criterios y haz un commit con mensaje claro. **No pases al siguiente hito si
 - Reloj de 10 min con cambio de iluminación y pantalla de victoria a las 6 AM.
 - **Listo cuando:** una partida completa de 10 minutos es posible, ganable y dura lo esperado. Test del spawner (determinista con semilla).
 
+### Hito 4.5 — Control manual: pistola con munición y escoba de respaldo
+- Dos armas manuales del jugador: Pistola de etiquetas (primaria) y Escoba (respaldo cuerpo a cuerpo).
+- Apuntado con el mouse (en táctil: segundo joystick; disparo automático mientras se mantiene apuntando). Disparo con clic mantenido.
+- Pistola: cargador, munición de reserva, recarga con R y recarga automática al vaciar el cargador si hay reserva.
+- Escoba: sin munición, golpe en arco hacia donde se apunta, clic para golpear.
+- Cambio automático a la escoba cuando cargador y reserva están en 0; vuelta automática a la pistola al recoger munición.
+- Cambio manual con Q o rueda del mouse (en táctil: botón de cambio).
+- Cajas de munición como pickup que sueltan los zombis con probabilidad definida en data/.
+- El Escoba deja de ser arma automática; el resto de armas (latas, bolsas de hielo, aerosol, microondas) siguen automáticas y se obtienen al subir de nivel.
+- HUD: arma activa, munición (cargador/reserva), barra de recarga y cooldown de las armas automáticas.
+- Todos los números (daño, cadencia, cargador, reserva, recarga, drop de munición) en src/data/weapons.ts, sin números mágicos.
+- Listo cuando: se puede jugar y ganar una partida completa con pistola y escoba, el cambio automático funciona, hay tests de munición, recarga y cambio de arma, y el balance es razonable.
+
 ### Hito 5 — Pulido
 - Sonidos WebAudio, números de daño, screen shake, menú principal, pausa, guardado de récords, botón de silencio.
 - **Listo cuando:** se siente bien jugarlo, no hay errores en consola y los récords persisten al recargar.

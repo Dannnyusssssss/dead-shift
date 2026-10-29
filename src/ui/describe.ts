@@ -2,7 +2,7 @@ import { PROGRESSION } from '../data/progression';
 import { PASSIVES } from '../data/upgrades';
 import { WEAPONS, type WeaponDef } from '../data/weapons';
 import { t, type TextKey } from '../data/texts';
-import type { Player } from '../game/player';
+import { findOwnedWeapon, type Player } from '../game/player';
 import type { Offer } from '../game/progression';
 
 export interface OfferView {
@@ -31,6 +31,8 @@ const STAT_LABELS: Readonly<Record<string, TextKey>> = {
   rays: 'statRays',
   duration: 'statDuration',
   units: 'statUnits',
+  magazine: 'statMagazine',
+  reloadTime: 'statReload',
 };
 
 /** Units glued to the number instead of separated by a space. */
@@ -40,6 +42,7 @@ const GLUED: ReadonlySet<string> = new Set([
   'spreadDegrees',
   'activeTime',
   'duration',
+  'reloadTime',
 ]);
 
 function formatDelta(delta: number): string {
@@ -83,7 +86,7 @@ export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>):
     }
     case 'upgradeWeapon': {
       const def = WEAPONS[offer.weaponId];
-      const level = player.weapons.find((w) => w.def.id === def.id)?.level ?? 1;
+      const level = findOwnedWeapon(player, def.id)?.level ?? 1;
       return {
         icon: def.icon,
         name: t(def.nameKey),

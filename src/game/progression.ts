@@ -1,8 +1,8 @@
 import type { Rng } from '../core/rng';
 import { PROGRESSION } from '../data/progression';
 import { PASSIVE_IDS, type PassiveId } from '../data/upgrades';
-import { WEAPON_IDS, type WeaponId } from '../data/weapons';
-import { addPassive, findPassive, recomputeStats, type Player } from './player';
+import { WEAPON_IDS, WEAPONS, isManual, type WeaponId } from '../data/weapons';
+import { addPassive, findOwnedWeapon, findPassive, recomputeStats, type Player } from './player';
 import { createWeapon } from './weapons';
 import type { World } from './world';
 
@@ -37,19 +37,18 @@ export function addXp(player: Player, amount: number): number {
   return gained;
 }
 
-function findWeapon(player: Readonly<Player>, id: WeaponId) {
-  return player.weapons.find((w) => w.def.id === id);
-}
-
-/** Every valid upgrade for the current loadout. Each target appears at most once. */
+/**
+ * Every valid upgrade for the current loadout. Each target appears at most once.
+ * Manual weapons are always owned, so they are only ever offered as upgrades.
+ */
 export function buildCandidates(player: Readonly<Player>): Offer[] {
   const out: Offer[] = [];
   const max = PROGRESSION.maxLevel;
   for (const id of WEAPON_IDS) {
-    const owned = findWeapon(player, id);
+    const owned = findOwnedWeapon(player, id);
     if (owned) {
       if (owned.level < max) out.push({ kind: 'upgradeWeapon', weaponId: id });
-    } else if (player.weapons.length < PROGRESSION.maxWeapons) {
+    } else if (!isManual(WEAPONS[id]) && player.weapons.length < PROGRESSION.maxWeapons) {
       out.push({ kind: 'newWeapon', weaponId: id });
     }
   }
@@ -90,10 +89,12 @@ export function rollOffers(
 export function applyOffer(player: Player, offer: Readonly<Offer>): void {
   switch (offer.kind) {
     case 'newWeapon':
-      if (!findWeapon(player, offer.weaponId)) player.weapons.push(createWeapon(offer.weaponId));
+      if (!findOwnedWeapon(player, offer.weaponId) && !isManual(WEAPONS[offer.weaponId])) {
+        player.weapons.push(createWeapon(offer.weaponId));
+      }
       break;
     case 'upgradeWeapon': {
-      const w = findWeapon(player, offer.weaponId);
+      const w = findOwnedWeapon(player, offer.weaponId);
       if (w) w.level = Math.min(PROGRESSION.maxLevel, w.level + 1);
       break;
     }

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { FIXED_STEP } from '../src/core/loop';
 import { COUPONS } from '../src/data/progression';
 import { ENEMIES } from '../src/data/enemies';
-import { dropCoupon, pickupSystem } from '../src/game/pickups';
+import { ammoDropChance, dropCoupon, maybeDropAmmo, pickupSystem } from '../src/game/pickups';
+import { spawnEnemy } from '../src/game/enemies';
+import { AMMO } from '../src/data/weapons';
 import { deathSystem } from '../src/game/systems/death';
 import { addClient, emptyWorld } from './helpers';
 
@@ -50,5 +52,49 @@ describe('coupons', () => {
     expect(world.coupons.count).toBe(COUPONS.capacity);
     const total = world.coupons.items.reduce((sum, c) => sum + c.value, 0);
     expect(total).toBe(COUPONS.capacity + 20);
+  });
+});
+
+describe('ammo boxes', () => {
+  it('drop chance depends on how valuable the zombie is', () => {
+    expect(ammoDropChance(ENEMIES.client.xp)).toBe(AMMO.dropTiers[2]?.chance);
+    expect(ammoDropChance(ENEMIES.frozen.xp)).toBe(AMMO.dropTiers[1]?.chance);
+    expect(ammoDropChance(ENEMIES.manager.xp)).toBe(1);
+  });
+
+  it('drops are deterministic with the seed and roughly match the chance', () => {
+    const count = (seed: number) => {
+      const world = emptyWorld(seed);
+      let drops = 0;
+      for (let i = 0; i < 2000; i++) {
+        const before = world.ammoBoxes.count;
+        maybeDropAmmo(world, 5000, 5000, ENEMIES.client.xp);
+        if (world.ammoBoxes.count > before) drops++;
+        world.ammoBoxes.clear();
+      }
+      return drops;
+    };
+    expect(count(3)).toBe(count(3));
+    const rate = count(3) / 2000;
+    expect(rate).toBeGreaterThan(ammoDropChance(1) * 0.7);
+    expect(rate).toBeLessThan(ammoDropChance(1) * 1.3);
+  });
+
+  it('the boss always drops one', () => {
+    const world = emptyWorld();
+    const boss = spawnEnemy(world, ENEMIES.manager, 400, 0);
+    if (!boss) throw new Error('no boss');
+    boss.hp = 0;
+    deathSystem(world);
+    expect(world.ammoBoxes.count).toBe(1);
+  });
+
+  it('is pulled in by the magnet and adds rounds to the reserve', () => {
+    const world = emptyWorld();
+    const before = world.player.manual.reserve;
+    maybeDropAmmo(world, world.player.pickupRadius - 5, 0, ENEMIES.manager.xp);
+    for (let i = 0; i < 60 && world.ammoBoxes.count > 0; i++) pickupSystem(world, FIXED_STEP);
+    expect(world.ammoBoxes.count).toBe(0);
+    expect(world.player.manual.reserve).toBe(before + AMMO.boxAmount);
   });
 });

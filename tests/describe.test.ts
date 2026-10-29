@@ -8,7 +8,16 @@ describe('describeWeaponUpgrade', () => {
     expect(describeWeaponUpgrade(WEAPONS.broom, 1)).toBe('+4 daño');
     expect(describeWeaponUpgrade(WEAPONS.broom, 2)).toBe('+30° arco · +10 alcance');
     expect(describeWeaponUpgrade(WEAPONS.broom, 4)).toBe('barre ambos lados');
-    expect(describeWeaponUpgrade(WEAPONS.labelGun, 1)).toBe('-0.03s enfriamiento');
+    expect(describeWeaponUpgrade(WEAPONS.labelGun, 1)).toBe('+2 daño');
+    expect(describeWeaponUpgrade(WEAPONS.labelGun, 2)).toBe(
+      '+6 balas por cargador · -0.2s recarga',
+    );
+  });
+
+  it('upgrading the manual gun shows its level tag', () => {
+    const p = createPlayer();
+    const view = describeOffer({ kind: 'upgradeWeapon', weaponId: 'labelGun' }, p);
+    expect(view.tag).toBe('Nv 1 → 2');
   });
 
   it('describes every level of every weapon', () => {

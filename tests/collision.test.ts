@@ -8,25 +8,36 @@ import {
   separationSystem,
   spatialIndexSystem,
 } from '../src/game/systems/collision';
-import { angleDiff, weaponSystem } from '../src/game/weapons';
+import { manualWeaponSystem, selectManual } from '../src/game/manual';
+import { angleDiff } from '../src/game/weapons';
+import type { World } from '../src/game/world';
 import { addClient, emptyWorld } from './helpers';
 
 const broomDef = WEAPONS.broom;
-if (broomDef.behavior !== 'arc') throw new Error('broom must be an arc weapon');
+if (broomDef.behavior !== 'melee') throw new Error('broom must be a melee weapon');
 const broom = broomDef.levels[0];
 if (!broom) throw new Error('broom level 1 missing');
 
-describe('broom (arc weapon)', () => {
-  it('hits enemies inside the arc and ignores those behind or out of reach', () => {
-    const world = emptyWorld();
-    setVec(world.player.facing, 1, 0);
+/** World with the broom in hand, aiming at (ax, ay), trigger held. */
+function swinging(ax: number, ay: number): World {
+  const world = emptyWorld();
+  selectManual(world.player.manual, 'melee');
+  world.aimActive = true;
+  setVec(world.aim, ax, ay);
+  world.triggerHeld = true;
+  return world;
+}
+
+describe('broom (manual melee)', () => {
+  it('hits enemies inside the arc toward the aim and ignores those behind or out of reach', () => {
+    const world = swinging(1, 0);
     const front = addClient(world, 50, 0);
-    const frontEdge = addClient(world, 40, 40); // 45°, inside the 100° arc
+    const frontEdge = addClient(world, 40, 40); // 45°, inside the 110° arc
     const behind = addClient(world, -50, 0);
     const side = addClient(world, 0, 60); // 90°, outside
     const far = addClient(world, broom.range + 40, 0);
     spatialIndexSystem(world);
-    weaponSystem(world, FIXED_STEP);
+    manualWeaponSystem(world, FIXED_STEP);
     const full = ENEMIES.client.hp;
     expect(front.hp).toBe(full - broom.damage);
     expect(frontEdge.hp).toBe(full - broom.damage);
@@ -36,26 +47,29 @@ describe('broom (arc weapon)', () => {
   });
 
   it('pushes hit enemies away from the player', () => {
-    const world = emptyWorld();
-    setVec(world.player.facing, 0, -1);
+    const world = swinging(0, -1);
     const e = addClient(world, 0, -40);
     spatialIndexSystem(world);
-    weaponSystem(world, FIXED_STEP);
+    manualWeaponSystem(world, FIXED_STEP);
     expect(e.knockback.y).toBeLessThan(0);
     expect(Math.abs(e.knockback.x)).toBeLessThan(1e-6);
   });
 
-  it('respects the cooldown', () => {
-    const world = emptyWorld();
+  it('swings once per cooldown while the trigger is held, never without it', () => {
+    const world = swinging(1, 0);
     const e = addClient(world, 30, 0);
     e.hp = 1000;
     spatialIndexSystem(world);
     const steps = Math.round(broom.cooldown / FIXED_STEP) * 3;
-    for (let i = 0; i < steps; i++) weaponSystem(world, FIXED_STEP);
-    // Fires on the first step, then once per cooldown.
+    for (let i = 0; i < steps; i++) manualWeaponSystem(world, FIXED_STEP);
+    // Swings on the first step, then once per cooldown.
     const hits = (1000 - e.hp) / broom.damage;
     expect(hits).toBeGreaterThanOrEqual(3);
     expect(hits).toBeLessThanOrEqual(4);
+    const before = e.hp;
+    world.triggerHeld = false;
+    for (let i = 0; i < steps; i++) manualWeaponSystem(world, FIXED_STEP);
+    expect(e.hp).toBe(before);
   });
 
   it('angleDiff wraps around', () => {

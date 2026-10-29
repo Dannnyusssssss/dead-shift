@@ -5,9 +5,8 @@ import { SHIFT } from '../src/data/shift';
 import { BOSSES, WAVES } from '../src/data/waves';
 import { chooseOffer } from '../src/game/progression';
 import { spawnHorde, spawnRadiusForView, spawnSystem } from '../src/game/spawner';
-import { findNearestEnemy } from '../src/game/weapons';
 import { updateWorld } from '../src/game/world';
-import { emptyWorld } from './helpers';
+import { emptyWorld, playerBot } from './helpers';
 
 function runSpawner(seed: number, seconds: number) {
   const world = emptyWorld(seed);
@@ -158,26 +157,23 @@ describe('spawner over the whole shift', () => {
 });
 
 describe('full simulation', () => {
-  it('a full 10-minute shift can be survived and won at 6:00 AM', () => {
+  it('a full 10-minute shift with pistol and broom can be survived and won at 6:00 AM', () => {
     const world = emptyWorld(11);
     world.player.invincible = true;
     let maxEnemies = 0;
     let steps = 0;
+    let autoSwitches = 0;
+    let returnsToGun = 0;
+    let prev = world.player.manual.active;
     const limit = Math.round(SHIFT.durationSeconds / FIXED_STEP) + 10;
     while (world.status !== 'won' && world.status !== 'dead' && steps < limit) {
       if (world.status === 'levelup') chooseOffer(world, 0);
-      // Act like a player: face the nearest zombie and close in (the broom only hits forward).
-      const p = world.player.pos;
-      const target = findNearestEnemy(world, p.x, p.y, Infinity);
-      if (target) {
-        const dx = target.pos.x - p.x;
-        const dy = target.pos.y - p.y;
-        const d = Math.hypot(dx, dy) || 1;
-        const throttle = d > 60 ? 1 : 0.05;
-        world.moveInput.x = (dx / d) * throttle;
-        world.moveInput.y = (dy / d) * throttle;
-      }
+      playerBot(world);
       updateWorld(world, FIXED_STEP);
+      const m = world.player.manual;
+      if (prev === 'gun' && m.active === 'melee' && m.autoSwitched) autoSwitches++;
+      if (prev === 'melee' && m.active === 'gun') returnsToGun++;
+      prev = m.active;
       maxEnemies = Math.max(maxEnemies, world.enemies.count);
       steps++;
     }
@@ -187,9 +183,12 @@ describe('full simulation', () => {
     expect(maxEnemies).toBeLessThanOrEqual(COMBAT.maxEnemies);
     expect(world.kills).toBeGreaterThan(500);
     expect(world.player.level).toBeGreaterThan(10);
+    // The gun ran dry at least once, the broom took over and ammo brought the gun back.
+    expect(autoSwitches).toBeGreaterThan(0);
+    expect(returnsToGun).toBeGreaterThan(0);
   }, 120_000);
 
-  it('a standing player eventually dies and the world freezes', () => {
+  it('a player who never pulls the trigger eventually dies and the world freezes', () => {
     const world = emptyWorld(7);
     let steps = 0;
     while (world.status !== 'dead' && steps < 60 * 600) {
@@ -198,7 +197,6 @@ describe('full simulation', () => {
       steps++;
     }
     expect(world.status).toBe('dead');
-    expect(world.kills).toBeGreaterThan(0);
     const t = world.time;
     updateWorld(world, FIXED_STEP);
     expect(world.time).toBe(t);

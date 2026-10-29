@@ -6,6 +6,8 @@ import {
   type ConeWeaponDef,
   type OrbitLevel,
   type OrbitWeaponDef,
+  type ProjectileLevel,
+  type ProjectileLook,
   type ProjectileWeaponDef,
   type TurretWeaponDef,
   type WeaponDef,
@@ -78,7 +80,7 @@ function facingAngle(world: World): number {
 }
 
 /** Damages (and optionally poisons) every living enemy inside the circular sector. */
-function hitSector(
+export function hitSector(
   world: World,
   x: number,
   y: number,
@@ -114,9 +116,14 @@ function hitSector(
   }
 }
 
-function fireArc(w: WeaponInstance, s: Readonly<ArcLevel>, world: World): void {
+/** Melee swing toward `angle` (and behind, if the level says so). */
+export function swingArc(
+  w: WeaponInstance,
+  s: Readonly<ArcLevel>,
+  world: World,
+  angle: number,
+): void {
   const p = world.player;
-  const angle = facingAngle(world);
   const damage = s.damage * p.mods.damage;
   w.fireAngle = angle;
   w.lastFireTime = world.time;
@@ -150,29 +157,35 @@ export function findNearestEnemy(
   return best;
 }
 
-/** Returns false when there was nothing to shoot at (the weapon retries next step). */
-function fireProjectiles(
+/** Fires `count` projectiles from the player toward `angle`, fanned out by the spread. */
+export function fireVolley(
   w: WeaponInstance,
-  def: Readonly<ProjectileWeaponDef>,
+  s: Readonly<ProjectileLevel>,
+  look: ProjectileLook,
   world: World,
-): boolean {
+  angle: number,
+): void {
   const p = world.player;
-  const s = statsAt(def.levels, w.level);
-  let angle: number;
-  if (def.behavior === 'projectile') {
-    const target = findNearestEnemy(world, p.pos.x, p.pos.y, COMBAT.maxTargetDistance);
-    if (!target) return false;
-    angle = Math.atan2(target.pos.y - p.pos.y, target.pos.x - p.pos.x);
-  } else {
-    angle = facingAngle(world);
-  }
   w.fireAngle = angle;
   w.lastFireTime = world.time;
   const spread = toRad(s.spreadDegrees);
   for (let i = 0; i < s.count; i++) {
     const offset = (i - (s.count - 1) / 2) * spread;
-    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, def.look);
+    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, look);
   }
+}
+
+/** Throws at the nearest enemy. Returns false when there is none (it retries next step). */
+function fireAtNearest(
+  w: WeaponInstance,
+  def: Readonly<ProjectileWeaponDef>,
+  world: World,
+): boolean {
+  const p = world.player;
+  const target = findNearestEnemy(world, p.pos.x, p.pos.y, COMBAT.maxTargetDistance);
+  if (!target) return false;
+  const angle = Math.atan2(target.pos.y - p.pos.y, target.pos.x - p.pos.x);
+  fireVolley(w, statsAt(def.levels, w.level), def.look, world, angle);
   return true;
 }
 
@@ -273,6 +286,31 @@ function placeMicrowaves(w: WeaponInstance, def: Readonly<TurretWeaponDef>, worl
   w.cooldown = (s.duration + s.respawnDelay) * p.mods.cooldown;
 }
 
+/** 0..1 of an automatic weapon's recharge still to go (0 = ready or always active), for the HUD. */
+export function cooldownFraction(w: Readonly<WeaponInstance>, cooldownMult: number): number {
+  const def = w.def;
+  let full: number;
+  switch (def.behavior) {
+    case 'projectile':
+      full = statsAt(def.levels, w.level).cooldown;
+      break;
+    case 'cone':
+      if (w.activeTimer > 0) return 0;
+      full = statsAt(def.levels, w.level).cooldown;
+      break;
+    case 'turret': {
+      const s = statsAt(def.levels, w.level);
+      full = s.duration + s.respawnDelay;
+      break;
+    }
+    default:
+      return 0;
+  }
+  const total = full * cooldownMult;
+  return total > 0 ? Math.min(1, Math.max(0, w.cooldown / total)) : 0;
+}
+
+/** Automatic weapons only; manual ones live in `player.manual`. */
 export function weaponSystem(world: World, dt: number): void {
   const mods = world.player.mods;
   for (const w of world.player.weapons) {
@@ -288,19 +326,14 @@ export function weaponSystem(world: World, dt: number): void {
         w.cooldown -= dt;
         if (w.cooldown <= 0) placeMicrowaves(w, def, world);
         break;
-      case 'arc': {
-        w.cooldown -= dt;
-        if (w.cooldown > 0) break;
-        const s = statsAt(def.levels, w.level);
-        fireArc(w, s, world);
-        w.cooldown += s.cooldown * mods.cooldown;
+      case 'melee':
+      case 'gun':
+        // Manual weapons are driven by the player (see manual.ts).
         break;
-      }
-      case 'projectile':
-      case 'stream': {
+      case 'projectile': {
         w.cooldown -= dt;
         if (w.cooldown > 0) break;
-        if (fireProjectiles(w, def, world)) {
+        if (fireAtNearest(w, def, world)) {
           w.cooldown += statsAt(def.levels, w.level).cooldown * mods.cooldown;
         } else {
           w.cooldown = 0;

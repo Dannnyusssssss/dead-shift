@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng } from '../src/core/rng';
 import { PROGRESSION } from '../src/data/progression';
 import { PASSIVE_IDS } from '../src/data/upgrades';
-import { WEAPON_IDS } from '../src/data/weapons';
+import { WEAPON_IDS, WEAPONS, isManual } from '../src/data/weapons';
 import { addPassive, createPlayer } from '../src/game/player';
 import {
   addXp,
@@ -26,13 +26,17 @@ const targetOf = (o: Offer): string =>
       ? `p:${o.passiveId}`
       : 'heal';
 
+const AUTO_IDS = WEAPON_IDS.filter((id) => !isManual(WEAPONS[id]));
+const MANUAL_IDS = WEAPON_IDS.filter((id) => isManual(WEAPONS[id]));
+
 function maxedPlayer() {
   const p = createPlayer();
-  p.weapons = WEAPON_IDS.slice(0, PROGRESSION.maxWeapons).map((id) => {
+  p.weapons = AUTO_IDS.slice(0, PROGRESSION.maxWeapons).map((id) => {
     const w = createWeapon(id);
     w.level = PROGRESSION.maxLevel;
     return w;
   });
+  p.manual.gun.level = p.manual.melee.level = PROGRESSION.maxLevel;
   for (const id of PASSIVE_IDS.slice(0, PROGRESSION.maxPassives)) {
     addPassive(p, id).level = PROGRESSION.maxLevel;
   }
@@ -84,26 +88,46 @@ describe('offers', () => {
     }
   });
 
-  it('offers new weapons only for unowned ones, and upgrades for owned', () => {
+  it('manual weapons are only ever upgrades; automatic ones start as new', () => {
     const candidates = buildCandidates(createPlayer());
-    expect(candidates).toContainEqual({ kind: 'upgradeWeapon', weaponId: 'broom' });
-    expect(candidates).not.toContainEqual({ kind: 'newWeapon', weaponId: 'broom' });
-    expect(candidates).toContainEqual({ kind: 'newWeapon', weaponId: 'cans' });
+    for (const id of MANUAL_IDS) {
+      expect(candidates).toContainEqual({ kind: 'upgradeWeapon', weaponId: id });
+      expect(candidates).not.toContainEqual({ kind: 'newWeapon', weaponId: id });
+    }
+    for (const id of AUTO_IDS)
+      expect(candidates).toContainEqual({ kind: 'newWeapon', weaponId: id });
+  });
+
+  it('the four automatic weapons all fit in the slots', () => {
+    expect(AUTO_IDS.length).toBeLessThanOrEqual(PROGRESSION.maxWeapons);
+    const p = createPlayer();
+    for (const id of AUTO_IDS) applyOffer(p, { kind: 'newWeapon', weaponId: id });
+    expect(p.weapons).toHaveLength(AUTO_IDS.length);
   });
 
   it('respects slot limits and max levels', () => {
     const p = createPlayer();
-    p.weapons = WEAPON_IDS.slice(0, PROGRESSION.maxWeapons).map((id) => createWeapon(id));
-    const ownedWeapons = new Set(p.weapons.map((w) => w.def.id));
-    const broom = p.weapons[0];
-    if (broom) broom.level = PROGRESSION.maxLevel;
+    p.weapons = AUTO_IDS.slice(0, PROGRESSION.maxWeapons).map((id) => createWeapon(id));
+    const owned = new Set([...p.weapons.map((w) => w.def.id), ...MANUAL_IDS]);
+    const first = p.weapons[0];
+    if (first) first.level = PROGRESSION.maxLevel;
+    p.manual.melee.level = PROGRESSION.maxLevel;
     for (const o of buildCandidates(p)) {
       if (o.kind === 'newWeapon') throw new Error('offered a weapon with full slots');
       if (o.kind === 'upgradeWeapon') {
-        expect(ownedWeapons.has(o.weaponId)).toBe(true);
-        expect(o.weaponId).not.toBe('broom');
+        expect(owned.has(o.weaponId)).toBe(true);
+        expect(o.weaponId).not.toBe(first?.def.id);
+        expect(o.weaponId).not.toBe(p.manual.melee.def.id);
       }
     }
+  });
+
+  it('upgrading a manual weapon raises its level', () => {
+    const p = createPlayer();
+    applyOffer(p, { kind: 'upgradeWeapon', weaponId: p.manual.gun.def.id });
+    expect(p.manual.gun.level).toBe(2);
+    applyOffer(p, { kind: 'newWeapon', weaponId: p.manual.melee.def.id });
+    expect(p.weapons).toHaveLength(0);
   });
 
   it('falls back to a single heal when nothing is left', () => {
@@ -133,9 +157,9 @@ describe('applyOffer', () => {
   it('adds and upgrades weapons and passives, recomputing stats', () => {
     const p = createPlayer();
     applyOffer(p, { kind: 'newWeapon', weaponId: 'cans' });
-    expect(p.weapons.map((w) => w.def.id)).toEqual(['broom', 'cans']);
+    expect(p.weapons.map((w) => w.def.id)).toEqual(['cans']);
     applyOffer(p, { kind: 'upgradeWeapon', weaponId: 'cans' });
-    expect(p.weapons[1]?.level).toBe(2);
+    expect(p.weapons[0]?.level).toBe(2);
     applyOffer(p, { kind: 'newPassive', passiveId: 'shoes' });
     const speed1 = p.speed;
     expect(speed1).toBeCloseTo(p.base.speed * 1.08);

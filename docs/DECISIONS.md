@@ -9,9 +9,11 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   - `texts.ts`: textos visibles en español con `t(key)`; agregar otro idioma = agregar otro objeto.
   - `render.ts`: constantes visuales y de vista (tiles, góndolas, colores, HUD, joystick, cámara, DPR máximo).
 - **Radio de colisión del jugador: 14 px.** No estaba especificado; se usará en el Hito 2.
-- **Joystick flotante.** Aparece donde se toca (cualquier punto de la pantalla), radio 60 px, zona muerta 15 %.
+- ~~**Joystick flotante.** Aparece donde se toca (cualquier punto de la pantalla), radio 60 px, zona muerta 15 %.
   Es analógico (empujar poco = moverse lento). Si el joystick está activo tiene prioridad sobre el teclado.
-  También responde al ratón, lo que facilita probarlo en escritorio.
+  También responde al ratón, lo que facilita probarlo en escritorio.~~
+  **Reemplazada en Hito 4.5:** el joystick de movimiento solo aparece en la mitad izquierda; la mitad derecha
+  es el joystick de apuntado y el ratón apunta y dispara (ya no mueve). Radio, zona muerta y analógico se mantienen.
 - **Loop.** Timestep fijo de 1/60 s; cada frame se limita a 0.25 s para evitar la "espiral de la muerte"
   al volver de otra pestaña. El render interpola la posición del jugador con `alpha`.
 - **Cámara.** Seguimiento exponencial independiente del framerate (rigidez 10/s). Es estado de vista,
@@ -34,8 +36,10 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   El host (`main.ts`) le pasa el tamaño de la vista al mundo; los tests usan el mínimo fijo.
 - **Reubicación.** Un zombi a más de 1.6× el radio del anillo vuelve a aparecer en el anillo, para que
   el mapa infinito nunca se vacíe por dejarlos atrás.
-- **Escoba: alcance 75 px y empuje 220 px/s** (no estaban especificados). El arco se ensancha según el tamaño angular
-  del zombi para que los roces cuenten. Golpea siempre hacia `facing`, haya o no enemigos (como el látigo de VS).
+- ~~**Escoba: alcance 75 px y empuje 220 px/s** (no estaban especificados). El arco se ensancha según el tamaño angular
+  del zombi para que los roces cuenten. Golpea siempre hacia `facing`, haya o no enemigos (como el látigo de VS).~~
+  **Reemplazada en Hito 4.5:** la Escoba es manual: golpea hacia la mira solo con el gatillo, con sus propios valores
+  (ver Hito 4.5). Se mantiene que el arco se ensancha según el tamaño angular del zombi.
 - **Daño por contacto.** Mientras dura la invulnerabilidad (0.5 s) solo entra el golpe más fuerte de los zombis que tocan,
   aunque te rodeen veinte.
 - **Separación entre zombis.** Empuje suave a partir de la rejilla espacial (50 % del solapamiento por paso), solo entre zombis;
@@ -65,15 +69,16 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Pasivos como datos** `{ stat, perLevel }`; las stats se recalculan al cambiar el equipo. Los porcentajes se _suman_
   (Café nivel 5 = ×0.60 de cooldown). El multiplicador de cooldown nunca baja de 0.2.
 - **Niveles de las armas.** Los valores de los niveles 2-5 no estaban especificados; quedaron así (ajustables en `data/weapons.ts`):
-  - Escoba: 14 daño → 130° y 85 px → 18 daño y cd 1.1 → ambos lados.
+  - ~~Escoba: 14 daño → 130° y 85 px → 18 daño y cd 1.1 → ambos lados.~~ **Reemplazada en Hito 4.5** (Escoba manual).
   - Latas: 2 latas → 12 daño → 3 latas y perfora 1 → 15 daño y perfora 2.
   - Hielo: 3 bolsas → r 85 y 8 daño → 4 bolsas más rápidas → 5 bolsas, r 100 y 10 daño.
   - Aerosol: 130 px → nube de 2 s → veneno 3/s × 2 s → 150 px, 2.5 s y 5 daño.
   - Microondas: 2 rayos → 10 s → 3 rayos y 9 daño → 2 microondas.
-  - Etiquetas: cd 0.12 → 4 daño → 2 balas ±8° → 3 balas ±12°, cd 0.09 y 5 daño.
+  - ~~Etiquetas: cd 0.12 → 4 daño → 2 balas ±8° → 3 balas ±12°, cd 0.09 y 5 daño.~~ **Reemplazada en Hito 4.5**
+    (Pistola manual con munición).
 - **Comportamientos.** El cooldown del aerosol cuenta desde que termina la nube. El microondas dura 8 s y se vuelve
   a colocar 4 s después de desaparecer. Las latas no se lanzan si no hay un zombi a ≤ 600 px (esperan).
-  La pistola dispara hacia `facing`. Las bolsas golpean como máximo una vez cada 0.5 s al mismo zombi
+  ~~La pistola dispara hacia `facing`.~~ (**Reemplazada en Hito 4.5:** dispara hacia la mira, con el gatillo.) Las bolsas golpean como máximo una vez cada 0.5 s al mismo zombi
   (temporizador por enemigo y por arma). El Café afecta todos los tiempos de recarga, incluida la cadencia del microondas.
 - **Cupones.** Valen el `xp` del enemigo (el Cliente da 1). Dentro del radio de recogida quedan "imantados" y siguen al jugador
   acelerando aunque se aleje. Con el pool (600) lleno, el valor se suma a un cupón existente, así no se pierde XP.
@@ -124,3 +129,60 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   para no taparse. Las métricas de depuración pasan a la esquina inferior derecha.
 - **Depuración:** `?t=SEGUNDOS` arranca el reloj adelantado (los jefes cuyo momento ya pasó no aparecen).
   Se publican también los tipos de enemigos, los peligros por tipo y los carritos apuntando.
+
+## Hito 4.5
+
+- **Dos armas manuales fuera de los slots.** La Pistola de etiquetas (`behavior: 'gun'`) y la Escoba (`behavior: 'melee'`)
+  viven en `player.manual`, no en `player.weapons`. El tope de 4 armas cuenta solo las automáticas, así que entran las cuatro
+  (latas, hielo, aerosol, microondas). Las manuales se mejoran del 1 al 5 con las ofertas de nivel (y con el cofre del jefe),
+  pero nunca aparecen como "arma nueva". **Reemplaza** "empieza con la Escoba" (CLAUDE.md §5.2): Mati arranca con pistola
+  y escoba manuales y sin armas automáticas.
+- **Mira = dirección del personaje.** Con mouse o joystick de apuntado, `facing` sigue a la mira: Mati gira hacia ella y
+  el aerosol y el microondas también apuntan con el mouse. **Reemplaza** "el jugador mira hacia donde se mueve" (CLAUDE.md §5.2).
+  Sin mouse ni joystick de apuntado (solo teclado), la mira sigue al movimiento y Espacio dispara.
+- **Controles:**
+  - Escritorio: WASD/flechas para moverse, mouse para apuntar, clic mantenido (o Espacio) para disparar o golpear,
+    R para recargar, Q o la rueda para cambiar de arma (la rueda espera 200 ms entre cambios por los trackpads).
+  - Táctil: la mitad izquierda es el joystick de movimiento y la mitad derecha el de apuntado, que dispara mientras está empujado.
+    Un botón "Cambiar arma" aparece con el primer toque. No hay botón de recarga: es automática al vaciar el cargador.
+  - Las pulsaciones de una vez (Q, R, rueda, botón) se descartan mientras hay un menú abierto, para que la R del reroll
+    no dispare una recarga.
+  - El canvas oculta el cursor y dibuja una mira.
+- **Munición.** El cargador arranca lleno, con 60 balas de reserva y un tope de 120.
+  - **Recarga:** con R o sola al vaciarse el cargador. Pasa `min(falta, reserva)`. No se puede disparar mientras dura,
+    y cambiar de arma la cancela.
+  - **Cambio automático:** con cargador y reserva en 0 se pasa a la Escoba (`autoSwitched`). Al recoger munición se vuelve
+    a la pistola y recarga, **solo si** la Escoba estaba puesta por ese cambio automático. Si el jugador eligió la Escoba con Q,
+    se respeta.
+  - No se puede cambiar a la pistola con 0/0.
+  - El Café acelera la cadencia y el golpe, no la recarga. La Calculadora afecta a las dos armas manuales.
+- **Valores** (todos en `data/weapons.ts`):
+
+  | Nivel | Pistola                                              | Escoba                              |
+  | ----- | ---------------------------------------------------- | ----------------------------------- |
+  | 1     | 10 daño, cadencia 0.18 s, cargador 12, recarga 1.3 s | 12 daño, cd 0.5 s, arco 110°, 75 px |
+  | 2     | 12 daño                                              | 16 daño                             |
+  | 3     | cargador 18, recarga 1.1 s                           | 140°, 85 px                         |
+  | 4     | perfora 1, cadencia 0.15 s                           | 20 daño, cd 0.42 s                  |
+  | 5     | 2 balas ±6°, 14 daño                                 | ambos lados                         |
+
+- **Cajas de munición:** 15 balas cada una. Probabilidad de caída según el XP del enemigo:
+  - 18 % los comunes (xp 1).
+  - 50 % los élite (xp 5).
+  - 100 % el Gerente.
+
+  El sorteo usa el RNG sembrado (determinista), las cajas se imantan como los cupones y el pool es de 40.
+
+- **Balance (prueba con bot, `BALANCE=1 npx vitest run tests/balance.test.ts`).** Con los primeros valores (9 de daño, 10 % de caída)
+  el bot quedaba sin munición entre el 20 y el 50 % del tiempo: 3 balas por Cliente contra 1.5 balas ganadas por baja.
+  Con 10 de daño (2 balas por Cliente) y 18 % / 50 % de caída, pasa sin munición solo entre el 0 y el 15 % del tiempo,
+  con una reserva promedio de ~20 balas. El bot (esquiva la horda, prioriza armas) sobrevive entre 3.4 y 4.3 min.
+  Como referencia, el mismo tipo de bot en el Hito 4 (Escoba automática hacia `facing`) moría en menos de 75 s.
+  La dificultad general (vida de los zombis, densidad) no se tocó; queda para ajustar con partidas reales.
+- **HUD:**
+  - Panel abajo a la izquierda con el arma activa y su nivel, `cargador / reserva` (amarillo con ≤ 25 %),
+    barra de "Recargando", "SIN MUNICIÓN" en rojo, y la munición entre paréntesis si se eligió la Escoba con balas.
+  - Las armas automáticas muestran una sombra que baja con su cooldown.
+- **Depuración:** `?ammo=N` arranca con el cargador vacío y N balas de reserva (con `?ammo=0` arranca directo en la Escoba).
+  `?weapons=all` deja las 4 automáticas y las 2 manuales en nivel 5, con la reserva llena.
+  El dataset suma `active`, `ammo`, `reloading`, `ammoBoxes` y `manualLevels`.

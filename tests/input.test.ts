@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aimFromScreen,
   combineAxis,
   joystickToAxis,
   keysToAxis,
+  readAim,
+  touchRole,
+  type AimResult,
   type JoystickConfig,
   type JoystickState,
   type KeyState,
+  type MouseState,
 } from '../src/core/input';
 import { length, vec2 } from '../src/core/math';
 
@@ -74,5 +79,69 @@ describe('combineAxis', () => {
   it('falls back to keyboard when the joystick is idle', () => {
     const v = combineAxis({ ...noKeys(), left: true }, joy(0, 0), cfg, vec2());
     expect(v).toEqual({ x: -1, y: 0 });
+  });
+});
+
+describe('touchRole', () => {
+  it('left half moves, right half aims', () => {
+    expect(touchRole(10, 800)).toBe('move');
+    expect(touchRole(399, 800)).toBe('move');
+    expect(touchRole(400, 800)).toBe('aim');
+    expect(touchRole(790, 800)).toBe('aim');
+  });
+});
+
+describe('aimFromScreen', () => {
+  it('points from the player to the cursor', () => {
+    const v = vec2();
+    expect(aimFromScreen(300, 100, 100, 100, v)).toBe(true);
+    expect(v).toEqual({ x: 1, y: 0 });
+    expect(aimFromScreen(100, 0, 100, 100, v)).toBe(true);
+    expect(v).toEqual({ x: 0, y: -1 });
+  });
+
+  it('reports no direction when the cursor is on the player', () => {
+    expect(aimFromScreen(100, 100, 100, 100, vec2())).toBe(false);
+  });
+});
+
+describe('readAim', () => {
+  const out = (): AimResult => ({ dir: vec2(), active: false, trigger: false });
+  const mouse = (over: Partial<MouseState> = {}): MouseState => ({
+    seen: true,
+    x: 300,
+    y: 100,
+    down: false,
+    ...over,
+  });
+  const idle = joy(0, 0, false);
+
+  it('mouse aims; the button or Space fires', () => {
+    const r = readAim(idle, mouse(), false, 100, 100, cfg, out());
+    expect(r.active).toBe(true);
+    expect(r.dir).toEqual({ x: 1, y: 0 });
+    expect(r.trigger).toBe(false);
+    expect(readAim(idle, mouse({ down: true }), false, 100, 100, cfg, out()).trigger).toBe(true);
+    expect(readAim(idle, mouse(), true, 100, 100, cfg, out()).trigger).toBe(true);
+  });
+
+  it('a pushed aim stick wins over the mouse and fires on its own', () => {
+    const r = readAim(joy(0, 60), mouse(), false, 100, 100, cfg, out());
+    expect(r.active).toBe(true);
+    expect(r.dir.x).toBeCloseTo(0);
+    expect(r.dir.y).toBeCloseTo(1);
+    expect(r.trigger).toBe(true);
+  });
+
+  it('an aim stick inside its dead zone neither aims nor fires', () => {
+    const r = readAim(joy(3, 0), mouse({ seen: false }), false, 100, 100, cfg, out());
+    expect(r.active).toBe(false);
+    expect(r.trigger).toBe(false);
+  });
+
+  it('keyboard only: no aim, Space still fires', () => {
+    const r = readAim(idle, mouse({ seen: false }), true, 100, 100, cfg, out());
+    expect(r.active).toBe(false);
+    expect(r.trigger).toBe(true);
   });
 });

@@ -69,27 +69,6 @@ describe('Latas (projectile)', () => {
   });
 });
 
-describe('Pistola de etiquetas (stream)', () => {
-  it('fires where the player faces, with a fast cadence', () => {
-    const world = worldWith('labelGun');
-    setVec(world.player.facing, 0, -1);
-    const ahead = tank(world, 0, -120);
-    const behind = tank(world, 0, 120);
-    run(world, 1);
-    const hits = (10_000 - ahead.hp) / 3;
-    expect(hits).toBeGreaterThanOrEqual(5);
-    expect(behind.hp).toBe(10_000);
-  });
-
-  it('fires several spread bullets at level 4', () => {
-    const world = worldWith('labelGun', 4);
-    run(world, FIXED_STEP);
-    expect(world.projectiles.count).toBe(2);
-    const [p, q] = world.projectiles.items;
-    expect(p?.vel.y).not.toBeCloseTo(q?.vel.y ?? 0);
-  });
-});
-
 describe('Bolsas de hielo (orbit)', () => {
   it('hits enemies on the ring, slows them, and respects the per-enemy interval', () => {
     const world = worldWith('ice');
@@ -157,23 +136,32 @@ describe('Microondas (turret)', () => {
 });
 
 describe('modifiers', () => {
-  it('Calculadora multiplies weapon damage', () => {
-    const world = worldWith('broom');
+  it('Calculadora multiplies automatic weapon damage', () => {
+    const world = worldWith('cans');
     world.player.mods.damage = 1.5;
-    const e = tank(world, 40, 0);
-    run(world, FIXED_STEP);
-    expect(10_000 - e.hp).toBe(15);
+    const e = tank(world, 100, 0);
+    run(world, 0.4);
+    expect(10_000 - e.hp).toBe(12);
   });
 
-  it('Café shortens cooldowns', () => {
-    const slow = worldWith('labelGun');
-    const fast = worldWith('labelGun');
+  it('Café shortens automatic cooldowns', () => {
+    const slow = worldWith('cans');
+    const fast = worldWith('cans');
     fast.player.mods.cooldown = 0.5;
     const a = tank(slow, 100, 0);
     const b = tank(fast, 100, 0);
-    run(slow, 1);
-    run(fast, 1);
+    run(slow, 3);
+    run(fast, 3);
     expect(10_000 - b.hp).toBeGreaterThan((10_000 - a.hp) * 1.6);
+  });
+
+  it('ignores manual weapons (they are driven by manual.ts)', () => {
+    const world = emptyWorld();
+    world.player.weapons = [createWeapon('broom'), createWeapon('labelGun')];
+    const e = tank(world, 40, 0);
+    run(world, 2);
+    expect(e.hp).toBe(10_000);
+    expect(world.projectiles.count).toBe(0);
   });
 });
 

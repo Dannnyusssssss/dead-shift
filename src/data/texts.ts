@@ -27,7 +27,7 @@ const es = {
   healDesc: 'Recupera {pct}% de vida',
 
   weaponBroom: 'Escoba',
-  weaponBroomDesc: 'Barre en arco frente a ti.',
+  weaponBroomDesc: 'Golpe en arco hacia donde apuntas. No gasta munición.',
   weaponCans: 'Latas de conserva',
   weaponCansDesc: 'Lanza latas al zombi más cercano.',
   weaponIce: 'Bolsas de hielo',
@@ -37,7 +37,13 @@ const es = {
   weaponMicrowave: 'Microondas',
   weaponMicrowaveDesc: 'Lo dejas en el suelo y dispara rayos.',
   weaponLabelGun: 'Pistola de etiquetas',
-  weaponLabelGunDesc: 'Ráfaga de etiquetas hacia donde caminas.',
+  weaponLabelGunDesc: 'Tu arma principal: dispara etiquetas hacia donde apuntas.',
+
+  noAmmo: 'SIN MUNICIÓN',
+  reloading: 'Recargando',
+  swapHint: 'Q / rueda: cambiar',
+  reloadHint: 'R: recargar',
+  swapButton: 'Cambiar arma',
 
   passiveShoes: 'Zapatillas antideslizantes',
   passiveShoesDesc: '+8% velocidad de movimiento',
@@ -68,6 +74,8 @@ const es = {
   statDuration: 's de duración',
   statUnits: 'microondas',
   statSpread: '° dispersión',
+  statMagazine: 'balas por cargador',
+  statReload: 's recarga',
 } as const;
 
 export type TextKey = keyof typeof es;
