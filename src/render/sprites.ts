@@ -2,16 +2,21 @@ import type { Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
 import {
+  ACCESSORY_STYLE,
+  CHEST_STYLE,
   COUPON_STYLE,
   CLOUD_STYLE,
   ENEMY_SPRITE,
+  FAINT,
   FLOOR,
+  HAZARD_STYLE,
   ICE_STYLE,
   MICROWAVE_STYLE,
   PLAYER_SPRITE,
   PROJECTILE_STYLE,
   SHELVES,
   SWEEP,
+  TELEGRAPH,
 } from '../data/render';
 
 /** Draws the supermarket floor covering the world-space rect [left, left+w] x [top, top+h]. */
@@ -178,7 +183,70 @@ export function drawPlayer(
   ctx.restore();
 }
 
-/** Top-down zombie: arms stretched toward where it walks; solid white while flashing. */
+// Reused line-dash patterns (setLineDash copies them, so sharing is safe).
+const DASH_TELEGRAPH = [10, 8];
+const DASH_TARGET = [6, 6];
+const NO_DASH: number[] = [];
+
+/** Job-specific details drawn in the enemy's local frame (facing +x). */
+function drawAccessory(ctx: CanvasRenderingContext2D, r: number, look: Readonly<EnemyLook>): void {
+  const a = ACCESSORY_STYLE;
+  switch (look.accessory) {
+    case 'cap':
+      ctx.fillStyle = a.cap;
+      ctx.beginPath();
+      ctx.arc(r * 0.1, 0, r * 0.48, Math.PI * 0.5, Math.PI * 1.5);
+      ctx.fill();
+      ctx.fillRect(r * 0.1, -r * 0.3, r * 0.55, r * 0.6);
+      break;
+    case 'frost':
+      ctx.fillStyle = a.frost;
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2 + 0.4;
+        ctx.fillRect(Math.cos(ang) * r * 0.55 - 1.5, Math.sin(ang) * r * 0.8 - 1.5, 3, 3);
+      }
+      break;
+    case 'cart':
+      // Shopping cart pushed in front.
+      ctx.fillStyle = a.cartBasket;
+      ctx.strokeStyle = a.cartFrame;
+      ctx.lineWidth = 2;
+      ctx.fillRect(r * 1.15, -r * 0.9, r * 1.3, r * 1.8);
+      ctx.strokeRect(r * 1.15, -r * 0.9, r * 1.3, r * 1.8);
+      ctx.beginPath();
+      for (let i = 1; i < 3; i++) {
+        ctx.moveTo(r * 1.15 + (i * r * 1.3) / 3, -r * 0.9);
+        ctx.lineTo(r * 1.15 + (i * r * 1.3) / 3, r * 0.9);
+      }
+      ctx.stroke();
+      break;
+    case 'apron':
+      ctx.fillStyle = a.apron;
+      ctx.fillRect(-r * 0.25, -r * 0.55, r * 0.5, r * 1.1);
+      ctx.fillStyle = a.visor;
+      ctx.fillRect(r * 0.35, -r * 0.42, r * 0.28, r * 0.84);
+      break;
+    case 'tie':
+      ctx.fillStyle = a.tie;
+      ctx.beginPath();
+      ctx.moveTo(r * 0.6, 0);
+      ctx.lineTo(r * 0.2, -r * 0.12);
+      ctx.lineTo(-r * 0.5, 0);
+      ctx.lineTo(r * 0.2, r * 0.12);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = a.badge;
+      ctx.fillRect(-r * 0.2, -r * 0.62, r * 0.22, r * 0.16);
+      break;
+    case 'none':
+      break;
+  }
+}
+
+/**
+ * Top-down zombie: arms stretched toward where it walks; solid white while flashing.
+ * `faint` (0..1) tips it over and fades it at dawn.
+ */
 export function drawEnemy(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -187,6 +255,7 @@ export function drawEnemy(
   radius: number,
   look: Readonly<EnemyLook>,
   flash: boolean,
+  faint = 0,
 ): void {
   const skin = flash ? ENEMY_SPRITE.flash : look.skin;
   const shirt = flash ? ENEMY_SPRITE.flash : look.shirt;
@@ -198,7 +267,13 @@ export function drawEnemy(
 
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(angle);
+  if (faint > 0) {
+    ctx.globalAlpha = 1 - (1 - FAINT.minAlpha) * faint;
+    ctx.rotate(angle + FAINT.tilt * faint);
+    ctx.scale(1, 1 - 0.45 * faint);
+  } else {
+    ctx.rotate(angle);
+  }
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = ENEMY_SPRITE.outline;
 
@@ -220,12 +295,125 @@ export function drawEnemy(
   ctx.stroke();
 
   if (!flash) {
+    drawAccessory(ctx, radius, look);
     ctx.fillStyle = ENEMY_SPRITE.eyes;
     ctx.fillRect(radius * 0.4, -radius * 0.25, radius * 0.16, radius * 0.16);
     ctx.fillRect(radius * 0.4, radius * 0.09, radius * 0.16, radius * 0.16);
   }
 
   ctx.restore();
+}
+
+/** Red line showing where a cart is about to charge. */
+export function drawTelegraph(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  dirX: number,
+  dirY: number,
+  length: number,
+  progress: number,
+): void {
+  ctx.strokeStyle = TELEGRAPH.color;
+  ctx.lineWidth = TELEGRAPH.width;
+  ctx.setLineDash(DASH_TELEGRAPH);
+  ctx.globalAlpha = 0.5 + 0.5 * progress;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + dirX * length, y + dirY * length);
+  ctx.stroke();
+  ctx.setLineDash(NO_DASH);
+  ctx.globalAlpha = 1;
+}
+
+export function drawPuddle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  lifeLeft: number,
+): void {
+  ctx.globalAlpha = Math.min(1, lifeLeft / 0.8);
+  ctx.fillStyle = HAZARD_STYLE.puddleFill;
+  ctx.strokeStyle = HAZARD_STYLE.puddleEdge;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r, r * 0.75, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/** Flying receipt plus the red circle where it will explode. */
+export function drawReceipt(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  targetX: number,
+  targetY: number,
+  explosionRadius: number,
+  age: number,
+): void {
+  ctx.strokeStyle = HAZARD_STYLE.targetColor;
+  ctx.lineWidth = 2;
+  ctx.setLineDash(DASH_TARGET);
+  ctx.beginPath();
+  ctx.arc(targetX, targetY, explosionRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash(NO_DASH);
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(age * HAZARD_STYLE.receiptSpin);
+  ctx.fillStyle = HAZARD_STYLE.receiptFill;
+  ctx.fillRect(-5, -8, 10, 16);
+  ctx.fillStyle = HAZARD_STYLE.receiptLine;
+  for (let i = 0; i < 4; i++) ctx.fillRect(-3, -5 + i * 3.5, 6, 1);
+  ctx.restore();
+}
+
+/** Boss shockwave: pulsing warning disc, then an expanding ring. */
+export function drawShockwave(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  ringRadius: number,
+  maxRadius: number,
+  warning: boolean,
+  time: number,
+): void {
+  if (warning) {
+    ctx.fillStyle = HAZARD_STYLE.shockWarn;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 30);
+    ctx.beginPath();
+    ctx.arc(x, y, maxRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    return;
+  }
+  ctx.strokeStyle = HAZARD_STYLE.shockRing;
+  ctx.lineWidth = 10;
+  ctx.globalAlpha = 1 - ringRadius / maxRadius / 2;
+  ctx.beginPath();
+  ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+export function drawChest(ctx: CanvasRenderingContext2D, x: number, y: number, time: number): void {
+  const s = CHEST_STYLE;
+  const by = y + Math.sin(time * 4) * 2;
+  ctx.fillStyle = s.glow;
+  ctx.beginPath();
+  ctx.arc(x, by, s.width * (0.95 + 0.1 * Math.sin(time * 6)), 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = s.body;
+  ctx.fillRect(x - s.width / 2, by - s.height / 2 + 6, s.width, s.height - 6);
+  ctx.fillStyle = s.lid;
+  ctx.fillRect(x - s.width / 2, by - s.height / 2, s.width, 8);
+  ctx.fillStyle = s.trim;
+  ctx.fillRect(x - s.width / 2, by - s.height / 2 + 7, s.width, 2);
+  ctx.fillRect(x - 3, by - 2, 6, 7);
 }
 
 /** Fading wedge showing a melee swing. `progress` goes 0 -> 1 over the fade time. */

@@ -64,13 +64,8 @@ export function buildCandidates(player: Readonly<Player>): Offer[] {
   return out;
 }
 
-/** Up to `count` distinct random candidates; a lone heal when nothing is left. */
-export function rollOffers(
-  player: Readonly<Player>,
-  rng: Rng,
-  count: number = PROGRESSION.offerCount,
-): Offer[] {
-  const pool = buildCandidates(player);
+/** Up to `count` distinct random picks from `pool`; a lone heal when it is empty. */
+function sample(pool: Offer[], rng: Rng, count: number): Offer[] {
   if (pool.length === 0) return [{ kind: 'heal' }];
   // Partial Fisher-Yates: the first `count` slots end up a uniform random sample.
   const n = Math.min(count, pool.length);
@@ -81,6 +76,15 @@ export function rollOffers(
     pool[j] = tmp;
   }
   return pool.slice(0, n);
+}
+
+/** Up to `count` distinct random candidates; a lone heal when nothing is left. */
+export function rollOffers(
+  player: Readonly<Player>,
+  rng: Rng,
+  count: number = PROGRESSION.offerCount,
+): Offer[] {
+  return sample(buildCandidates(player), rng, count);
 }
 
 export function applyOffer(player: Player, offer: Readonly<Offer>): void {
@@ -108,11 +112,42 @@ export function applyOffer(player: Player, offer: Readonly<Offer>): void {
   }
 }
 
-/** Pauses the run for an upgrade choice whenever level-ups are pending. */
-export function progressionSystem(world: World): void {
-  if (world.player.pendingLevelUps <= 0 || world.status !== 'playing') return;
+/** Boss chest: a free level for one of the weapons you own; heal if all are maxed. */
+export function rollChestOffers(
+  player: Readonly<Player>,
+  rng: Rng,
+  count: number = PROGRESSION.offerCount,
+): Offer[] {
+  const pool: Offer[] = buildCandidates(player).filter((o) => o.kind === 'upgradeWeapon');
+  return sample(pool, rng, count);
+}
+
+function rollFor(world: World): Offer[] {
+  return world.offerSource === 'chest'
+    ? rollChestOffers(world.player, world.rng)
+    : rollOffers(world.player, world.rng);
+}
+
+/** Shows the next pending choice (chests first, then levels) or resumes play. */
+function openNextChoice(world: World): void {
+  const p = world.player;
+  if (p.pendingChests > 0) {
+    world.offerSource = 'chest';
+  } else if (p.pendingLevelUps > 0) {
+    world.offerSource = 'level';
+  } else {
+    world.offers = [];
+    world.status = 'playing';
+    return;
+  }
   world.status = 'levelup';
-  world.offers = rollOffers(world.player, world.rng);
+  world.offers = rollFor(world);
+}
+
+/** Pauses the run for an upgrade choice whenever level-ups or chests are pending. */
+export function progressionSystem(world: World): void {
+  if (world.status !== 'playing') return;
+  if (world.player.pendingChests > 0 || world.player.pendingLevelUps > 0) openNextChoice(world);
 }
 
 /** Level shown on the current level-up screen (the oldest pending one). */
@@ -120,19 +155,16 @@ export function levelBeingChosen(player: Readonly<Player>): number {
   return player.level - player.pendingLevelUps + 1;
 }
 
-/** Applies the chosen offer; resumes play or rolls the next pending level-up. */
+/** Applies the chosen offer; then shows the next pending choice or resumes play. */
 export function chooseOffer(world: World, index: number): boolean {
   if (world.status !== 'levelup') return false;
   const offer = world.offers[index];
   if (!offer) return false;
   applyOffer(world.player, offer);
-  world.player.pendingLevelUps = Math.max(0, world.player.pendingLevelUps - 1);
-  if (world.player.pendingLevelUps > 0) {
-    world.offers = rollOffers(world.player, world.rng);
-  } else {
-    world.offers = [];
-    world.status = 'playing';
-  }
+  const p = world.player;
+  if (world.offerSource === 'chest') p.pendingChests = Math.max(0, p.pendingChests - 1);
+  else p.pendingLevelUps = Math.max(0, p.pendingLevelUps - 1);
+  openNextChoice(world);
   return true;
 }
 
@@ -140,6 +172,6 @@ export function chooseOffer(world: World, index: number): boolean {
 export function rerollOffers(world: World): boolean {
   if (world.status !== 'levelup' || world.rerollsLeft <= 0) return false;
   world.rerollsLeft--;
-  world.offers = rollOffers(world.player, world.rng);
+  world.offers = rollFor(world);
   return true;
 }

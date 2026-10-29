@@ -10,17 +10,21 @@ import {
   STATUS_TINT,
   SWEEP,
 } from '../data/render';
-import type { Enemy } from '../game/enemies';
-import type { Coupon } from '../game/pickups';
+import { CHARGE_STATE, type Enemy } from '../game/enemies';
+import { shockwaveRadius, type Hazard } from '../game/hazards';
+import type { Chest, Coupon } from '../game/pickups';
+import { shiftProgress } from '../game/shift';
 import type { Projectile } from '../game/projectiles';
 import type { Turret } from '../game/turrets';
 import { orbitBagAngle, statsAt } from '../game/weapons';
 import type { World } from '../game/world';
 import { drawHud, drawJoystick, type HudDebug } from './hud';
+import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
   drawBeam,
   drawCan,
+  drawChest,
   drawCloud,
   drawCoupon,
   drawEnemy,
@@ -29,8 +33,12 @@ import {
   drawLabel,
   drawMicrowave,
   drawPlayer,
+  drawPuddle,
+  drawReceipt,
+  drawShockwave,
   drawStatusTint,
   drawSweep,
+  drawTelegraph,
 } from './sprites';
 
 export interface RenderFrame {
@@ -43,6 +51,8 @@ export interface RenderFrame {
   input: Readonly<Input>;
   particles: Particles;
   debug: HudDebug;
+  /** 0..1 progress of the dawn "fainting" animation (0 while the night goes on). */
+  faint: number;
 }
 
 export interface Renderer {
@@ -66,6 +76,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   let dpr = 1;
   let left = 0;
   let top = 0;
+  const lighting = createLighting();
 
   /** Cheap per-frame check; handles window resize, rotation and DPR changes (zoom). */
   function syncSize(): void {
@@ -80,11 +91,41 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     canvas.height = Math.round(h * dpr);
   }
 
-  const visible = (x: number, y: number): boolean =>
-    x >= left - CULL_PAD &&
-    x <= left + viewW + CULL_PAD &&
-    y >= top - CULL_PAD &&
-    y <= top + viewH + CULL_PAD;
+  const visible = (x: number, y: number, pad = CULL_PAD): boolean =>
+    x >= left - pad && x <= left + viewW + pad && y >= top - pad && y <= top + viewH + pad;
+
+  function drawGroundHazards(world: Readonly<World>): void {
+    const { items, count } = world.hazards;
+    for (let i = 0; i < count; i++) {
+      const h = items[i] as Hazard;
+      if (h.kind === 'puddle' && visible(h.pos.x, h.pos.y, h.radius)) {
+        drawPuddle(ctx, h.pos.x, h.pos.y, h.radius, h.duration - h.age);
+      }
+    }
+  }
+
+  function drawAirHazards(world: Readonly<World>, alpha: number): void {
+    const { items, count } = world.hazards;
+    for (let i = 0; i < count; i++) {
+      const h = items[i] as Hazard;
+      if (h.kind === 'receipt') {
+        const x = lerp(h.prevPos.x, h.pos.x, alpha);
+        const y = lerp(h.prevPos.y, h.pos.y, alpha);
+        drawReceipt(ctx, x, y, h.target.x, h.target.y, h.radius, h.age);
+      } else if (h.kind === 'shockwave') {
+        const warning = h.age < h.windup;
+        drawShockwave(ctx, h.pos.x, h.pos.y, shockwaveRadius(h), h.radius, warning, world.time);
+      }
+    }
+  }
+
+  function drawChests(world: Readonly<World>): void {
+    const { items, count } = world.chests;
+    for (let i = 0; i < count; i++) {
+      const c = items[i] as Chest;
+      drawChest(ctx, c.pos.x, c.pos.y, world.time);
+    }
+  }
 
   function drawCoupons(world: Readonly<World>): void {
     const { items, count } = world.coupons;
@@ -94,15 +135,26 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
-  function drawEnemies(world: Readonly<World>, alpha: number): void {
+  function drawEnemies(world: Readonly<World>, alpha: number, faint: number): void {
     const { items, count } = world.enemies;
     for (let i = 0; i < count; i++) {
       const e = items[i] as Enemy;
       const x = lerp(e.prevPos.x, e.pos.x, alpha);
       const y = lerp(e.prevPos.y, e.pos.y, alpha);
-      if (!visible(x, y)) continue;
-      const angle = Math.atan2(e.vel.y, e.vel.x);
-      drawEnemy(ctx, x, y, angle, e.radius, e.def.look, e.hitTimer > 0);
+      // Accessories (the cart) reach ~2.5 radii ahead.
+      if (!visible(x, y, CULL_PAD + e.radius * 2.5)) continue;
+      const b = e.def.behavior;
+      if (b.kind === 'charge' && e.aiState === CHARGE_STATE.windup && faint === 0) {
+        const length = b.chargeSpeed * b.chargeTime;
+        drawTelegraph(ctx, x, y, e.aiDir.x, e.aiDir.y, length, 1 - e.aiTimer / b.windup);
+      }
+      // A cart winding up faces where it will charge, not where it last walked.
+      const facing =
+        b.kind === 'charge' && e.aiState !== CHARGE_STATE.approach
+          ? Math.atan2(e.aiDir.y, e.aiDir.x)
+          : Math.atan2(e.vel.y, e.vel.x);
+      drawEnemy(ctx, x, y, facing, e.radius, e.def.look, e.hitTimer > 0, faint);
+      if (faint > 0) continue;
       if (e.poisonTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.poison);
       else if (e.slowTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.slow);
     }
@@ -196,19 +248,30 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       ctx.save();
       ctx.translate(-left, -top);
       drawFloor(ctx, left, top, viewW, viewH, world.seed);
+      drawGroundHazards(world);
       frame.particles.draw(ctx);
       drawCoupons(world);
+      drawChests(world);
       drawTurrets(world);
-      drawEnemies(world, frame.alpha);
+      drawEnemies(world, frame.alpha, frame.faint);
       drawProjectiles(world, frame.alpha);
+      drawAirHazards(world, frame.alpha);
       drawWeaponEffects(world, playerPos);
       const blinkOff =
         player.invulnTimer > 0 && Math.floor(world.time * PLAYER_BLINK_RATE * 2) % 2 === 1;
       if (!blinkOff) drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius);
       ctx.restore();
 
+      lighting.draw(
+        ctx,
+        playerPos.x - left,
+        playerPos.y - top,
+        viewW,
+        viewH,
+        shiftProgress(world.time),
+      );
       drawJoystick(ctx, frame.input.joystick, frame.input.joystickConfig);
-      drawHud(ctx, viewW, world, frame.debug);
+      drawHud(ctx, viewW, viewH, world, frame.debug);
     },
   };
 }

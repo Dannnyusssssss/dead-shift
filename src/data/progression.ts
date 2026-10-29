@@ -24,4 +24,7 @@ export const COUPONS = {
   /** px/s² */
   attractAccel: 1100,
   maxSpeed: 700,
+  /** Boss chest pickup radius, px. */
+  chestRadius: 18,
+  chestCapacity: 4,
 } as const;

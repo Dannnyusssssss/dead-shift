@@ -2,6 +2,8 @@ import { t } from '../data/texts';
 import type { OfferView } from './describe';
 
 export interface LevelUpView {
+  /** A level-up or the boss chest (free weapon upgrade). */
+  source: 'level' | 'chest';
   level: number;
   offers: readonly OfferView[];
   rerollsLeft: number;
@@ -97,7 +99,10 @@ export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
       const wasHidden = overlay.hidden;
       handlers = nextHandlers;
       offerCount = view.offers.length;
-      title.textContent = t('levelUpTitle', { level: view.level });
+      const chest = view.source === 'chest';
+      title.textContent = chest ? t('chestTitle') : t('levelUpTitle', { level: view.level });
+      title.className = `ds-title ${chest ? 'ds-title-chest' : 'ds-title-level'}`;
+      hint.textContent = chest ? t('chestHint') : t('levelUpHint');
       renderCards(view);
       reroll.textContent = `${t('reroll')} (R) ${t('rerollsLeft', { n: view.rerollsLeft })}`;
       reroll.disabled = view.rerollsLeft <= 0;

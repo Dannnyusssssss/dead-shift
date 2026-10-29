@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { FIXED_STEP } from '../src/core/loop';
 import { COMBAT } from '../src/data/combat';
-import { WAVES } from '../src/data/waves';
+import { SHIFT } from '../src/data/shift';
+import { BOSSES, WAVES } from '../src/data/waves';
 import { chooseOffer } from '../src/game/progression';
 import { spawnHorde, spawnRadiusForView, spawnSystem } from '../src/game/spawner';
+import { findNearestEnemy } from '../src/game/weapons';
 import { updateWorld } from '../src/game/world';
 import { emptyWorld } from './helpers';
 
@@ -78,7 +80,115 @@ describe('spawner', () => {
   });
 });
 
+interface SpawnRecord {
+  time: number;
+  id: string;
+  x: number;
+  y: number;
+  hp: number;
+}
+
+/**
+ * Runs only the spawner for the whole shift, removing every enemy right after it appears
+ * (so the cap never interferes) and recording each spawn.
+ */
+function recordShift(seed: number): SpawnRecord[] {
+  const world = emptyWorld(seed);
+  const out: SpawnRecord[] = [];
+  const steps = Math.round(SHIFT.durationSeconds / FIXED_STEP);
+  for (let i = 0; i < steps; i++) {
+    spawnSystem(world, FIXED_STEP);
+    for (let k = world.enemies.count - 1; k >= 0; k--) {
+      const e = world.enemies.items[k];
+      if (e) out.push({ time: world.time, id: e.def.id, x: e.pos.x, y: e.pos.y, hp: e.maxHp });
+      world.enemies.releaseAt(k);
+    }
+    world.time += FIXED_STEP;
+  }
+  return out;
+}
+
+describe('spawner over the whole shift', () => {
+  const a = recordShift(2024);
+
+  it('is fully deterministic with the same seed', () => {
+    expect(recordShift(2024)).toEqual(a);
+    expect(recordShift(2025)).not.toEqual(a);
+  });
+
+  it('introduces each enemy type on schedule', () => {
+    const first = (id: string) => a.find((r) => r.id === id)?.time ?? Infinity;
+    expect(first('client')).toBeLessThan(2);
+    expect(first('delivery')).toBeGreaterThanOrEqual(90);
+    expect(first('delivery')).toBeLessThan(110);
+    expect(first('frozen')).toBeGreaterThanOrEqual(180);
+    expect(first('cart')).toBeGreaterThanOrEqual(270);
+    expect(first('cashier')).toBeGreaterThanOrEqual(360);
+    expect(first('cashier')).toBeLessThan(380);
+  });
+
+  it('spawns each boss exactly once, on time, the second one stronger', () => {
+    const bosses = a.filter((r) => r.id === 'manager');
+    expect(bosses.map((b) => Math.round(b.time))).toEqual(BOSSES.map((b) => b.time));
+    const [b1, b2] = bosses;
+    expect(b2?.hp ?? 0).toBeGreaterThan((b1?.hp ?? 0) * 1.5);
+  });
+
+  it('scales hp by 8% per minute', () => {
+    const late = a.find((r) => r.id === 'client' && r.time >= 300);
+    expect(late?.hp).toBeCloseTo(20 * (1 + 0.08 * ((late?.time ?? 0) / 60)));
+  });
+
+  it('respects the cap for the whole shift and still spawns bosses when full', () => {
+    const world = emptyWorld(9);
+    let max = 0;
+    let bosses = 0;
+    const steps = Math.round(SHIFT.durationSeconds / FIXED_STEP);
+    for (let i = 0; i < steps; i++) {
+      spawnSystem(world, FIXED_STEP);
+      max = Math.max(max, world.enemies.count);
+      world.time += FIXED_STEP;
+    }
+    for (let i = 0; i < world.enemies.count; i++) {
+      if (world.enemies.items[i]?.def.id === 'manager') bosses++;
+    }
+    expect(max).toBe(COMBAT.maxEnemies);
+    expect(bosses).toBe(BOSSES.length);
+  });
+});
+
 describe('full simulation', () => {
+  it('a full 10-minute shift can be survived and won at 6:00 AM', () => {
+    const world = emptyWorld(11);
+    world.player.invincible = true;
+    let maxEnemies = 0;
+    let steps = 0;
+    const limit = Math.round(SHIFT.durationSeconds / FIXED_STEP) + 10;
+    while (world.status !== 'won' && world.status !== 'dead' && steps < limit) {
+      if (world.status === 'levelup') chooseOffer(world, 0);
+      // Act like a player: face the nearest zombie and close in (the broom only hits forward).
+      const p = world.player.pos;
+      const target = findNearestEnemy(world, p.x, p.y, Infinity);
+      if (target) {
+        const dx = target.pos.x - p.x;
+        const dy = target.pos.y - p.y;
+        const d = Math.hypot(dx, dy) || 1;
+        const throttle = d > 60 ? 1 : 0.05;
+        world.moveInput.x = (dx / d) * throttle;
+        world.moveInput.y = (dy / d) * throttle;
+      }
+      updateWorld(world, FIXED_STEP);
+      maxEnemies = Math.max(maxEnemies, world.enemies.count);
+      steps++;
+    }
+    expect(world.status).toBe('won');
+    expect(world.time).toBe(SHIFT.durationSeconds);
+    expect(steps).toBe(Math.round(SHIFT.durationSeconds / FIXED_STEP));
+    expect(maxEnemies).toBeLessThanOrEqual(COMBAT.maxEnemies);
+    expect(world.kills).toBeGreaterThan(500);
+    expect(world.player.level).toBeGreaterThan(10);
+  }, 120_000);
+
   it('a standing player eventually dies and the world freezes', () => {
     const world = emptyWorld(7);
     let steps = 0;

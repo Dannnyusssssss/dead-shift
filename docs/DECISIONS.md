@@ -86,3 +86,41 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Pantalla de mejora** en DOM: teclas 1/2/3 y R, clic o toque, foco en la primera tarjeta. Durante 250 ms después de abrirse
   se ignoran los clics, para que un toque pensado para el juego no elija una carta sin querer.
 - **Depuración:** `?weapons=all` arranca con las 6 armas en nivel 5 (ignora el límite de 4 slots).
+
+## Hito 4
+
+- **Comportamientos como datos.** `behavior` es un objeto con sus parámetros (`{ kind: 'charge', windup: 0.6, ... }`);
+  el código tiene un `switch` por `kind`. Un enemigo nuevo con un comportamiento existente solo toca `data/enemies.ts`.
+  El estado de IA es genérico (`aiState`, `aiTimer`, `aiTimer2`, `aiPhase`, `aiDir`).
+- **Valores no especificados** (ajustables en `data/enemies.ts`):
+  - Radios: Cliente 12, Repartidor 10, Congelado 16, Carrito 15, Cajero 12, Gerente 30.
+  - XP: 1 (Cliente, Repartidor), 5 (Congelado, Carrito, Cajero), 20 (Gerente).
+  - Resistencia al empuje: Congelado 60 %, Carrito 30 %, Gerente 90 %.
+  - Repartidor: oscilación lateral de fuerza 1.2 y 1.1 Hz.
+  - Congelado: charco cada 0.8 s, radio 28, dura 4 s, −40 % de velocidad.
+  - Carrito: se activa a ≤ 260 px, embiste a 380 px/s durante 0.8 s y se recupera 1 s (persiguiendo a media velocidad).
+  - Cajero: distancia preferida de 260 ± 50 px, recibo cada 2.5 s a 260 px/s, explota en un radio de 45 con 8 de daño (escalado).
+    Apunta a donde estabas, así que se puede esquivar.
+  - Gerente: 6 Clientes cada 10 s a 70 px de él; onda cada 6 s con 0.5 s de aviso, que crece hasta 220 px en 0.6 s,
+    hace 15 de daño (escalado) y golpea una sola vez.
+- **Jefe 2 "más fuerte":** ×1.5 vida y ×1.25 daño, además del escalado por minuto (a los 9:00 ya es ×1.72).
+  Si la arena está en el tope de 400, se elimina el zombi común más lejano para que el jefe siempre aparezca.
+- **Escalado:** vida y daño × (1 + 0.08 × minutos), calculado al aparecer con el tiempo continuo, no por minuto entero.
+  El factor se guarda en el enemigo, así los recibos y la onda también escalan.
+- **Oleadas:** las filas admiten `offset` (segundos dentro del minuto), para el Repartidor a la 1:30, el Carrito a las 4:30
+  y el enjambre final a las 9:30. Los jefes van en su propia tabla `BOSSES`.
+  El Cajero entra a las 6:00 (como dice la tabla de enemigos de CLAUDE.md), no en el minuto 8 de la tabla orientativa de oleadas.
+- **Cofre del jefe:** abre la pantalla de mejora con hasta 3 mejoras de armas que ya tienes (o curar si todas están en nivel 5),
+  en vez de aplicar una al azar, para que la mejora "gratis" se pueda elegir. Los cofres pendientes se abren antes que los niveles.
+  El cofre no se imanta: hay que caminar hasta él.
+- **Reloj:** 600 s reales = de 22:00 a 06:00 (48 min de reloj por minuto real). Al amanecer el tiempo se fija en 600 exactos
+  (la suma de pasos de 1/60 s queda a una fracción) y el estado pasa a `won`; la lógica se congela.
+- **Amanecer:** los zombis giran, se aplastan y se desvanecen durante 1.5 s (animación solo de render). La pantalla de victoria
+  aparece 1.8 s después.
+- **Oscuridad:** 82 % hasta el 45 % del turno (~1:36 AM); después se aclara linealmente hasta 0 a las 6 AM, mientras la linterna
+  pasa de 250 a 650 px de radio. El gradiente se cuantiza en 64 escalones y se reutiliza (sin crear objetos por frame).
+  Desde el 85 % del turno se suma un tinte cálido de amanecer.
+- **HUD en pantallas angostas (< 640 px):** el reloj va arriba a la derecha y la barra del jefe debajo de la columna izquierda,
+  para no taparse. Las métricas de depuración pasan a la esquina inferior derecha.
+- **Depuración:** `?t=SEGUNDOS` arranca el reloj adelantado (los jefes cuyo momento ya pasó no aparecen).
+  Se publican también los tipos de enemigos, los peligros por tipo y los carritos apuntando.

@@ -9,7 +9,8 @@ export function movementSystem(world: World, dt: number): void {
   if (mag === 0) return;
   // Guard against callers passing an unnormalized vector.
   const scale = mag > 1 ? 1 / mag : 1;
-  player.pos.x += input.x * scale * player.speed * dt;
-  player.pos.y += input.y * scale * player.speed * dt;
+  const speed = player.speed * (player.slowTimer > 0 ? 1 - player.slowFactor : 1);
+  player.pos.x += input.x * scale * speed * dt;
+  player.pos.y += input.y * scale * speed * dt;
   setVec(player.facing, input.x / mag, input.y / mag);
 }

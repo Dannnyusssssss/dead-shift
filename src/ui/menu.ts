@@ -5,11 +5,15 @@ export interface RunStats {
   timeSurvived: number;
   kills: number;
   level: number;
+  /** In-game clock at the end, e.g. "1:36 AM". */
+  clock: string;
 }
 
-export interface GameOverScreen {
+export type EndVariant = 'victory' | 'defeat';
+
+export interface EndScreen {
   readonly visible: boolean;
-  show(stats: Readonly<RunStats>, onRetry: () => void): void;
+  show(variant: EndVariant, stats: Readonly<RunStats>, onRetry: () => void): void;
   hide(): void;
 }
 
@@ -31,14 +35,15 @@ function statRow(label: string): { row: HTMLElement; value: HTMLElement } {
   return { row, value };
 }
 
-export function createGameOverScreen(root: HTMLElement): GameOverScreen {
+/** Victory / defeat screen with run stats and a retry button. */
+export function createEndScreen(root: HTMLElement): EndScreen {
   const overlay = el('div', 'ds-overlay');
   overlay.hidden = true;
   const panel = el('div', 'ds-panel');
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-modal', 'true');
-  const title = el('h1', 'ds-title ds-title-danger', t('gameOverTitle'));
-  const subtitle = el('p', 'ds-subtitle', t('gameOverSubtitle'));
+  const title = el('h1', 'ds-title');
+  const subtitle = el('p', 'ds-subtitle');
   const time = statRow(t('statTime'));
   const kills = statRow(t('statKills'));
   const level = statRow(t('statLevel'));
@@ -55,8 +60,14 @@ export function createGameOverScreen(root: HTMLElement): GameOverScreen {
     get visible() {
       return !overlay.hidden;
     },
-    show(stats, retryHandler) {
+    show(variant, stats, retryHandler) {
       onRetry = retryHandler;
+      const won = variant === 'victory';
+      title.textContent = won ? t('victoryTitle') : t('gameOverTitle');
+      title.className = `ds-title ${won ? 'ds-title-victory' : 'ds-title-danger'}`;
+      subtitle.textContent = won
+        ? t('victorySubtitle')
+        : t('gameOverSubtitle', { clock: stats.clock });
       time.value.textContent = formatDuration(stats.timeSurvived);
       kills.value.textContent = String(stats.kills);
       level.value.textContent = String(stats.level);

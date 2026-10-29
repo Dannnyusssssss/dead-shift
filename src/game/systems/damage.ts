@@ -3,11 +3,12 @@ import type { Enemy } from '../enemies';
 import type { Player } from '../player';
 import type { World } from '../world';
 
-/** Applies damage and sets knockback velocity. Returns true if the hit was lethal. */
+/** Applies damage and sets knockback (reduced by resistance). Returns true if lethal. */
 export function damageEnemy(enemy: Enemy, amount: number, kx: number, ky: number): boolean {
+  const push = 1 - enemy.def.knockbackResist;
   enemy.hp -= amount;
-  enemy.knockback.x = kx;
-  enemy.knockback.y = ky;
+  enemy.knockback.x = kx * push;
+  enemy.knockback.y = ky * push;
   enemy.hitTimer = COMBAT.hitFlashTime;
   return enemy.hp <= 0;
 }
@@ -24,6 +25,7 @@ export function damagePlayer(player: Player, amount: number): boolean {
 export function timersSystem(world: World, dt: number): void {
   const p = world.player;
   p.invulnTimer = Math.max(0, p.invulnTimer - dt);
+  p.slowTimer = Math.max(0, p.slowTimer - dt);
   const { items, count } = world.enemies;
   for (let i = 0; i < count; i++) {
     const e = items[i] as Enemy;

@@ -53,6 +53,11 @@ export interface Player {
   xp: number;
   /** Levels gained whose upgrade has not been chosen yet. */
   pendingLevelUps: number;
+  /** Boss chests picked up but not opened yet. */
+  pendingChests: number;
+  /** Fraction of speed removed while `slowTimer` > 0 (puddles). */
+  slowFactor: number;
+  slowTimer: number;
   weapons: WeaponInstance[];
   passives: PassiveInstance[];
   /** Debug only: hits land but never reduce hp. */
@@ -76,6 +81,9 @@ export function createPlayer(stats: Readonly<PlayerStats> = PLAYER_BASE): Player
     level: 1,
     xp: 0,
     pendingLevelUps: 0,
+    pendingChests: 0,
+    slowFactor: 0,
+    slowTimer: 0,
     weapons: [createWeapon(STARTING_WEAPON)],
     passives: [],
     invincible: false,

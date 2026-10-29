@@ -129,6 +129,89 @@ export const MICROWAVE_STYLE = {
   blinkWhenLeft: 1.5,
 } as const;
 
+export const ACCESSORY_STYLE = {
+  cap: '#d9531e',
+  frost: 'rgba(240, 252, 255, 0.9)',
+  cartFrame: '#9aa3ad',
+  cartBasket: 'rgba(154, 163, 173, 0.35)',
+  apron: '#f2f2f2',
+  visor: '#1f6f45',
+  tie: '#d63a3a',
+  badge: '#f6c445',
+} as const;
+
+/** Dawn "fainting": enemies tip over, squash and fade. */
+export const FAINT = {
+  duration: 1.5,
+  /** Final rotation, rad. */
+  tilt: 1.4,
+  minAlpha: 0.35,
+} as const;
+
+/** Seconds after dawn before the victory screen appears. */
+export const VICTORY_SCREEN_DELAY = 1.8;
+
+export const LIGHTING = {
+  /** Darkness at 10 PM (0..1). */
+  maxDarkness: 0.82,
+  /** Shift progress at which the darkness starts to lift (0 = 10 PM, 1 = 6 AM). */
+  liftFrom: 0.45,
+  /** Flashlight: fully lit inside `inner`, fading to dark at `outer` (px). */
+  inner: 70,
+  outer: 250,
+  /** The lit area grows toward this outer radius as the night ends. */
+  outerAtDawn: 650,
+  /** Darkness is quantized to this many steps so the gradient is rebuilt rarely. */
+  steps: 64,
+  dawnTint: 'rgba(255, 170, 90, 0.10)',
+  /** Progress from which the warm dawn tint fades in. */
+  dawnTintFrom: 0.85,
+} as const;
+
+export const HAZARD_STYLE = {
+  puddleFill: 'rgba(150, 215, 245, 0.45)',
+  puddleEdge: 'rgba(220, 245, 255, 0.7)',
+  receiptFill: '#fafafa',
+  receiptLine: '#9a9a9a',
+  receiptSpin: 9,
+  targetColor: 'rgba(230, 50, 40, 0.75)',
+  explosionColor: '#f29d38',
+  shockWarn: 'rgba(230, 50, 40, 0.35)',
+  shockRing: 'rgba(255, 120, 80, 0.85)',
+} as const;
+
+/** Cart wind-up warning line. */
+export const TELEGRAPH = {
+  color: 'rgba(235, 40, 40, 0.7)',
+  width: 4,
+} as const;
+
+export const CHEST_STYLE = {
+  body: '#8a5a2b',
+  lid: '#a86f37',
+  trim: '#f6c445',
+  glow: 'rgba(246, 196, 69, 0.35)',
+  width: 30,
+  height: 22,
+} as const;
+
+export const CLOCK_HUD = {
+  font: '700 22px system-ui, sans-serif',
+  y: 26,
+} as const;
+
+export const BOSS_BAR = {
+  width: 360,
+  height: 12,
+  y: 48,
+  /** On narrow screens the bar sits below the left HUD column. */
+  narrowY: 150,
+  bg: 'rgba(0, 0, 0, 0.6)',
+  fill: '#b23be0',
+  border: 'rgba(255, 255, 255, 0.8)',
+  font: '700 12px system-ui, sans-serif',
+} as const;
+
 export const XP_BAR = {
   height: 10,
   bg: 'rgba(0, 0, 0, 0.55)',
@@ -166,10 +249,22 @@ export const PARTICLES = {
     sizeMax: 4,
   },
   hitColor: '#e23b3b',
+  explosionColor: '#f29d38',
+  explosion: {
+    count: 16,
+    speedMin: 60,
+    speedMax: 220,
+    lifeMin: 0.25,
+    lifeMax: 0.55,
+    sizeMin: 3,
+    sizeMax: 6,
+  },
 } as const;
 
 export const HUD = {
   margin: 16,
+  /** Below this view width (px) the clock moves to the top-right corner. */
+  wideLayoutMinWidth: 640,
   font: '600 14px system-ui, sans-serif',
   smallFont: '12px system-ui, sans-serif',
   hpBarWidth: 220,

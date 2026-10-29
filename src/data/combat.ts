@@ -29,4 +29,12 @@ export const COMBAT = {
   maxTargetDistance: 600,
   /** Max enemies one projectile remembers having hit (pierce + 1 must fit). */
   maxProjectileHits: 4,
+  /** Enemy hp and damage grow by this fraction per minute of game time. */
+  scalingPerMinute: 0.08,
+  /** Puddles, receipts and shockwaves alive at once. */
+  hazardCapacity: 160,
+  /** Receipts explode after this long even if they never reach the target, s. */
+  receiptMaxLife: 3,
+  /** Shockwave ring thickness that counts as a hit, px. */
+  shockwaveThickness: 26,
 } as const;

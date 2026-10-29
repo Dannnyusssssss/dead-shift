@@ -204,3 +204,11 @@
     min-height: 0;
   }
 }
+
+.ds-title-victory {
+  color: #ffc46b;
+}
+
+.ds-title-chest {
+  color: #f6c445;
+}

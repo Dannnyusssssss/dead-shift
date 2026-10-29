@@ -1,16 +1,18 @@
 import { COMBAT } from '../data/combat';
 import { ENEMIES } from '../data/enemies';
-import { WAVES, type WaveEntry } from '../data/waves';
+import { BOSSES, WAVES, type BossEntry, type WaveEntry } from '../data/waves';
 import { spawnEnemy, type Enemy } from './enemies';
 import type { World } from './world';
 
 export interface SpawnerState {
   /** Fractional groups owed per wave entry (same index as the wave table). */
   acc: Float64Array;
+  /** Index of the next boss in BOSSES. */
+  nextBoss: number;
 }
 
 export function createSpawnerState(waves: readonly WaveEntry[] = WAVES): SpawnerState {
-  return { acc: new Float64Array(waves.length) };
+  return { acc: new Float64Array(waves.length), nextBoss: 0 };
 }
 
 /** Ring radius that keeps spawns just outside a view of the given size. */
@@ -37,6 +39,39 @@ export function spawnGroup(world: World, entry: Readonly<WaveEntry>): void {
   }
 }
 
+/** At the cap, frees the slot of the regular enemy farthest from the player. */
+function makeRoom(world: World): void {
+  const pool = world.enemies;
+  if (pool.count < COMBAT.maxEnemies) return;
+  const p = world.player.pos;
+  let farthest = -1;
+  let best = -1;
+  for (let i = 0; i < pool.count; i++) {
+    const e = pool.items[i] as Enemy;
+    if (e.def.dropsChest) continue;
+    const d2 = (e.pos.x - p.x) ** 2 + (e.pos.y - p.y) ** 2;
+    if (d2 > best) {
+      best = d2;
+      farthest = i;
+    }
+  }
+  if (farthest >= 0) pool.releaseAt(farthest);
+}
+
+function spawnBoss(world: World, entry: Readonly<BossEntry>): void {
+  // A boss must always appear, even when the arena is at the enemy cap.
+  makeRoom(world);
+  ringPoint(world, world.rng.range(0, Math.PI * 2), scratch);
+  spawnEnemy(
+    world,
+    ENEMIES[entry.enemyId],
+    scratch.x,
+    scratch.y,
+    entry.hpMultiplier,
+    entry.damageMultiplier,
+  );
+}
+
 /** Evenly spaced horde on the ring (debug / stress testing). */
 export function spawnHorde(world: World, count: number): void {
   const def = ENEMIES.client;
@@ -44,6 +79,14 @@ export function spawnHorde(world: World, count: number): void {
     ringPoint(world, (i / count) * Math.PI * 2, scratch);
     if (!spawnEnemy(world, def, scratch.x, scratch.y)) return;
   }
+}
+
+/** Debug: start the run at `time`, skipping bosses that would already have appeared. */
+export function fastForward(world: World, time: number): void {
+  world.time = time;
+  let next = 0;
+  while (next < BOSSES.length && (BOSSES[next]?.time ?? Infinity) < time) next++;
+  world.spawner.nextBoss = next;
 }
 
 /** Moves enemies left far behind back onto the ring so the arena never empties. */
@@ -65,16 +108,22 @@ function relocateFarEnemies(world: World): void {
 
 export function spawnSystem(world: World, dt: number): void {
   const minute = Math.floor(world.time / 60);
+  const intoMinute = world.time - minute * 60;
   const acc = world.spawner.acc;
   for (let i = 0; i < WAVES.length; i++) {
     const entry = WAVES[i] as WaveEntry;
-    if (entry.minute !== minute) continue;
+    if (entry.minute !== minute || intoMinute < (entry.offset ?? 0)) continue;
     let owed = (acc[i] ?? 0) + entry.spawnPerSecond * dt;
     while (owed >= 1) {
       owed -= 1;
       spawnGroup(world, entry);
     }
     acc[i] = owed;
+  }
+  const s = world.spawner;
+  for (let boss = BOSSES[s.nextBoss]; boss && world.time >= boss.time; boss = BOSSES[s.nextBoss]) {
+    spawnBoss(world, boss);
+    s.nextBoss++;
   }
   relocateFarEnemies(world);
 }

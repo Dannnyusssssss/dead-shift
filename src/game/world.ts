@@ -6,10 +6,18 @@ import { COMBAT } from '../data/combat';
 import { COUPONS, PROGRESSION } from '../data/progression';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
 import { createEventQueue, type EventQueue } from './events';
-import { createCouponObject, pickupSystem, type Coupon } from './pickups';
+import { createHazardObject, hazardSystem, type Hazard } from './hazards';
+import {
+  createChestObject,
+  createCouponObject,
+  pickupSystem,
+  type Chest,
+  type Coupon,
+} from './pickups';
 import { createPlayer, type Player } from './player';
 import { progressionSystem, type Offer } from './progression';
 import { createProjectileObject, projectileSystem, type Projectile } from './projectiles';
+import { checkDawn } from './shift';
 import { createSpawnerState, spawnSystem, type SpawnerState } from './spawner';
 import { contactDamageSystem, separationSystem, spatialIndexSystem } from './systems/collision';
 import { timersSystem } from './systems/damage';
@@ -19,8 +27,11 @@ import { statusSystem } from './systems/status';
 import { createTurretObject, turretSystem, type Turret } from './turrets';
 import { weaponSystem } from './weapons';
 
-/** `levelup` pauses the simulation until an offer is chosen. */
-export type WorldStatus = 'playing' | 'levelup' | 'dead';
+/** `levelup` pauses the simulation until an offer is chosen; `dead` and `won` end the run. */
+export type WorldStatus = 'playing' | 'levelup' | 'dead' | 'won';
+
+/** Where the current offers come from: a level-up or a boss chest. */
+export type OfferSource = 'level' | 'chest';
 
 export interface World {
   seed: number;
@@ -37,6 +48,8 @@ export interface World {
   projectiles: Pool<Projectile>;
   turrets: Pool<Turret>;
   coupons: Pool<Coupon>;
+  chests: Pool<Chest>;
+  hazards: Pool<Hazard>;
   hash: SpatialHash;
   /** Reusable output buffer for spatial queries. */
   queryBuf: Int32Array;
@@ -46,6 +59,7 @@ export interface World {
   spawnRadius: number;
   /** Upgrades on offer while `status === 'levelup'`. */
   offers: Offer[];
+  offerSource: OfferSource;
   rerollsLeft: number;
 }
 
@@ -63,6 +77,7 @@ const SYSTEMS: readonly System[] = [
   weaponSystem,
   turretSystem,
   projectileSystem,
+  hazardSystem,
   contactDamageSystem,
   deathSystem,
   pickupSystem,
@@ -84,12 +99,15 @@ export function createWorld(seed: number): World {
     projectiles: createPool(COMBAT.projectileCapacity, createProjectileObject),
     turrets: createPool(COMBAT.turretCapacity, createTurretObject),
     coupons: createPool(COUPONS.capacity, createCouponObject),
+    chests: createPool(COUPONS.chestCapacity, createChestObject),
+    hazards: createPool(COMBAT.hazardCapacity, createHazardObject),
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),
     queryBuf: new Int32Array(COMBAT.queryBufferSize),
     events: createEventQueue(COMBAT.eventCapacity),
     spawner: createSpawnerState(),
     spawnRadius: COMBAT.spawnRingMinRadius,
     offers: [],
+    offerSource: 'level',
     rerollsLeft: PROGRESSION.rerollsPerRun,
   };
 }
@@ -100,4 +118,5 @@ export function updateWorld(world: World, dt: number): void {
   for (const system of SYSTEMS) system(world, dt);
   world.time += dt;
   world.tick++;
+  checkDawn(world);
 }

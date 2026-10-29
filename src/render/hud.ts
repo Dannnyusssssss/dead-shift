@@ -1,7 +1,9 @@
 import type { JoystickConfig, JoystickState } from '../core/input';
-import { HUD, JOYSTICK_STYLE, LOADOUT_HUD, XP_BAR } from '../data/render';
+import { BOSS_BAR, CLOCK_HUD, HUD, JOYSTICK_STYLE, LOADOUT_HUD, XP_BAR } from '../data/render';
 import { t } from '../data/texts';
+import type { Enemy } from '../game/enemies';
 import { xpToNext } from '../game/progression';
+import { shiftClock } from '../game/shift';
 import type { World } from '../game/world';
 
 export interface HudDebug {
@@ -13,6 +15,7 @@ export interface HudDebug {
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   viewW: number,
+  viewH: number,
   world: Readonly<World>,
   debug: Readonly<HudDebug>,
 ): void {
@@ -54,6 +57,14 @@ export function drawHud(
     if (p) drawSlot(ctx, m + i * step, rowY + step, p.def.icon, p.level);
   }
 
+  // Shift clock: centered on wide screens, top-right on narrow ones (clear of the left column).
+  const wide = viewW >= HUD.wideLayoutMinWidth;
+  ctx.font = CLOCK_HUD.font;
+  ctx.textAlign = wide ? 'center' : 'right';
+  drawText(ctx, shiftClock(world.time), wide ? viewW / 2 : viewW - m, CLOCK_HUD.y);
+
+  drawBossBar(ctx, viewW, world, wide);
+
   ctx.font = HUD.smallFont;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
@@ -61,8 +72,41 @@ export function drawHud(
     ctx,
     `${t('fps')} ${debug.fps} · ${debug.cpuMs.toFixed(1)} ms · ${world.enemies.count} ${t('zombies')}`,
     viewW - m,
-    m + HUD.hpBarHeight / 2,
+    viewH - m,
   );
+}
+
+/** Health of the strongest living boss, if any. */
+function drawBossBar(
+  ctx: CanvasRenderingContext2D,
+  viewW: number,
+  world: Readonly<World>,
+  wide: boolean,
+): void {
+  let boss: Enemy | undefined;
+  const { items, count } = world.enemies;
+  for (let i = 0; i < count; i++) {
+    const e = items[i] as Enemy;
+    if (e.def.dropsChest && e.hp > 0 && (!boss || e.maxHp > boss.maxHp)) boss = e;
+  }
+  if (!boss) return;
+  const w = Math.min(BOSS_BAR.width, viewW - HUD.margin * 2);
+  const x = (viewW - w) / 2;
+  const y = wide ? BOSS_BAR.y : BOSS_BAR.narrowY;
+  drawBar(
+    ctx,
+    x,
+    y,
+    w,
+    BOSS_BAR.height,
+    boss.hp / boss.maxHp,
+    BOSS_BAR.bg,
+    BOSS_BAR.fill,
+    BOSS_BAR.border,
+  );
+  ctx.font = BOSS_BAR.font;
+  ctx.textAlign = 'center';
+  drawText(ctx, t('bossName'), viewW / 2, y + BOSS_BAR.height + 10);
 }
 
 function drawBar(

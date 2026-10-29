@@ -4,37 +4,50 @@ import { createInput } from './core/input';
 import { createFixedLoop, createFrameStats } from './core/loop';
 import { vec2 } from './core/math';
 import { PROGRESSION } from './data/progression';
-import { CAMERA_FOLLOW_RATE, JOYSTICK, PARTICLES } from './data/render';
+import { SHIFT } from './data/shift';
+import {
+  CAMERA_FOLLOW_RATE,
+  FAINT,
+  JOYSTICK,
+  PARTICLES,
+  VICTORY_SCREEN_DELAY,
+} from './data/render';
 import { t } from './data/texts';
 import { WEAPON_IDS } from './data/weapons';
 import { interpolatedPlayerPos } from './game/player';
 import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
-import { spawnHorde, spawnRadiusForView } from './game/spawner';
+import { shiftClock } from './game/shift';
+import { fastForward, spawnHorde, spawnRadiusForView } from './game/spawner';
 import { createWeapon } from './game/weapons';
 import { createWorld, updateWorld, type World } from './game/world';
 import { createParticles } from './render/particles';
 import { createRenderer, type RenderFrame } from './render/renderer';
 import { describeOffer } from './ui/describe';
 import { createLevelUpScreen } from './ui/levelup';
-import { createGameOverScreen } from './ui/menu';
+import { createEndScreen } from './ui/menu';
 
 /**
  * Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death,
- * `?weapons=all` starts with every weapon at max level (ignores the slot limit).
+ * `?weapons=all` starts with every weapon at max level (ignores the slot limit),
+ * `?t=540` starts the shift clock at that many seconds.
  */
 interface DebugOptions {
   enabled: boolean;
   spawn: number;
   god: boolean;
   allWeapons: boolean;
+  startTime: number;
 }
 
 function readDebugOptions(search: string): DebugOptions {
   const params = new URLSearchParams(search);
-  const spawn = Math.max(0, Math.floor(Number(params.get('spawn') ?? 0)) || 0);
+  const num = (key: string): number => Math.max(0, Number(params.get(key) ?? 0) || 0);
+  const spawn = Math.floor(num('spawn'));
+  const startTime = Math.min(num('t'), SHIFT.durationSeconds - 1);
   const god = params.has('god');
   const allWeapons = params.get('weapons') === 'all';
-  return { enabled: spawn > 0 || god || allWeapons || params.has('debug'), spawn, god, allWeapons };
+  const enabled = spawn > 0 || god || allWeapons || startTime > 0 || params.has('debug');
+  return { enabled, spawn, god, allWeapons, startTime };
 }
 
 function boot(): void {
@@ -47,7 +60,7 @@ function boot(): void {
   const renderer = createRenderer(canvas);
   const particles = createParticles();
   const stats = createFrameStats();
-  const gameOver = createGameOverScreen(document.body);
+  const endScreen = createEndScreen(document.body);
   const levelUp = createLevelUpScreen(document.body);
   const playerPos = vec2();
 
@@ -61,11 +74,14 @@ function boot(): void {
         return weapon;
       });
     }
+    if (debug.startTime > 0) fastForward(w, debug.startTime);
     if (debug.spawn > 0) spawnHorde(w, debug.spawn);
     return w;
   };
 
   let world = newWorld();
+  /** Real seconds since dawn, driving the fainting animation and the victory screen. */
+  let sinceDawn = 0;
   const camera = createCamera(world.player.pos, CAMERA_FOLLOW_RATE);
   const frame: RenderFrame = {
     world,
@@ -75,13 +91,16 @@ function boot(): void {
     input,
     particles,
     debug: { fps: 0, cpuMs: 0 },
+    faint: 0,
   };
 
   const restart = (): void => {
-    gameOver.hide();
+    endScreen.hide();
     levelUp.hide();
     world = newWorld();
     frame.world = world;
+    frame.faint = 0;
+    sinceDawn = 0;
     particles.clear();
     camera.x = world.player.pos.x;
     camera.y = world.player.pos.y;
@@ -94,6 +113,7 @@ function boot(): void {
     }
     levelUp.show(
       {
+        source: world.offerSource,
         level: levelBeingChosen(world.player),
         offers: world.offers.map((o) => describeOffer(o, world.player)),
         rerollsLeft: world.rerollsLeft,
@@ -110,16 +130,47 @@ function boot(): void {
     );
   };
 
+  const runStats = () => ({
+    timeSurvived: world.time,
+    kills: world.kills,
+    level: world.player.level,
+    clock: shiftClock(world.time),
+  });
+
   /** Turns gameplay events into cosmetic effects, then empties the queue. */
   const drainEvents = (): void => {
     const events = world.events;
     for (let i = 0; i < events.count; i++) {
       const ev = events.items[i];
       if (!ev) continue;
-      if (ev.type === 'enemyDeath') particles.burst(ev.x, ev.y, ev.color, PARTICLES.death);
-      else particles.burst(ev.x, ev.y, PARTICLES.hitColor, PARTICLES.hit);
+      switch (ev.type) {
+        case 'enemyDeath':
+          particles.burst(ev.x, ev.y, ev.color, PARTICLES.death);
+          break;
+        case 'playerHit':
+          particles.burst(ev.x, ev.y, PARTICLES.hitColor, PARTICLES.hit);
+          break;
+        case 'explosion':
+          particles.burst(ev.x, ev.y, PARTICLES.explosionColor, PARTICLES.explosion);
+          break;
+      }
     }
     events.clear();
+  };
+
+  /** UI that reacts to the run's status (level-up, dawn, death). */
+  const syncScreens = (frameDt: number): void => {
+    if (world.status === 'levelup' && !levelUp.visible) showLevelUp();
+    if (world.status === 'won') {
+      sinceDawn += frameDt;
+      frame.faint = Math.min(1, sinceDawn / FAINT.duration);
+      if (sinceDawn >= VICTORY_SCREEN_DELAY && !endScreen.visible) {
+        endScreen.show('victory', runStats(), restart);
+      }
+    }
+    if (world.status === 'dead' && !endScreen.visible) {
+      endScreen.show('defeat', runStats(), restart);
+    }
   };
 
   let lastStatsPublish = 0;
@@ -139,15 +190,8 @@ function boot(): void {
       interpolatedPlayerPos(world.player, alpha, playerPos);
       updateCamera(camera, playerPos.x, playerPos.y, frameDt);
       frame.alpha = alpha;
+      syncScreens(frameDt);
       renderer.render(frame);
-
-      if (world.status === 'levelup' && !levelUp.visible) showLevelUp();
-      if (world.status === 'dead' && !gameOver.visible) {
-        gameOver.show(
-          { timeSurvived: world.time, kills: world.kills, level: world.player.level },
-          restart,
-        );
-      }
 
       stats.tick(frameDt, performance.now() - frameStart);
       frameStart = 0;
@@ -164,10 +208,30 @@ function boot(): void {
         ds.kills = String(world.kills);
         ds.level = String(world.player.level);
         ds.status = world.status;
+        ds.time = world.time.toFixed(1);
+        ds.clock = shiftClock(world.time);
         ds.loadout = [
           ...world.player.weapons.map((w) => `${w.def.id}:${w.level}`),
           ...world.player.passives.map((p) => `${p.def.id}:${p.level}`),
         ].join(',');
+        const kinds: Record<string, number> = {};
+        for (let i = 0; i < world.enemies.count; i++) {
+          const e = world.enemies.items[i];
+          const id = e?.def.id ?? '?';
+          kinds[id] = (kinds[id] ?? 0) + 1;
+          if (e?.def.behavior.kind === 'charge' && e.aiState === 1) {
+            kinds.aiming = (kinds.aiming ?? 0) + 1;
+          }
+        }
+        ds.kinds = JSON.stringify(kinds);
+        ds.hazards = String(world.hazards.count);
+        const hazardKinds: Record<string, number> = {};
+        for (let i = 0; i < world.hazards.count; i++) {
+          const kind = world.hazards.items[i]?.kind ?? '?';
+          hazardKinds[kind] = (hazardKinds[kind] ?? 0) + 1;
+        }
+        ds.hazardKinds = JSON.stringify(hazardKinds);
+        ds.chests = String(world.chests.count);
       }
     },
   });

@@ -1,6 +1,6 @@
 import { createPool, type Pool } from '../core/pool';
 
-export type GameEventType = 'enemyDeath' | 'playerHit';
+export type GameEventType = 'enemyDeath' | 'playerHit' | 'explosion';
 
 /** Something the presentation layer may want to react to (particles, later sounds). */
 export interface GameEvent {
