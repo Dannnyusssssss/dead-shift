@@ -164,16 +164,17 @@ export function isManual(def: Readonly<WeaponDef>): def is Readonly<ManualWeapon
 
 export type WeaponLevel = WeaponDef['levels'][number];
 
+// Hito 7: toned down so the broom is a fallback, not the main weapon (see DECISIONS.md).
 const broomL1: ArcLevel = {
-  damage: 12,
-  cooldown: 0.5,
-  arcDegrees: 110,
-  range: 75,
-  knockback: 260,
+  damage: 10,
+  cooldown: 0.75,
+  arcDegrees: 95,
+  range: 65,
+  knockback: 120,
   bothSides: false,
 };
-const broomL3: ArcLevel = { ...broomL1, damage: 16, arcDegrees: 140, range: 85 };
-const broomL4: ArcLevel = { ...broomL3, damage: 20, cooldown: 0.42 };
+const broomL3: ArcLevel = { ...broomL1, damage: 14, arcDegrees: 125, range: 75 };
+const broomL4: ArcLevel = { ...broomL3, damage: 18, cooldown: 0.63 };
 
 const cansL1: ProjectileLevel = {
   damage: 8,
@@ -249,7 +250,7 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
     descKey: 'weaponBroomDesc',
     levels: [
       broomL1,
-      { ...broomL1, damage: 16 },
+      { ...broomL1, damage: 14 },
       broomL3,
       broomL4,
       { ...broomL4, bothSides: true },
@@ -344,7 +345,7 @@ export const AMMO = {
   dropTiers: [
     { minXp: 20, chance: 1 },
     { minXp: 5, chance: 0.5 },
-    { minXp: 0, chance: 0.18 },
+    { minXp: 0, chance: 0.22 },
   ],
   capacity: 40,
   /** Pickup collision radius, px. */

@@ -78,6 +78,8 @@ export interface FrameStats {
   readonly fps: number;
   readonly cpuMs: number;
   tick(frameDt: number, cpuMs: number): void;
+  /** Forgets the current window and the last readings (e.g. when the overlay is turned on). */
+  reset(): void;
 }
 
 export function createFrameStats(window = 0.5): FrameStats {
@@ -104,6 +106,9 @@ export function createFrameStats(window = 0.5): FrameStats {
         elapsed = 0;
         cpuTotal = 0;
       }
+    },
+    reset() {
+      frames = elapsed = cpuTotal = fps = cpuMs = 0;
     },
   };
 }

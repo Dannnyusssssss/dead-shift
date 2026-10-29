@@ -100,6 +100,14 @@ const SOUND_TABLE = {
     minInterval: 0.035,
     layers: [{ wave: 'sine', freqFrom: 1250, freqTo: 1700, duration: 0.05, gain: 0.07 }],
   },
+  medkitPickup: {
+    minInterval: 0.2,
+    layers: [note(440, 0, 0.09), note(554, 0.08, 0.09), note(659, 0.16, 0.18)],
+  },
+  magnetPickup: {
+    minInterval: 0.2,
+    layers: [{ wave: 'sine', freqFrom: 300, freqTo: 1500, duration: 0.35, gain: 0.1 }],
+  },
   canThrow: {
     minInterval: 0.08,
     layers: [{ wave: 'triangle', freqFrom: 260, freqTo: 520, duration: 0.07, gain: 0.08 }],

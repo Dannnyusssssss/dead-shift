@@ -15,7 +15,7 @@ import {
 import { CHARGE_STATE, type Enemy } from '../game/enemies';
 import { shockwaveRadius, type Hazard } from '../game/hazards';
 import { meleeStats } from '../game/manual';
-import type { AmmoBox, Chest, Coupon } from '../game/pickups';
+import type { AmmoBox, Chest, Coupon, FloorItem } from '../game/pickups';
 import { shiftProgress } from '../game/shift';
 import type { Projectile } from '../game/projectiles';
 import type { Turret } from '../game/turrets';
@@ -27,6 +27,8 @@ import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
   drawAmmoBox,
+  drawFloorMagnet,
+  drawMedkit,
   drawBeam,
   drawCan,
   drawChest,
@@ -237,6 +239,16 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
+  function drawFloorItems(world: Readonly<World>): void {
+    const { items, count } = world.floorItems;
+    for (let i = 0; i < count; i++) {
+      const it = items[i] as FloorItem;
+      if (!visible(it.pos.x, it.pos.y)) continue;
+      if (it.kind === 'medkit') drawMedkit(ctx, it.pos.x, it.pos.y, world.time);
+      else drawFloorMagnet(ctx, it.pos.x, it.pos.y, world.time);
+    }
+  }
+
   /** Effects attached to the player (swing, cloud, orbiting bags). */
   function drawWeaponEffects(world: Readonly<World>, pp: Readonly<Vec2>): void {
     drawBroomSwing(world, pp);
@@ -321,6 +333,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       frame.particles.draw(ctx);
       drawCoupons(world);
       drawAmmoBoxes(world);
+      drawFloorItems(world);
       drawChests(world);
       drawTurrets(world);
       drawEnemies(world, frame.alpha, frame.faint);

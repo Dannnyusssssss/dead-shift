@@ -40,7 +40,8 @@ import { createTouchControls } from './ui/touch';
  * `?weapons=all` starts with every weapon at max level (ignores the slot limit),
  * `?t=540` starts the shift clock at that many seconds,
  * `?ammo=N` starts with an empty magazine and N rounds in reserve (0 = straight to the broom).
- * Any of them (or `?debug`) skips the main menu and shows the performance line.
+ * Any of them (or `?debug`) skips the main menu, shows the performance line for this session
+ * (without saving it) and publishes stats to `document.body.dataset`. See docs/DEBUG.md.
  */
 interface DebugOptions {
   enabled: boolean;
@@ -77,6 +78,8 @@ const EVENT_SOUNDS: Readonly<Record<GameEventType, SoundId | null>> = {
   weaponSwap: 'weaponSwap',
   ammoPickup: 'ammoPickup',
   couponPickup: 'couponPickup',
+  medkitPickup: 'medkitPickup',
+  magnetPickup: 'magnetPickup',
   meleeSwing: 'meleeSwing',
   canThrow: 'canThrow',
   levelUp: 'levelUp',
@@ -153,7 +156,7 @@ function boot(): void {
     input,
     particles,
     floaters,
-    hud: { debug: { visible: debug.enabled, fps: 0, cpuMs: 0 }, touch: false },
+    hud: { debug: { visible: false, fps: 0, cpuMs: 0 }, touch: false },
     hurtFlash: 0,
     faint: 0,
   };
@@ -180,6 +183,25 @@ function boot(): void {
     muted: save.muted,
     touch: input.touchMode,
   });
+
+  /** The overlay shows with the saved preference (F3 / checkbox) or any debug URL parameter. */
+  const syncDebugOverlay = (): void => {
+    const visible = save.showDebug || debug.enabled;
+    if (visible && !frame.hud.debug.visible) stats.reset();
+    frame.hud.debug.visible = visible;
+    pauseMenu.setShowDebug(visible);
+  };
+
+  const toggleDebugOverlay = (): void => {
+    // With a URL parameter forcing it on, there is nothing to toggle.
+    if (debug.enabled) {
+      syncDebugOverlay();
+      return;
+    }
+    save = { ...save, showDebug: !save.showDebug };
+    store.save(save);
+    syncDebugOverlay();
+  };
 
   const toggleMute = (): void => {
     save = { ...save, muted: !save.muted };
@@ -209,7 +231,7 @@ function boot(): void {
   const pause = (): void => {
     if (phase !== 'run' || paused || world.status !== 'playing') return;
     paused = true;
-    pauseMenu.show(save.muted);
+    pauseMenu.show(save.muted, frame.hud.debug.visible);
   };
 
   const resume = (): void => {
@@ -222,6 +244,7 @@ function boot(): void {
   const pauseMenu = createPauseMenu(document.body, {
     onResume: resume,
     onToggleMute: toggleMute,
+    onToggleDebug: toggleDebugOverlay,
     onQuit: goToMenu,
   });
   const endScreen = createEndScreen(document.body);
@@ -344,9 +367,10 @@ function boot(): void {
     }
   };
 
-  /** One-shot keys that work outside gameplay too (M) or toggle it (Esc / P). */
+  /** One-shot keys that work outside gameplay too (M, F3) or toggle it (Esc / P). */
   const handleGlobalKeys = (): void => {
     if (input.consumeMute()) toggleMute();
+    if (input.consumeDebug()) toggleDebugOverlay();
     if (input.consumePause()) {
       if (paused) resume();
       else pause();
@@ -360,9 +384,12 @@ function boot(): void {
   let peakTrauma = 0;
   let frameStart = 0;
 
+  /** Frame timing is only measured while someone can see it (or a test reads the dataset). */
+  const measuring = (): boolean => frame.hud.debug.visible;
+
   const loop = createFixedLoop({
     update(dt) {
-      if (frameStart === 0) frameStart = performance.now();
+      if (frameStart === 0 && measuring()) frameStart = performance.now();
       if (phase !== 'run' || paused) return;
       world.spawnRadius = spawnRadiusForView(renderer.viewW, renderer.viewH);
       input.getMoveAxis(world.moveInput);
@@ -379,7 +406,7 @@ function boot(): void {
       updateWorld(world, dt);
     },
     render(alpha, frameDt) {
-      if (frameStart === 0) frameStart = performance.now();
+      if (frameStart === 0 && measuring()) frameStart = performance.now();
       handleGlobalKeys();
       drainEvents();
       // While paused, effects freeze along with the world.
@@ -397,13 +424,15 @@ function boot(): void {
       touch.setPlaying(phase === 'run' && !paused && world.status === 'playing');
       renderer.render(frame);
 
-      stats.tick(frameDt, performance.now() - frameStart);
+      if (!measuring()) return;
+      const now = performance.now();
+      // The frame the overlay was turned on has no start mark: skip it instead of a bogus reading.
+      if (frameStart > 0) stats.tick(frameDt, now - frameStart);
       frameStart = 0;
       frame.hud.debug.fps = stats.fps;
       frame.hud.debug.cpuMs = stats.cpuMs;
       peakTrauma = Math.max(peakTrauma, camera.trauma);
-      const now = performance.now();
-      if (debug.enabled && now - lastStatsPublish >= 500) {
+      if (now - lastStatsPublish >= 500) {
         // Exposed for automated checks (headless browser).
         lastStatsPublish = now;
         const ds = document.body.dataset;
@@ -446,10 +475,25 @@ function boot(): void {
         ds.trauma = peakTrauma.toFixed(2);
         peakTrauma = 0;
         ds.muted = String(save.muted);
+        ds.showDebug = String(save.showDebug);
+        const weaponKills: Record<string, number> = {};
+        WEAPON_IDS.forEach((id, i) => {
+          const n = world.killsByWeapon[i] ?? 0;
+          if (n > 0) weaponKills[id] = n;
+        });
+        ds.weaponKills = JSON.stringify(weaponKills);
+        const floorKinds: Record<string, number> = {};
+        for (let i = 0; i < world.floorItems.count; i++) {
+          const kind = world.floorItems.items[i]?.kind ?? '?';
+          floorKinds[kind] = (floorKinds[kind] ?? 0) + 1;
+        }
+        ds.floorItems = JSON.stringify(floorKinds);
+        ds.hp = world.player.hp.toFixed(1);
       }
     },
   });
 
+  syncDebugOverlay();
   if (debug.enabled) startRun();
   else mainMenu.show(menuInfo());
   loop.start();

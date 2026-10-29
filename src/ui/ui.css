@@ -184,6 +184,28 @@
   min-height: 42px;
 }
 
+/* Checkbox row in the pause panel, with a touch-sized hit area. */
+.ds-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 44px;
+  margin-top: 10px;
+  color: #dfe8d8;
+  font-size: 15px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ds-check-box {
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  accent-color: #8fd16a;
+  cursor: pointer;
+}
+
 .ds-button-secondary:disabled {
   opacity: 0.4;
   cursor: default;

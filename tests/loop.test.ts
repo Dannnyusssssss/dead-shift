@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   advanceAccumulator,
+  createFrameStats,
   FIXED_STEP,
   MAX_FRAME_TIME,
   type AccumulatorResult,
@@ -51,5 +52,25 @@ describe('advanceAccumulator', () => {
     advanceAccumulator(0.01, -1, FIXED_STEP, MAX_FRAME_TIME, out);
     expect(out.steps).toBe(0);
     expect(out.acc).toBeCloseTo(0.01);
+  });
+});
+
+describe('createFrameStats', () => {
+  it('averages fps and cpu over the window', () => {
+    const stats = createFrameStats(0.5);
+    for (let i = 0; i < 31; i++) stats.tick(1 / 60, 2);
+    expect(stats.fps).toBe(60);
+    expect(stats.cpuMs).toBeCloseTo(2);
+  });
+
+  it('reset forgets old readings and the partial window', () => {
+    const stats = createFrameStats(0.5);
+    for (let i = 0; i < 31; i++) stats.tick(1 / 60, 2);
+    stats.reset();
+    expect(stats.fps).toBe(0);
+    expect(stats.cpuMs).toBe(0);
+    for (let i = 0; i < 16; i++) stats.tick(1 / 30, 5);
+    expect(stats.fps).toBe(30);
+    expect(stats.cpuMs).toBeCloseTo(5);
   });
 });

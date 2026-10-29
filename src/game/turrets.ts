@@ -17,6 +17,8 @@ export interface Turret {
   cooldown: number;
   rays: number;
   range: number;
+  /** Index in WEAPON_IDS of the weapon that placed it. */
+  source: number;
   /** Last zap, for the render: time and target positions. */
   lastFireTime: number;
   beamCount: number;
@@ -34,6 +36,7 @@ export function createTurretObject(): Turret {
     cooldown: 0,
     rays: 0,
     range: 0,
+    source: -1,
     lastFireTime: Number.NEGATIVE_INFINITY,
     beamCount: 0,
     beamX: new Float32Array(MAX_TURRET_RAYS),
@@ -46,6 +49,7 @@ export function placeTurret(
   x: number,
   y: number,
   stats: Readonly<TurretLevel>,
+  source: number,
 ): Turret | undefined {
   const t = world.turrets.acquire();
   if (!t) return undefined;
@@ -57,6 +61,7 @@ export function placeTurret(
   t.cooldown = stats.cooldown * mods.cooldown;
   t.rays = Math.min(stats.rays, MAX_TURRET_RAYS);
   t.range = stats.range;
+  t.source = source;
   t.lastFireTime = Number.NEGATIVE_INFINITY;
   t.beamCount = 0;
   return t;
@@ -115,7 +120,7 @@ function zap(world: World, t: Turret): void {
     const e = hit[i] as Enemy;
     t.beamX[i] = e.pos.x;
     t.beamY[i] = e.pos.y;
-    hitEnemy(world, e, t.damage, 0, 0);
+    hitEnemy(world, e, t.damage, 0, 0, t.source);
   }
   if (hit.length > 0) t.lastFireTime = world.time;
 }

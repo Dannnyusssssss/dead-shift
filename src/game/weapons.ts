@@ -90,6 +90,7 @@ export function hitSector(
   range: number,
   damage: number,
   knockback: number,
+  source: number,
   poisonDps = 0,
   poisonTime = 0,
 ): void {
@@ -109,7 +110,7 @@ export function hitSector(
     }
     const nx = d > 1e-6 ? dx / d : Math.cos(angle);
     const ny = d > 1e-6 ? dy / d : Math.sin(angle);
-    hitEnemy(world, e, damage, nx * knockback, ny * knockback);
+    hitEnemy(world, e, damage, nx * knockback, ny * knockback, source);
     if (poisonDps > 0) {
       e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, poisonDps);
       e.poisonTimer = Math.max(e.poisonTimer, poisonTime);
@@ -128,10 +129,11 @@ export function swingArc(
   const damage = s.damage * p.mods.damage;
   w.fireAngle = angle;
   w.lastFireTime = world.time;
-  hitSector(world, p.pos.x, p.pos.y, angle, toRad(s.arcDegrees / 2), s.range, damage, s.knockback);
+  const half = toRad(s.arcDegrees / 2);
+  hitSector(world, p.pos.x, p.pos.y, angle, half, s.range, damage, s.knockback, w.slot);
   if (s.bothSides) {
     const back = angle + Math.PI;
-    hitSector(world, p.pos.x, p.pos.y, back, toRad(s.arcDegrees / 2), s.range, damage, s.knockback);
+    hitSector(world, p.pos.x, p.pos.y, back, half, s.range, damage, s.knockback, w.slot);
   }
 }
 
@@ -172,7 +174,7 @@ export function fireVolley(
   const spread = toRad(s.spreadDegrees);
   for (let i = 0; i < s.count; i++) {
     const offset = (i - (s.count - 1) / 2) * spread;
-    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, look);
+    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, look, w.slot);
   }
 }
 
@@ -222,7 +224,7 @@ function updateOrbit(
       const ex = e.pos.x - p.pos.x;
       const ey = e.pos.y - p.pos.y;
       const d = Math.hypot(ex, ey) || 1;
-      hitEnemy(world, e, damage, (ex / d) * s.knockback, (ey / d) * s.knockback);
+      hitEnemy(world, e, damage, (ex / d) * s.knockback, (ey / d) * s.knockback, w.slot);
       e.weaponHitTimers[w.slot] = s.hitInterval;
       e.slowFactor = Math.max(e.slowTimer > 0 ? e.slowFactor : 0, s.slowFactor);
       e.slowTimer = Math.max(e.slowTimer, s.slowTime);
@@ -260,6 +262,7 @@ function updateCone(
       s.range,
       s.damage * dmg,
       0,
+      w.slot,
       s.poisonDps * dmg,
       s.poisonTime,
     );
@@ -281,7 +284,7 @@ function placeMicrowaves(w: WeaponInstance, def: Readonly<TurretWeaponDef>, worl
   const gap = 45;
   for (let i = 0; i < s.units; i++) {
     const offset = (i - (s.units - 1) / 2) * gap;
-    placeTurret(world, p.pos.x + px * offset, p.pos.y + py * offset, s);
+    placeTurret(world, p.pos.x + px * offset, p.pos.y + py * offset, s, w.slot);
   }
   w.fireAngle = angle;
   w.lastFireTime = world.time;

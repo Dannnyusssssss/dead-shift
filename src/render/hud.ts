@@ -6,6 +6,7 @@ import {
   HUD,
   JOYSTICK_STYLE,
   LOADOUT_HUD,
+  DEBUG_HUD,
   MANUAL_HUD,
   XP_BAR,
 } from '../data/render';
@@ -18,7 +19,7 @@ import { shiftClock } from '../game/shift';
 import type { World } from '../game/world';
 
 export interface HudDebug {
-  /** Draw the performance line (debug URL parameters only). */
+  /** Draw the performance line (F3, the pause-menu checkbox or `?debug`). */
   visible: boolean;
   fps: number;
   /** Average CPU time of update + render per frame, ms. */
@@ -96,13 +97,15 @@ export function drawHud(
   const debug = options.debug;
   if (!debug.visible) return;
   ctx.font = HUD.smallFont;
-  ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
+  // Touch: the bottom-right corner holds the swap / reload buttons, so it goes above the weapon panel.
+  const touch = options.touch;
+  ctx.textAlign = touch ? 'left' : 'right';
   drawText(
     ctx,
-    `${t('fps')} ${debug.fps} · ${debug.cpuMs.toFixed(1)} ms · ${world.enemies.count} ${t('zombies')}`,
-    viewW - m,
-    viewH - m,
+    `${t('fps')} ${debug.fps} · ${debug.cpuMs.toFixed(1)} ms · ${world.enemies.count} ${t('zombies')} · ${world.kills} ${t('killsShort')}`,
+    touch ? m : viewW - m,
+    touch ? viewH - m - MANUAL_HUD.height - DEBUG_HUD.gapAbovePanel : viewH - m,
   );
 }
 

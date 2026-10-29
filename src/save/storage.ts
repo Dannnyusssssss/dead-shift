@@ -8,9 +8,18 @@ export interface SaveData {
   bestTime: number;
   totalKills: number;
   muted: boolean;
+  /** Show the FPS / metrics overlay (F3 or the pause-menu checkbox). */
+  showDebug: boolean;
 }
 
-export const DEFAULT_SAVE: Readonly<SaveData> = { bestTime: 0, totalKills: 0, muted: false };
+export const DEFAULT_SAVE: Readonly<SaveData> = {
+  bestTime: 0,
+  totalKills: 0,
+  muted: false,
+  showDebug: false,
+};
+
+const boolOr = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -33,7 +42,8 @@ export function parseSave(raw: string | null): SaveData {
   return {
     bestTime: finiteNonNegative(data.bestTime, DEFAULT_SAVE.bestTime, SHIFT.durationSeconds),
     totalKills: Math.floor(finiteNonNegative(data.totalKills, DEFAULT_SAVE.totalKills)),
-    muted: typeof data.muted === 'boolean' ? data.muted : DEFAULT_SAVE.muted,
+    muted: boolOr(data.muted, DEFAULT_SAVE.muted),
+    showDebug: boolOr(data.showDebug, DEFAULT_SAVE.showDebug),
   };
 }
 

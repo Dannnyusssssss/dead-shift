@@ -14,15 +14,20 @@ export function damageEnemy(enemy: Enemy, amount: number, kx: number, ky: number
   return enemy.hp <= 0;
 }
 
-/** `damageEnemy` plus a floating damage number. Weapons use this one. */
+/**
+ * `damageEnemy` plus a floating damage number. Weapons use this one.
+ * `source` is the weapon's index in WEAPON_IDS (-1 = unknown); the kill is credited to the last one.
+ */
 export function hitEnemy(
   world: World,
   enemy: Enemy,
   amount: number,
   kx: number,
   ky: number,
+  source = -1,
 ): boolean {
   emitHit(world.hits, enemy.pos.x, enemy.pos.y - enemy.radius, amount);
+  if (source >= 0) enemy.lastHitBy = source;
   return damageEnemy(enemy, amount, kx, ky);
 }
 

@@ -7,6 +7,8 @@ import { spatialIndexSystem } from '../src/game/systems/collision';
 import { statusSystem } from '../src/game/systems/status';
 import { turretSystem } from '../src/game/turrets';
 import { createWeapon, weaponSystem } from '../src/game/weapons';
+import { manualWeaponSystem, selectManual } from '../src/game/manual';
+import { deathSystem } from '../src/game/systems/death';
 import type { World } from '../src/game/world';
 import { addClient, emptyWorld } from './helpers';
 
@@ -167,4 +169,47 @@ describe('modifiers', () => {
 
 it('every weapon id has a definition with 5 levels', () => {
   for (const id of WEAPON_IDS) expect(createWeapon(id).def.levels).toHaveLength(5);
+});
+
+describe('kills by weapon', () => {
+  const idx = (id: WeaponId): number => WEAPON_IDS.indexOf(id);
+
+  it('credits the weapon that landed the last hit', () => {
+    const world = worldWith('cans');
+    addClient(world, 80, 0).hp = 1;
+    run(world, 2);
+    deathSystem(world);
+    expect(world.kills).toBe(1);
+    expect(world.killsByWeapon[idx('cans')]).toBe(1);
+    expect(world.killsByWeapon[idx('broom')]).toBe(0);
+  });
+
+  it('credits the manual gun and the broom', () => {
+    const world = emptyWorld();
+    world.aimActive = true;
+    world.triggerHeld = true;
+    addClient(world, 60, 0).hp = 1;
+    for (let i = 0; i < 30 && world.kills === 0; i++) {
+      spatialIndexSystem(world);
+      manualWeaponSystem(world, FIXED_STEP);
+      projectileSystem(world, FIXED_STEP);
+      deathSystem(world);
+    }
+    expect(world.killsByWeapon[idx('labelGun')]).toBe(1);
+
+    selectManual(world.player.manual, 'melee');
+    addClient(world, 30, 0).hp = 1;
+    spatialIndexSystem(world);
+    manualWeaponSystem(world, FIXED_STEP);
+    deathSystem(world);
+    expect(world.killsByWeapon[idx('broom')]).toBe(1);
+  });
+
+  it('an enemy no weapon touched counts as a kill but for no weapon', () => {
+    const world = emptyWorld();
+    addClient(world, 300, 0).hp = 0;
+    deathSystem(world);
+    expect(world.kills).toBe(1);
+    expect(Array.from(world.killsByWeapon).every((n) => n === 0)).toBe(true);
+  });
 });

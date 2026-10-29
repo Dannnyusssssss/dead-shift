@@ -231,6 +231,25 @@ export const AMMO_BOX_STYLE = {
   height: 12,
 } as const;
 
+/** Medkit: white box with a red cross. */
+export const MEDKIT_STYLE = {
+  body: '#f4f1ea',
+  edge: '#8c1f1f',
+  cross: '#d33a3a',
+  size: 16,
+  /** Arm thickness of the cross, px. */
+  arm: 4,
+} as const;
+
+/** Floor magnet: red horseshoe with silver tips and a pulsing halo. */
+export const FLOOR_MAGNET_STYLE = {
+  body: '#d33a3a',
+  tips: '#d9dde3',
+  halo: 'rgba(120, 190, 255, 0.35)',
+  radius: 8,
+  thickness: 4,
+} as const;
+
 /** What Mati holds: label gun or broom, drawn in his local frame. */
 export const HELD_STYLE = {
   gun: '#2b2f36',
@@ -310,6 +329,12 @@ export const PARTICLES = {
     sizeMin: 3,
     sizeMax: 6,
   },
+} as const;
+
+/** Performance line (F3). */
+export const DEBUG_HUD = {
+  /** Touch layout: distance between the line and the top of the weapon panel, px. */
+  gapAbovePanel: 12,
 } as const;
 
 export const HUD = {

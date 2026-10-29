@@ -154,6 +154,7 @@ describe('keyAction', () => {
     expect(keyAction('Escape')).toBe('pause');
     expect(keyAction('KeyP')).toBe('pause');
     expect(keyAction('KeyM')).toBe('mute');
+    expect(keyAction('F3')).toBe('debug');
   });
 
   it('ignores movement and unbound keys', () => {

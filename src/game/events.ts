@@ -11,6 +11,8 @@ export type GameEventType =
   | 'weaponSwap'
   | 'ammoPickup'
   | 'couponPickup'
+  | 'medkitPickup'
+  | 'magnetPickup'
   | 'meleeSwing'
   | 'canThrow'
   | 'levelUp'

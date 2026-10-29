@@ -16,6 +16,8 @@ export interface Projectile {
   life: number;
   knockback: number;
   look: ProjectileLook;
+  /** Index in WEAPON_IDS of the weapon that fired it. */
+  source: number;
   /** Enemies already hit, so a piercing shot never hits the same one twice. */
   hits: (Enemy | null)[];
   hitCount: number;
@@ -32,6 +34,7 @@ export function createProjectileObject(): Projectile {
     life: 0,
     knockback: 0,
     look: 'can',
+    source: -1,
     hits: Array.from({ length: COMBAT.maxProjectileHits }, () => null),
     hitCount: 0,
   };
@@ -44,6 +47,7 @@ export function spawnProjectile(
   angle: number,
   stats: Readonly<ProjectileLevel>,
   look: ProjectileLook,
+  source: number,
 ): Projectile | undefined {
   const p = world.projectiles.acquire();
   if (!p) return undefined;
@@ -56,6 +60,7 @@ export function spawnProjectile(
   p.life = stats.lifetime;
   p.knockback = stats.knockback;
   p.look = look;
+  p.source = source;
   p.hitCount = 0;
   p.hits.fill(null);
   return p;
@@ -78,7 +83,8 @@ function collide(world: World, p: Projectile): boolean {
     const dy = e.pos.y - p.pos.y;
     const r = e.radius + p.radius;
     if (dx * dx + dy * dy > r * r) continue;
-    hitEnemy(world, e, p.damage, (p.vel.x / speed) * p.knockback, (p.vel.y / speed) * p.knockback);
+    const kx = (p.vel.x / speed) * p.knockback;
+    hitEnemy(world, e, p.damage, kx, (p.vel.y / speed) * p.knockback, p.source);
     p.hits[p.hitCount++] = e;
     p.pierce--;
     if (p.pierce < 0) return true;

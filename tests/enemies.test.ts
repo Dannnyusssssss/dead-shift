@@ -166,9 +166,14 @@ describe('Gerente Zombi (boss)', () => {
     expect(world.status).toBe('levelup');
     expect(world.offerSource).toBe('chest');
     expect(world.offers.every((o) => o.kind === 'upgradeWeapon')).toBe(true);
-    const before = world.player.weapons.map((w) => w.level).reduce((a, b) => a + b);
+    // The chest may upgrade an automatic or a manual weapon.
+    const levels = (): number => {
+      const { weapons, manual } = world.player;
+      return weapons.reduce((sum, w) => sum + w.level, manual.gun.level + manual.melee.level);
+    };
+    const before = levels();
     chooseOffer(world, 0);
-    const after = world.player.weapons.map((w) => w.level).reduce((a, b) => a + b);
+    const after = levels();
     expect(after).toBe(before + 1);
     expect(world.player.pendingChests).toBe(0);
     // The boss's 20-xp coupon was collected too, so a normal level-up follows the chest.

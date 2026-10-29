@@ -3,8 +3,8 @@ import { createPool, type Pool } from '../core/pool';
 import { createRng, type Rng } from '../core/rng';
 import { createSpatialHash, type SpatialHash } from '../core/spatial-hash';
 import { COMBAT } from '../data/combat';
-import { COUPONS, PROGRESSION } from '../data/progression';
-import { AMMO } from '../data/weapons';
+import { COUPONS, FLOOR_ITEMS, PROGRESSION } from '../data/progression';
+import { AMMO, WEAPON_IDS } from '../data/weapons';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
 import { createEventQueue, createHitQueue, type EventQueue, type HitQueue } from './events';
 import { createHazardObject, hazardSystem, type Hazard } from './hazards';
@@ -13,10 +13,12 @@ import {
   createAmmoBoxObject,
   createChestObject,
   createCouponObject,
+  createFloorItemObject,
   pickupSystem,
   type AmmoBox,
   type Chest,
   type Coupon,
+  type FloorItem,
 } from './pickups';
 import { createPlayer, type Player } from './player';
 import { progressionSystem, type Offer } from './progression';
@@ -45,6 +47,8 @@ export interface World {
   time: number;
   tick: number;
   kills: number;
+  /** Kills per weapon, indexed like WEAPON_IDS (debug stats and balance reports). */
+  killsByWeapon: Int32Array;
   player: Player;
   /** Desired movement this step, magnitude <= 1. Written by the host from input. */
   moveInput: Vec2;
@@ -63,6 +67,8 @@ export interface World {
   coupons: Pool<Coupon>;
   chests: Pool<Chest>;
   ammoBoxes: Pool<AmmoBox>;
+  /** Medkits and floor magnets. */
+  floorItems: Pool<FloorItem>;
   hazards: Pool<Hazard>;
   hash: SpatialHash;
   /** Reusable output buffer for spatial queries. */
@@ -110,6 +116,7 @@ export function createWorld(seed: number): World {
     time: 0,
     tick: 0,
     kills: 0,
+    killsByWeapon: new Int32Array(WEAPON_IDS.length),
     player: createPlayer(),
     moveInput: vec2(0, 0),
     aim: vec2(1, 0),
@@ -123,6 +130,7 @@ export function createWorld(seed: number): World {
     coupons: createPool(COUPONS.capacity, createCouponObject),
     chests: createPool(COUPONS.chestCapacity, createChestObject),
     ammoBoxes: createPool(AMMO.capacity, createAmmoBoxObject),
+    floorItems: createPool(FLOOR_ITEMS.capacity, createFloorItemObject),
     hazards: createPool(COMBAT.hazardCapacity, createHazardObject),
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),
     queryBuf: new Int32Array(COMBAT.queryBufferSize),

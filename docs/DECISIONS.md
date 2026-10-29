@@ -20,7 +20,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   no de juego: se actualiza en `main.ts` en el paso de render, no dentro de `world`.
 - **HUD dibujado en canvas**, no en el DOM (un solo sistema de coordenadas, sin layout).
 - ~~**FPS visible** en la esquina superior derecha durante el desarrollo para verificar el objetivo de rendimiento.~~
-  **Reemplazada en Hito 5:** la línea de FPS / CPU / zombis solo aparece con los parámetros de depuración.
+  ~~**Reemplazada en Hito 5:** la línea de FPS / CPU / zombis solo aparece con los parámetros de depuración.~~
+  **Reemplazada en Hito 7:** se muestra con F3, con la casilla de la pausa (se guarda) o con los parámetros de depuración.
 - **devicePixelRatio limitado a 2** para no disparar el costo de relleno en móviles 3x.
 - **Góndolas decorativas.** El mundo se divide en bloques de 10×6 tiles; cada bloque tiene una góndola
   (75 % de probabilidad) con largo y posición derivados de `hash2(bloque, semilla)`. Así el mapa es infinito,
@@ -57,7 +58,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   se agregan cuando existan (Hitos 3 y 4).
 - **Parámetros de depuración en la URL:** `?spawn=N` (horda inicial), `?god` (sin perder vida), `?debug`.
   Con cualquiera de ellos se publican fps, CPU, enemigos y bajas en `document.body.dataset` para las pruebas automáticas.
-  El HUD muestra FPS, ms de CPU y el número de zombis durante el desarrollo.
+  ~~El HUD muestra FPS, ms de CPU y el número de zombis durante el desarrollo.~~ **Reemplazada en Hito 7** (F3 y casilla).
 
 ## Hito 3
 
@@ -84,7 +85,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   (temporizador por enemigo y por arma). El Café afecta todos los tiempos de recarga, incluida la cadencia del microondas.
 - **Cupones.** Valen el `xp` del enemigo (el Cliente da 1). Dentro del radio de recogida quedan "imantados" y siguen al jugador
   acelerando aunque se aleje. Con el pool (600) lleno, el valor se suma a un cupón existente, así no se pierde XP.
-  Los botiquines y el imán como objetos del suelo no entran en este hito.
+  ~~Los botiquines y el imán como objetos del suelo no entran en este hito.~~ **Reemplazada en Hito 7:** ya existen.
 - **Muerte en su propio sistema** (`systems/death.ts`) para evitar una dependencia circular
   (muerte → cupones → progresión → jugador → armas → daño).
 - **Descripciones generadas** comparando las stats de un nivel con el siguiente (`ui/describe.ts`);
@@ -159,7 +160,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
     se respeta.
   - No se puede cambiar a la pistola con 0/0.
   - El Café acelera la cadencia y el golpe, no la recarga. La Calculadora afecta a las dos armas manuales.
-- **Valores** (todos en `data/weapons.ts`):
+- **Valores** (todos en `data/weapons.ts`). ~~Columna Escoba~~ **reemplazada en Hito 7** (Escoba más débil):
 
   | Nivel | Pistola                                              | Escoba                              |
   | ----- | ---------------------------------------------------- | ----------------------------------- |
@@ -170,7 +171,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   | 5     | 2 balas ±6°, 14 daño                                 | ambos lados                         |
 
 - **Cajas de munición:** 15 balas cada una. Probabilidad de caída según el XP del enemigo:
-  - 18 % los comunes (xp 1).
+  - ~~18 %~~ 22 % los comunes (xp 1) (**cambiado en Hito 7**).
   - 50 % los élite (xp 5).
   - 100 % el Gerente.
 
@@ -264,3 +265,106 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **GitHub Pages** con un workflow propio (`.github/workflows/deploy.yml`): Node 22, `npm ci`, lint, tests, build y
   `deploy-pages`. Si falla un test, no se publica. Requiere elegir "GitHub Actions" como fuente en Settings → Pages.
 - `viewport-fit=cover` en el viewport para que los `safe-area-inset` de los botones táctiles funcionen en iPhone.
+
+## Hito 7
+
+### Overlay de métricas (F3 y casilla)
+
+- **Un solo estado:** el overlay se ve si `save.showDebug` es verdadero o si hay un parámetro de depuración en la URL.
+  F3 y la casilla "Mostrar FPS y métricas" de la pausa cambian el mismo campo y lo guardan al instante (como el silencio).
+- **F3 funciona en cualquier pantalla** (menú, partida, pausa) y nunca inicia la partida ni salta el menú.
+  Se le hace `preventDefault`, porque en Chrome y Firefox F3 es "buscar siguiente".
+- **`?debug` sigue saltando el menú** (como todos los parámetros de depuración; lo usan las pruebas headless) y enciende
+  el overlay solo para esa sesión, **sin escribirlo** en el guardado. Con un parámetro activo, F3 y la casilla no lo apagan.
+- **Guardado:** `showDebug: boolean` en `deadshift:v1`, por defecto `false`, validado campo por campo como `muted`
+  (un valor no booleano vuelve al defecto sin perder lo demás).
+- **"Oculto no consume CPU":** con el overlay oculto no se llama a `performance.now()` por frame, no se actualizan las
+  estadísticas, no se arma el texto ni se publica el dataset; el costo es una comparación por frame.
+  Al encenderlo, `FrameStats.reset()` descarta la media vieja y el primer frame (sin marca de inicio) no se cuenta.
+- **Línea:** `FPS · ms · zombis · bajas`. En táctil se dibuja encima del panel del arma, porque abajo a la derecha
+  están los botones "Cambiar arma" y "Recargar".
+- Todos los parámetros, teclas y claves del dataset están en `docs/DEBUG.md`.
+
+### Bajas por arma
+
+- Cada zombi recuerda la última arma que lo golpeó (`lastHitBy`, índice en `WEAPON_IDS`); la baja se acredita a esa
+  arma en `world.killsByWeapon` (un `Int32Array`, sin asignaciones por frame). Proyectiles y microondas guardan el arma
+  que los creó.
+- El veneno no cambia `lastHitBy`: una baja por veneno va al último golpe directo (normalmente el aerosol que envenenó).
+- Se publica en el dataset como `weaponKills` y se imprime en el reporte de balance.
+
+### Balance: Escoba
+
+**Bot de prueba más justo.** Antes de medir se corrigieron dos sesgos del bot que castigaban a la Pistola: disparaba a
+zombis fuera del alcance de la bala (el anillo de spawn está a 700 px y la bala llega a ~576 px), gastando munición, y
+nunca caminaba hacia los cupones (la Escoba mata pegada a Mati y los recoge sola; la Pistola no). Ahora solo dispara
+dentro del 85 % del alcance y, si no hay zombis a menos de 140 px, va al cupón más cercano (≤ 350 px).
+
+**Escenarios** (`BALANCE=1 npx vitest run tests/balance.test.ts`, 12 semillas): `mixed` (pistola y escoba de
+respaldo), `broomOnly` (sin munición ni cajas), `gunOnly` (pistola con reserva infinita, sin escoba). Cada uno con
+armas automáticas y con "solo manuales" (el bot no toma armas automáticas), que aísla la comparación Pistola / Escoba.
+`kpm` = bajas por minuto sobrevivido.
+
+**Hallazgos:**
+
+- Antes, la Escoba sola, **sin munición**, sobrevivía más que el juego normal con Pistola (316 s contra 281 s) y, con
+  solo armas manuales, mataba más que la Pistola con munición infinita (576 contra 486 bajas, 113 contra 77 kpm).
+- El tiempo de `broomOnly` casi no responde a los nerfs (270-296 s): choca con un "muro" de contenido (Carrito a las
+  4:30, jefe a las 5:00). Por eso se miran también las bajas y las `kpm`.
+- Debilitar solo la Escoba también hunde a `mixed` (es el salvavidas cuando se acaba la munición). Lo que más ayuda a
+  la Pistola no es su daño sino **la economía de munición**: con reserva infinita ya es el arma más fuerte (392 s).
+
+**Palancas probadas** (barrido temporal con 6 a 30 semillas; `broomOnly` con automáticas salvo que se indique):
+
+| Palanca                                           | `broomOnly` | Efecto                                       |
+| ------------------------------------------------- | ----------- | -------------------------------------------- |
+| Ninguna                                           | 316 s       | —                                            |
+| Escoba: cooldown ×1.3                             | 299 s       | Algo; también baja `mixed`                   |
+| Escoba: empuje 260 → 170 / 120                    | 312 / 311 s | Casi nada por sí solo                        |
+| Escoba: alcance −10 px y arco −15°                | 310 s       | Casi nada por sí solo                        |
+| Escoba: daño −2                                   | 301 s       | Algo                                         |
+| Escoba: cooldown ×1.3 + empuje 170 + alcance/arco | 290 s       | Bastante; `mixed` baja de 266 a 257 s        |
+| + empuje 120, cooldown ×1.5 y daño −2             | 270 s       | Con solo manuales, 78 kpm (= Pistola)        |
+| Pistola: perfora desde Nv 3 / +1 daño / cd 0.15   | —           | Sin efecto claro en `mixed`                  |
+| Cajas: 18 → 22 % en comunes                       | —           | `mixed` +20-30 s; 25 % no mejora más (ruido) |
+| Cajas: 15 → 18 balas                              | —           | Sin mejora medible                           |
+
+**Valores elegidos** (en `data/weapons.ts`; la Pistola no se tocó):
+
+| Nivel | Escoba antes                                    | Escoba ahora                                    |
+| ----- | ----------------------------------------------- | ----------------------------------------------- |
+| 1     | 12 daño, cd 0.5 s, arco 110°, 75 px, empuje 260 | 10 daño, cd 0.75 s, arco 95°, 65 px, empuje 120 |
+| 2     | 16 daño                                         | 14 daño                                         |
+| 3     | 140°, 85 px                                     | 125°, 75 px                                     |
+| 4     | 20 daño, cd 0.42 s                              | 18 daño, cd 0.63 s                              |
+| 5     | ambos lados                                     | ambos lados                                     |
+
+Además, las cajas de munición caen con 22 % (antes 18 %) de los zombis comunes.
+
+**Antes / después** (reporte oficial, 12 semillas):
+
+| Escenario                     | Antes: t / kpm / bajas | Después: t / kpm / bajas |
+| ----------------------------- | ---------------------- | ------------------------ |
+| `mixed` (con automáticas)     | 281 s / 101 / 477      | **299 s** / 101 / 503    |
+| `broomOnly` (con automáticas) | 316 s / 119 / 629      | **272 s** / 107 / 492    |
+| `gunOnly` (con automáticas)   | 392 s / 87 / 573       | 392 s / 87 / 573         |
+| `mixed` (solo manuales)       | 196 s / 77 / 269       | **253 s** / 91 / 411     |
+| `broomOnly` (solo manuales)   | 303 s / 113 / 576      | 284 s / **78** / 366     |
+| `gunOnly` (solo manuales)     | 368 s / 77 / 486       | 368 s / 77 / 486         |
+
+Resultado: jugar solo con la Escoba ahora es **peor** que el juego normal con Pistola (272 s contra 299 s), la Escoba
+ya no mata más rápido que la Pistola (78 contra 77 kpm) y el juego normal mejoró. La Escoba sigue sirviendo para salir
+de un apuro. El bot es una aproximación: falta confirmarlo con partidas reales.
+
+### Botiquín e Imán de suelo
+
+- **Un pool propio** (`world.floorItems`, 16) para los dos, con `kind: 'medkit' | 'magnet'`. Usan el mismo `pull()`
+  que los cupones y las cajas de munición (se imantan al entrar en el radio de recogida). Valores en `FLOOR_ITEMS`
+  (`data/progression.ts`).
+- **Botiquín:** cura 25 % de la vida máxima (con tope). Cae con 4 % de los élite (xp 5: Congelado, Carrito, Cajero) y
+  siempre del jefe. **Con la vida llena no se imanta ni se recoge**: queda en el suelo para después.
+- **Imán de suelo:** cae con 0.2 % de cualquier zombi (1 o 2 por partida). Al recogerlo, todos los cupones del mapa
+  quedan imantados y vuelan hacia Mati; las cajas de munición no.
+- Los sorteos usan el RNG sembrado, después del de la caja de munición. Con el pool lleno no cae nada.
+- Sonidos propios (`medkitPickup`, `magnetPickup`). Se dibujan como una caja blanca con cruz roja y una herradura roja
+  con halo pulsante.

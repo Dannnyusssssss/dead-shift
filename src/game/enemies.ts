@@ -37,6 +37,8 @@ export interface Enemy {
   slowTimer: number;
   poisonDps: number;
   poisonTimer: number;
+  /** Index in WEAPON_IDS of the last weapon that hit it (-1 = none), for kill stats. */
+  lastHitBy: number;
   /** Per weapon (WEAPON_IDS order): time until that weapon may hit this enemy again. */
   weaponHitTimers: Float32Array;
   /** Behavior scratch state; meaning depends on `def.behavior.kind`. */
@@ -71,6 +73,7 @@ export function createEnemyObject(): Enemy {
     slowTimer: 0,
     poisonDps: 0,
     poisonTimer: 0,
+    lastHitBy: -1,
     weaponHitTimers: new Float32Array(WEAPON_IDS.length),
     aiState: 0,
     aiTimer: 0,
@@ -136,6 +139,7 @@ export function spawnEnemy(
   e.slowTimer = 0;
   e.poisonDps = 0;
   e.poisonTimer = 0;
+  e.lastHitBy = -1;
   e.weaponHitTimers.fill(0);
   initBehavior(e, world);
   return e;

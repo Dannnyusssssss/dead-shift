@@ -4,6 +4,8 @@ import type { EnemyLook } from '../data/enemies';
 import {
   ACCESSORY_STYLE,
   AMMO_BOX_STYLE,
+  FLOOR_MAGNET_STYLE,
+  MEDKIT_STYLE,
   CHEST_STYLE,
   COUPON_STYLE,
   CLOUD_STYLE,
@@ -672,6 +674,54 @@ export function drawAmmoBox(
   ctx.beginPath();
   ctx.arc(x + 3, by, 2, -Math.PI / 2, Math.PI / 2);
   ctx.fill();
+}
+
+/** White first-aid box with a red cross, bobbing like the ammo boxes. */
+export function drawMedkit(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const s = MEDKIT_STYLE;
+  const by = y + Math.sin(time * 5 + x * 0.05) * 1.5;
+  const h = s.size / 2;
+  ctx.fillStyle = s.body;
+  ctx.strokeStyle = s.edge;
+  ctx.lineWidth = 2;
+  ctx.fillRect(x - h, by - h, s.size, s.size);
+  ctx.strokeRect(x - h, by - h, s.size, s.size);
+  ctx.fillStyle = s.cross;
+  const len = s.size - 6;
+  ctx.fillRect(x - s.arm / 2, by - len / 2, s.arm, len);
+  ctx.fillRect(x - len / 2, by - s.arm / 2, len, s.arm);
+}
+
+/** Horseshoe magnet with a pulsing halo so the rare drop stands out. */
+export function drawFloorMagnet(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const s = FLOOR_MAGNET_STYLE;
+  const pulse = 0.5 + 0.5 * Math.sin(time * 6);
+  ctx.fillStyle = s.halo;
+  ctx.beginPath();
+  ctx.arc(x, y, s.radius + 4 + pulse * 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.lineWidth = s.thickness;
+  ctx.strokeStyle = s.body;
+  ctx.beginPath();
+  ctx.arc(x, y, s.radius, Math.PI, 0, true);
+  ctx.stroke();
+  ctx.strokeStyle = s.tips;
+  ctx.beginPath();
+  ctx.moveTo(x - s.radius, y);
+  ctx.lineTo(x - s.radius, y - 4);
+  ctx.moveTo(x + s.radius, y);
+  ctx.lineTo(x + s.radius, y - 4);
+  ctx.stroke();
 }
 
 /** Screen-space crosshair at the mouse position. */

@@ -28,3 +28,23 @@ export const COUPONS = {
   chestRadius: 18,
   chestCapacity: 4,
 } as const;
+
+/** Rare floor pickups: medkits (heal) and the floor magnet (pulls every coupon). */
+export const FLOOR_ITEMS = {
+  capacity: 16,
+  /** Pickup collision radius, px. */
+  radius: 10,
+  medkit: {
+    /** Fraction of max hp restored. */
+    healFraction: 0.25,
+    /** Drop chance by enemy xp value: the first tier whose `minXp` the enemy reaches (elites and the boss). */
+    dropTiers: [
+      { minXp: 20, chance: 1 },
+      { minXp: 5, chance: 0.04 },
+    ],
+  },
+  magnet: {
+    /** Drop chance from any enemy. */
+    chance: 0.002,
+  },
+} as const;

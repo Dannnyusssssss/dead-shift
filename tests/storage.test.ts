@@ -44,7 +44,7 @@ describe('parseSave', () => {
   });
 
   it('round-trips a valid save', () => {
-    const save = { bestTime: 321.5, totalKills: 999, muted: true };
+    const save = { bestTime: 321.5, totalKills: 999, muted: true, showDebug: true };
     expect(parseSave(serializeSave(save))).toEqual(save);
   });
 
@@ -52,7 +52,15 @@ describe('parseSave', () => {
     const raw = JSON.stringify({ bestTime: -5, totalKills: 'many', muted: true });
     expect(parseSave(raw)).toEqual({ ...DEFAULT_SAVE, muted: true });
     const raw2 = JSON.stringify({ bestTime: 100, totalKills: 12.7, muted: 'yes' });
-    expect(parseSave(raw2)).toEqual({ bestTime: 100, totalKills: 12, muted: false });
+    expect(parseSave(raw2)).toEqual({ ...DEFAULT_SAVE, bestTime: 100, totalKills: 12 });
+  });
+
+  it('reads showDebug, defaulting to hidden when missing or invalid', () => {
+    expect(DEFAULT_SAVE.showDebug).toBe(false);
+    expect(parseSave(JSON.stringify({ muted: true })).showDebug).toBe(false);
+    expect(parseSave(JSON.stringify({ showDebug: true })).showDebug).toBe(true);
+    const raw = JSON.stringify({ bestTime: 50, muted: true, showDebug: 'on' });
+    expect(parseSave(raw)).toEqual({ ...DEFAULT_SAVE, bestTime: 50, muted: true });
   });
 
   it('caps the best time at the shift length', () => {
@@ -77,10 +85,11 @@ describe('recordRun', () => {
   });
 
   it('does not mutate the input and keeps the sound setting', () => {
-    const save = { bestTime: 10, totalKills: 1, muted: true };
+    const save = { bestTime: 10, totalKills: 1, muted: true, showDebug: true };
     const result = recordRun(save, 20, 2);
-    expect(save).toEqual({ bestTime: 10, totalKills: 1, muted: true });
+    expect(save).toEqual({ bestTime: 10, totalKills: 1, muted: true, showDebug: true });
     expect(result.save.muted).toBe(true);
+    expect(result.save.showDebug).toBe(true);
   });
 });
 
@@ -88,9 +97,10 @@ describe('createSaveStore', () => {
   it('saves under deadshift:v1 and loads it back', () => {
     const backend = memoryBackend();
     const store = createSaveStore(backend);
-    store.save({ bestTime: 300, totalKills: 7, muted: true });
+    const save = { bestTime: 300, totalKills: 7, muted: true, showDebug: true };
+    store.save(save);
     expect(Object.keys(backend.data)).toEqual([SAVE_KEY]);
-    expect(store.load()).toEqual({ bestTime: 300, totalKills: 7, muted: true });
+    expect(store.load()).toEqual(save);
   });
 
   it('tolerates corrupt stored data', () => {

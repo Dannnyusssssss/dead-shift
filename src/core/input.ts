@@ -36,7 +36,7 @@ const KEY_MAP: Readonly<Record<string, keyof KeyState>> = {
 };
 
 /** One-shot actions bound to keys (held keys such as movement and Space are handled apart). */
-export type KeyAction = 'swap' | 'reload' | 'pause' | 'mute';
+export type KeyAction = 'swap' | 'reload' | 'pause' | 'mute' | 'debug';
 
 const ACTION_KEYS: Readonly<Record<string, KeyAction>> = {
   KeyQ: 'swap',
@@ -44,6 +44,7 @@ const ACTION_KEYS: Readonly<Record<string, KeyAction>> = {
   Escape: 'pause',
   KeyP: 'pause',
   KeyM: 'mute',
+  F3: 'debug',
 };
 
 export function keyAction(code: string): KeyAction | undefined {
@@ -156,6 +157,8 @@ export interface Input {
   consumeReload(): boolean;
   consumePause(): boolean;
   consumeMute(): boolean;
+  /** F3: show / hide the performance overlay. */
+  consumeDebug(): boolean;
   /** Drops pending gameplay presses (swap, reload) e.g. while a menu is open. */
   clearEdges(): void;
   requestSwap(): void;
@@ -185,6 +188,7 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   let reloadPressed = false;
   let pausePressed = false;
   let mutePressed = false;
+  let debugPressed = false;
   // Until the first pointer arrives, guess from the device (phones and tablets report "coarse").
   let touchMode = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   let lastWheelSwap = 0;
@@ -201,8 +205,11 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       e.preventDefault();
       return;
     }
+    const action = keyAction(e.code);
+    // F3 is "find next" in most browsers, even while held.
+    if (action === 'debug') e.preventDefault();
     if (e.repeat) return;
-    switch (keyAction(e.code)) {
+    switch (action) {
       case 'swap':
         swapPressed = true;
         break;
@@ -214,6 +221,9 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
         break;
       case 'mute':
         mutePressed = true;
+        break;
+      case 'debug':
+        debugPressed = true;
         break;
       case undefined:
         break;
@@ -343,6 +353,11 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     consumeMute() {
       const v = mutePressed;
       mutePressed = false;
+      return v;
+    },
+    consumeDebug() {
+      const v = debugPressed;
+      debugPressed = false;
       return v;
     },
     consumeSwap() {

@@ -59,12 +59,14 @@ const es = {
   soundOn: '🔊 Sonido: sí',
   soundOff: '🔇 Sonido: no',
   controlsDesktop:
-    'WASD: moverse · Mouse: apuntar · Clic: disparar · R: recargar · Q / rueda: cambiar arma · Esc: pausa · M: silencio',
+    'WASD: moverse · Mouse: apuntar · Clic: disparar · R: recargar · Q / rueda: cambiar arma · Esc: pausa · M: silencio · F3: métricas',
   controlsTouch:
     'Mitad izquierda: moverse · Mitad derecha: apuntar y disparar · Botones para cambiar arma, recargar y pausar',
   pauseTitle: 'Pausa',
   resume: 'Continuar',
   quitToMenu: 'Salir al menú',
+  showDebug: 'Mostrar FPS y métricas',
+  killsShort: 'bajas',
   statClock: 'Hora del turno',
   newRecord: '¡Nuevo récord!',
   menuButton: 'Menú principal',

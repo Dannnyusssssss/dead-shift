@@ -17,6 +17,9 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 - **Los zombis sueltan:**
   - Cupones (experiencia).
   - A veces, cajas de munición.
+  - Los zombis élite, a veces, un **botiquín** (cura 25 % de la vida; si estás con la vida llena, queda en el suelo).
+    El jefe siempre suelta uno.
+  - Muy de vez en cuando, un **imán**: atrae todos los cupones del mapa.
 - **Al subir de nivel** el juego se pausa y eliges 1 de 3 mejoras: un arma automática nueva, subir de nivel un arma
   o un pasivo. Tienes 1 "Cambiar opciones" por partida.
   - Armas automáticas: latas de conserva, bolsas de hielo, aerosol insecticida y microondas.
@@ -39,6 +42,7 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 | Cambiar pistola ↔ escoba | Q o rueda del mouse                      |
 | Pausa                    | Esc o P (también el botón ❚❚)            |
 | Silenciar                | M                                        |
+| Mostrar FPS y métricas   | F3 (o la casilla en la pausa)            |
 | Elegir mejora            | 1 / 2 / 3, clic; R para cambiar opciones |
 
 Sin mouse (solo teclado), Mati apunta hacia donde camina y dispara con Espacio.
@@ -50,6 +54,7 @@ Sin mouse (solo teclado), Mati apunta hacia donde camina y dispara con Espacio.
 - **Botones:** "Cambiar arma" y "Recargar" abajo a la derecha, y pausa arriba a la derecha.
 - La recarga también es automática al vaciar el cargador.
 - El juego se pausa solo si cambias de app o de pestaña.
+- La pausa tiene la casilla "Mostrar FPS y métricas".
 
 ## Desarrollo
 
@@ -69,7 +74,8 @@ Para probar en el celular dentro de la misma red Wi-Fi: `npm run dev -- --host` 
 ### Parámetros de depuración
 
 Se agregan a la URL, por ejemplo `http://localhost:5173/?god&spawn=200`. Cualquiera de ellos salta el menú y muestra
-FPS, CPU y la cantidad de zombis.
+FPS, CPU, zombis y bajas. Detalles, teclas, el dataset para pruebas y el reporte de balance en
+[docs/DEBUG.md](docs/DEBUG.md).
 
 | Parámetro      | Efecto                                                  |
 | -------------- | ------------------------------------------------------- |

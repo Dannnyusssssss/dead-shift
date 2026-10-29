@@ -1,5 +1,5 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
-import { COUPONS } from '../data/progression';
+import { COUPONS, FLOOR_ITEMS } from '../data/progression';
 import { AMMO } from '../data/weapons';
 import { addAmmo, isReloading } from './manual';
 import type { Player } from './player';
@@ -23,12 +23,23 @@ export interface Coupon extends Magnetic {
 /** Box of gun rounds on the floor. */
 export type AmmoBox = Magnetic;
 
+export type FloorItemKind = 'medkit' | 'magnet';
+
+/** Rare pickup: a medkit (heals) or a floor magnet (pulls every coupon on the map). */
+export interface FloorItem extends Magnetic {
+  kind: FloorItemKind;
+}
+
 export function createCouponObject(): Coupon {
   return { pos: vec2(), value: 0, attracted: false, speed: 0 };
 }
 
 export function createAmmoBoxObject(): AmmoBox {
   return { pos: vec2(), attracted: false, speed: 0 };
+}
+
+export function createFloorItemObject(): FloorItem {
+  return { pos: vec2(), attracted: false, speed: 0, kind: 'medkit' };
 }
 
 function place(item: Magnetic, x: number, y: number): void {
@@ -52,8 +63,7 @@ export function dropCoupon(world: World, x: number, y: number, value: number): v
 
 /** Chance that an enemy worth `xp` drops an ammo box. */
 export function ammoDropChance(xp: number): number {
-  for (const tier of AMMO.dropTiers) if (xp >= tier.minXp) return tier.chance;
-  return 0;
+  return tierChance(AMMO.dropTiers, xp);
 }
 
 /** Rolls the seeded RNG and maybe drops an ammo box (silently skipped if the pool is full). */
@@ -61,6 +71,66 @@ export function maybeDropAmmo(world: World, x: number, y: number, xp: number): v
   if (world.rng.next() >= ammoDropChance(xp)) return;
   const box = world.ammoBoxes.acquire();
   if (box) place(box, x, y);
+}
+
+/** First tier whose `minXp` an enemy worth `xp` reaches; 0 below every tier. */
+function tierChance(tiers: readonly { minXp: number; chance: number }[], xp: number): number {
+  for (const tier of tiers) if (xp >= tier.minXp) return tier.chance;
+  return 0;
+}
+
+/** Chance that an enemy worth `xp` drops a medkit (elites and the boss only). */
+export function medkitDropChance(xp: number): number {
+  return tierChance(FLOOR_ITEMS.medkit.dropTiers, xp);
+}
+
+function dropFloorItem(world: World, x: number, y: number, kind: FloorItemKind): void {
+  const item = world.floorItems.acquire();
+  if (!item) return;
+  place(item, x, y);
+  item.kind = kind;
+}
+
+/** Rolls the seeded RNG for a medkit and a floor magnet (silently skipped if the pool is full). */
+export function maybeDropFloorItems(world: World, x: number, y: number, xp: number): void {
+  if (world.rng.next() < medkitDropChance(xp)) dropFloorItem(world, x, y, 'medkit');
+  if (world.rng.next() < FLOOR_ITEMS.magnet.chance) dropFloorItem(world, x, y, 'magnet');
+}
+
+/** Every coupon on the floor starts flying to the player, wherever it is. */
+export function attractAllCoupons(world: World): void {
+  const { items, count } = world.coupons;
+  for (let i = 0; i < count; i++) {
+    const c = items[i] as Coupon;
+    if (c.attracted) continue;
+    c.attracted = true;
+    c.speed = COUPONS.attractStartSpeed;
+  }
+}
+
+/** Heals a fraction of max hp, capped at max hp. */
+export function healFraction(p: Player, fraction: number): void {
+  p.hp = Math.min(p.maxHp, p.hp + p.maxHp * fraction);
+}
+
+function collectFloorItems(world: World, dt: number): void {
+  const p = world.player;
+  const pool = world.floorItems;
+  const collectRadius = p.radius + FLOOR_ITEMS.radius;
+  for (let i = pool.count - 1; i >= 0; i--) {
+    const item = pool.items[i] as FloorItem;
+    // A medkit is left on the floor while health is full, so it isn't wasted.
+    if (item.kind === 'medkit' && !item.attracted && p.hp >= p.maxHp) continue;
+    if (!pull(item, p, collectRadius, dt)) continue;
+    if (item.kind === 'medkit') {
+      healFraction(p, FLOOR_ITEMS.medkit.healFraction);
+      emit(world.events, 'medkitPickup', item.pos.x, item.pos.y);
+    } else {
+      attractAllCoupons(world);
+      emit(world.events, 'magnetPickup', item.pos.x, item.pos.y);
+    }
+    pool.releaseAt(i);
+  }
 }
 
 /** Boss chest on the floor; walk over it to open a free weapon upgrade. */
@@ -112,6 +182,8 @@ function pull(item: Magnetic, p: Player, collectRadius: number, dt: number): boo
 
 export function pickupSystem(world: World, dt: number): void {
   collectChests(world);
+  // Before the coupons, so a magnet's pull starts this same step.
+  collectFloorItems(world, dt);
   const p = world.player;
 
   const coupons = world.coupons;

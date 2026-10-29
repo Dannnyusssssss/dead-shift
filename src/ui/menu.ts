@@ -171,14 +171,17 @@ export function createMainMenu(
 
 export interface PauseMenu {
   readonly visible: boolean;
-  show(muted: boolean): void;
+  show(muted: boolean, showDebug: boolean): void;
   hide(): void;
   setMuted(muted: boolean): void;
+  setShowDebug(showDebug: boolean): void;
 }
 
 export interface PauseHandlers {
   onResume(): void;
   onToggleMute(): void;
+  /** The metrics checkbox changed; the host decides the new state and calls `setShowDebug`. */
+  onToggleDebug(): void;
   onQuit(): void;
 }
 
@@ -187,19 +190,25 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
   const title = el('h1', 'ds-title', t('pauseTitle'));
   const resume = button('ds-button', t('resume'));
   const sound = button('ds-button ds-button-secondary', '');
+  const debugRow = el('label', 'ds-check');
+  const debugBox = el('input', 'ds-check-box');
+  debugBox.type = 'checkbox';
+  debugRow.append(debugBox, el('span', '', t('showDebug')));
   const quit = button('ds-button ds-button-secondary', t('quitToMenu'));
-  panel.append(title, resume, sound, quit);
+  panel.append(title, resume, sound, debugRow, quit);
 
   resume.addEventListener('click', handlers.onResume);
   sound.addEventListener('click', handlers.onToggleMute);
+  debugBox.addEventListener('change', handlers.onToggleDebug);
   quit.addEventListener('click', handlers.onQuit);
 
   return {
     get visible() {
       return !overlay.hidden;
     },
-    show(muted) {
+    show(muted, showDebug) {
       sound.textContent = soundLabel(muted);
+      debugBox.checked = showDebug;
       overlay.hidden = false;
       resume.focus();
     },
@@ -209,6 +218,9 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
     },
     setMuted(muted) {
       sound.textContent = soundLabel(muted);
+    },
+    setShowDebug(showDebug) {
+      debugBox.checked = showDebug;
     },
   };
 }
