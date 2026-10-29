@@ -4,10 +4,26 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Dead Shift</title>
-    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="Survivor-like de zombis en un supermercado 24 h. Eres el repositor del turno de noche: sobrevive hasta las 6:00 AM con lo que encuentres en las góndolas."
+    />
+    <meta name="theme-color" content="#111111" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="Dead Shift" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Dead Shift" />
+    <meta
+      property="og:description"
+      content="Sobrevive al turno de noche en un supermercado lleno de zombis. Se juega en el navegador, en PC y en el celular."
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <style>
       html,
       body {
@@ -30,10 +46,34 @@
         /* The game draws its own crosshair. */
         cursor: none;
       }
+      /* Shown until main.ts boots (or replaced by an error message if it can't). */
+      .boot-msg {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        color: #c8f03c;
+        font:
+          700 18px system-ui,
+          sans-serif;
+        text-align: center;
+        letter-spacing: 0.04em;
+      }
     </style>
   </head>
   <body>
     <canvas id="game"></canvas>
+    <div id="boot" class="boot-msg" role="status">Cargando el turno…</div>
+    <noscript>
+      <style>
+        #boot {
+          display: none;
+        }
+      </style>
+      <div class="boot-msg">Dead Shift necesita JavaScript activado para jugar.</div>
+    </noscript>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -453,6 +453,14 @@ function boot(): void {
   if (debug.enabled) startRun();
   else mainMenu.show(menuInfo());
   loop.start();
+  document.getElementById('boot')?.remove();
 }
 
-boot();
+try {
+  boot();
+} catch (err) {
+  // Leave a readable message instead of a black screen stuck on "Cargando".
+  const msg = document.getElementById('boot');
+  if (msg) msg.textContent = t('bootError');
+  throw err;
+}

@@ -26,7 +26,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   (75 % de probabilidad) con largo y posición derivados de `hash2(bloque, semilla)`. Así el mapa es infinito,
   estable y no requiere guardar nada. Sin colisión.
 - **Semilla de la partida.** `Date.now()` al arrancar; se podrá fijar para reproducir bugs o para el modo diario.
-- **Favicon vacío** (`data:,`) para que no haya un 404 en consola; el favicon real llega en el Hito 6.
+- ~~**Favicon vacío** (`data:,`) para que no haya un 404 en consola; el favicon real llega en el Hito 6.~~
+  **Reemplazada en Hito 6:** favicon SVG en `public/favicon.svg`.
 
 ## Hito 2
 
@@ -249,3 +250,17 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   - En pantallas angostas el reloj baja debajo del botón de pausa (antes se montaba sobre la barra de vida).
 - **Depuración:** el dataset suma `trauma` (pico desde la última publicación) y `muted`; `status` vale `paused`
   durante la pausa.
+
+## Hito 6
+
+- **Favicon** en `public/favicon.svg`: un SVG escrito a mano (cabeza de zombi con una etiqueta de precio), sin assets
+  externos. Vite lo copia a `dist/` y se enlaza con ruta relativa (`./favicon.svg`) para que funcione en subrutas.
+  No hay PNG para `apple-touch-icon`: iOS usa una captura de la página.
+- **Meta tags:** descripción, `theme-color`, `color-scheme`, modo app en móviles y Open Graph básico.
+  Sin `og:image`, porque necesita una URL absoluta y una imagen; queda para cuando haya dominio.
+- **Pantalla de carga** en el HTML, no en JS: "Cargando el turno…" se ve hasta que `main.ts` termina de arrancar
+  y la quita. Si el arranque falla, el texto cambia a un error legible. Con JavaScript desactivado, un `<noscript>`
+  lo explica.
+- **GitHub Pages** con un workflow propio (`.github/workflows/deploy.yml`): Node 22, `npm ci`, lint, tests, build y
+  `deploy-pages`. Si falla un test, no se publica. Requiere elegir "GitHub Actions" como fuente en Settings → Pages.
+- `viewport-fit=cover` en el viewport para que los `safe-area-inset` de los botones táctiles funcionen en iPhone.

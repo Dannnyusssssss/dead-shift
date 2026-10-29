@@ -1,5 +1,6 @@
 const es = {
   gameTitle: 'Dead Shift',
+  bootError: 'No se pudo iniciar el juego: este navegador no soporta Canvas 2D.',
   hp: 'Vida',
   fps: 'FPS',
   kills: 'Bajas',
