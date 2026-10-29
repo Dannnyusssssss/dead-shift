@@ -1,35 +1,66 @@
-import { WEAPONS, type ArcLevel, type WeaponDef, type WeaponId } from '../data/weapons';
+import { COMBAT } from '../data/combat';
+import {
+  WEAPON_IDS,
+  WEAPONS,
+  type ArcLevel,
+  type ConeWeaponDef,
+  type OrbitLevel,
+  type OrbitWeaponDef,
+  type ProjectileWeaponDef,
+  type TurretWeaponDef,
+  type WeaponDef,
+  type WeaponId,
+  type WeaponLevel,
+} from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
+import { spawnProjectile } from './projectiles';
 import { damageEnemy } from './systems/damage';
+import { placeTurret } from './turrets';
 import type { World } from './world';
 
 export interface WeaponInstance {
   def: Readonly<WeaponDef>;
+  /** Index in WEAPON_IDS (for per-enemy hit timers). */
+  slot: number;
   /** 1-based. */
   level: number;
   /** Seconds until the next activation. */
   cooldown: number;
-  /** Game time of the last activation (render uses it for the swing effect). */
+  /** Game time of the last activation (render uses it for swing effects). */
   lastFireTime: number;
   /** Direction of the last activation, radians. */
   fireAngle: number;
+  /** Cone: remaining active time of the cloud. */
+  activeTimer: number;
+  /** Cone: time until the next damage tick. */
+  tickTimer: number;
+  /** Orbit: current rotation, radians. */
+  phase: number;
 }
 
 export function createWeapon(id: WeaponId): WeaponInstance {
   return {
     def: WEAPONS[id],
+    slot: WEAPON_IDS.indexOf(id),
     level: 1,
     cooldown: 0,
     lastFireTime: Number.NEGATIVE_INFINITY,
     fireAngle: 0,
+    activeTimer: 0,
+    tickTimer: 0,
+    phase: 0,
   };
 }
 
-export function levelStats(weapon: Readonly<WeaponInstance>): Readonly<ArcLevel> {
-  const levels = weapon.def.levels;
-  const stats = levels[Math.min(weapon.level, levels.length) - 1] ?? levels[0];
-  if (!stats) throw new Error(`Weapon ${weapon.def.id} has no levels`);
+/** Stats of `level` (1-based) from a level table, clamped to the table. */
+export function statsAt<L>(levels: readonly L[], level: number): L {
+  const stats = levels[Math.max(1, Math.min(level, levels.length)) - 1];
+  if (stats === undefined) throw new Error('Weapon has no levels');
   return stats;
+}
+
+export function levelStats(weapon: Readonly<WeaponInstance>): Readonly<WeaponLevel> {
+  return statsAt<WeaponLevel>(weapon.def.levels, weapon.level);
 }
 
 /** Shortest signed difference between two angles, in (-PI, PI]. */
@@ -40,47 +71,242 @@ export function angleDiff(a: number, b: number): number {
   return d;
 }
 
-function sweepArc(world: World, angle: number, stats: Readonly<ArcLevel>): void {
-  const p = world.player;
-  const halfArc = ((stats.arcDegrees / 2) * Math.PI) / 180;
+const toRad = (deg: number): number => (deg * Math.PI) / 180;
+
+function facingAngle(world: World): number {
+  return Math.atan2(world.player.facing.y, world.player.facing.x);
+}
+
+/** Damages (and optionally poisons) every living enemy inside the circular sector. */
+function hitSector(
+  world: World,
+  x: number,
+  y: number,
+  angle: number,
+  halfArc: number,
+  range: number,
+  damage: number,
+  knockback: number,
+  poisonDps = 0,
+  poisonTime = 0,
+): void {
   const buf = world.queryBuf;
-  const n = world.hash.query(p.pos.x, p.pos.y, stats.range + MAX_ENEMY_RADIUS, buf);
+  const n = world.hash.query(x, y, range + MAX_ENEMY_RADIUS, buf);
   for (let k = 0; k < n; k++) {
     const e = world.enemies.items[buf[k] ?? 0] as Enemy;
     if (e.hp <= 0) continue;
-    const dx = e.pos.x - p.pos.x;
-    const dy = e.pos.y - p.pos.y;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
     const d = Math.sqrt(dx * dx + dy * dy);
-    if (d > stats.range + e.radius) continue;
+    if (d > range + e.radius) continue;
     if (d > e.radius) {
-      // Widen the arc by the enemy's angular size so grazing hits count.
+      // Widen the sector by the enemy's angular size so grazing hits count.
       const tolerance = Math.asin(e.radius / d);
       if (Math.abs(angleDiff(Math.atan2(dy, dx), angle)) > halfArc + tolerance) continue;
     }
     const nx = d > 1e-6 ? dx / d : Math.cos(angle);
     const ny = d > 1e-6 ? dy / d : Math.sin(angle);
-    damageEnemy(e, stats.damage, nx * stats.knockback, ny * stats.knockback);
+    damageEnemy(e, damage, nx * knockback, ny * knockback);
+    if (poisonDps > 0) {
+      e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, poisonDps);
+      e.poisonTimer = Math.max(e.poisonTimer, poisonTime);
+    }
   }
 }
 
-type WeaponBehavior = (weapon: WeaponInstance, world: World) => void;
-
-function arc(weapon: WeaponInstance, world: World): void {
-  const stats = levelStats(weapon);
-  const angle = Math.atan2(world.player.facing.y, world.player.facing.x);
-  weapon.fireAngle = angle;
-  weapon.lastFireTime = world.time;
-  sweepArc(world, angle, stats);
-  if (stats.bothSides) sweepArc(world, angle + Math.PI, stats);
+function fireArc(w: WeaponInstance, s: Readonly<ArcLevel>, world: World): void {
+  const p = world.player;
+  const angle = facingAngle(world);
+  const damage = s.damage * p.mods.damage;
+  w.fireAngle = angle;
+  w.lastFireTime = world.time;
+  hitSector(world, p.pos.x, p.pos.y, angle, toRad(s.arcDegrees / 2), s.range, damage, s.knockback);
+  if (s.bothSides) {
+    const back = angle + Math.PI;
+    hitSector(world, p.pos.x, p.pos.y, back, toRad(s.arcDegrees / 2), s.range, damage, s.knockback);
+  }
 }
 
-const BEHAVIORS: Readonly<Record<WeaponDef['behavior'], WeaponBehavior>> = { arc };
+export function findNearestEnemy(
+  world: World,
+  x: number,
+  y: number,
+  maxDist: number,
+): Enemy | undefined {
+  const { items, count } = world.enemies;
+  let best: Enemy | undefined;
+  let bestD2 = maxDist * maxDist;
+  for (let i = 0; i < count; i++) {
+    const e = items[i] as Enemy;
+    if (e.hp <= 0) continue;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/** Returns false when there was nothing to shoot at (the weapon retries next step). */
+function fireProjectiles(
+  w: WeaponInstance,
+  def: Readonly<ProjectileWeaponDef>,
+  world: World,
+): boolean {
+  const p = world.player;
+  const s = statsAt(def.levels, w.level);
+  let angle: number;
+  if (def.behavior === 'projectile') {
+    const target = findNearestEnemy(world, p.pos.x, p.pos.y, COMBAT.maxTargetDistance);
+    if (!target) return false;
+    angle = Math.atan2(target.pos.y - p.pos.y, target.pos.x - p.pos.x);
+  } else {
+    angle = facingAngle(world);
+  }
+  w.fireAngle = angle;
+  w.lastFireTime = world.time;
+  const spread = toRad(s.spreadDegrees);
+  for (let i = 0; i < s.count; i++) {
+    const offset = (i - (s.count - 1) / 2) * spread;
+    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, def.look);
+  }
+  return true;
+}
+
+/** Angle of bag `k` of an orbit weapon (shared with the renderer). */
+export function orbitBagAngle(w: Readonly<WeaponInstance>, k: number, bags: number): number {
+  return w.phase + (k * Math.PI * 2) / bags;
+}
+
+function updateOrbit(
+  w: WeaponInstance,
+  def: Readonly<OrbitWeaponDef>,
+  world: World,
+  dt: number,
+): void {
+  const s: Readonly<OrbitLevel> = statsAt(def.levels, w.level);
+  const p = world.player;
+  w.phase = (w.phase + s.angularSpeed * dt) % (Math.PI * 2);
+  const damage = s.damage * p.mods.damage;
+  const buf = world.queryBuf;
+  for (let b = 0; b < s.bags; b++) {
+    const a = orbitBagAngle(w, b, s.bags);
+    const bx = p.pos.x + Math.cos(a) * s.orbitRadius;
+    const by = p.pos.y + Math.sin(a) * s.orbitRadius;
+    const n = world.hash.query(bx, by, s.bagRadius + MAX_ENEMY_RADIUS, buf);
+    for (let k = 0; k < n; k++) {
+      const e = world.enemies.items[buf[k] ?? 0] as Enemy;
+      if (e.hp <= 0 || (e.weaponHitTimers[w.slot] ?? 0) > 0) continue;
+      const dx = e.pos.x - bx;
+      const dy = e.pos.y - by;
+      const r = e.radius + s.bagRadius;
+      if (dx * dx + dy * dy > r * r) continue;
+      const ex = e.pos.x - p.pos.x;
+      const ey = e.pos.y - p.pos.y;
+      const d = Math.hypot(ex, ey) || 1;
+      damageEnemy(e, damage, (ex / d) * s.knockback, (ey / d) * s.knockback);
+      e.weaponHitTimers[w.slot] = s.hitInterval;
+      e.slowFactor = Math.max(e.slowTimer > 0 ? e.slowFactor : 0, s.slowFactor);
+      e.slowTimer = Math.max(e.slowTimer, s.slowTime);
+    }
+  }
+}
+
+function updateCone(
+  w: WeaponInstance,
+  def: Readonly<ConeWeaponDef>,
+  world: World,
+  dt: number,
+): void {
+  const s = statsAt(def.levels, w.level);
+  const p = world.player;
+  if (w.activeTimer <= 0) {
+    w.cooldown -= dt;
+    if (w.cooldown > 0) return;
+    w.activeTimer = s.activeTime;
+    w.tickTimer = 0;
+    w.lastFireTime = world.time;
+  }
+  w.fireAngle = facingAngle(world);
+  w.tickTimer -= dt;
+  if (w.tickTimer <= 0) {
+    w.tickTimer += s.tickInterval;
+    const dmg = p.mods.damage;
+    const halfArc = toRad(s.angleDegrees / 2);
+    hitSector(
+      world,
+      p.pos.x,
+      p.pos.y,
+      w.fireAngle,
+      halfArc,
+      s.range,
+      s.damage * dmg,
+      0,
+      s.poisonDps * dmg,
+      s.poisonTime,
+    );
+  }
+  w.activeTimer -= dt;
+  if (w.activeTimer <= 0) {
+    w.activeTimer = 0;
+    w.cooldown = s.cooldown * p.mods.cooldown;
+  }
+}
+
+function placeMicrowaves(w: WeaponInstance, def: Readonly<TurretWeaponDef>, world: World): void {
+  const s = statsAt(def.levels, w.level);
+  const p = world.player;
+  const angle = facingAngle(world);
+  // Several units sit side by side, perpendicular to where the player faces.
+  const px = -Math.sin(angle);
+  const py = Math.cos(angle);
+  const gap = 45;
+  for (let i = 0; i < s.units; i++) {
+    const offset = (i - (s.units - 1) / 2) * gap;
+    placeTurret(world, p.pos.x + px * offset, p.pos.y + py * offset, s);
+  }
+  w.fireAngle = angle;
+  w.lastFireTime = world.time;
+  w.cooldown = (s.duration + s.respawnDelay) * p.mods.cooldown;
+}
 
 export function weaponSystem(world: World, dt: number): void {
-  for (const weapon of world.player.weapons) {
-    weapon.cooldown -= dt;
-    if (weapon.cooldown > 0) continue;
-    BEHAVIORS[weapon.def.behavior](weapon, world);
-    weapon.cooldown += levelStats(weapon).cooldown;
+  const mods = world.player.mods;
+  for (const w of world.player.weapons) {
+    const def = w.def;
+    switch (def.behavior) {
+      case 'orbit':
+        updateOrbit(w, def, world, dt);
+        break;
+      case 'cone':
+        updateCone(w, def, world, dt);
+        break;
+      case 'turret':
+        w.cooldown -= dt;
+        if (w.cooldown <= 0) placeMicrowaves(w, def, world);
+        break;
+      case 'arc': {
+        w.cooldown -= dt;
+        if (w.cooldown > 0) break;
+        const s = statsAt(def.levels, w.level);
+        fireArc(w, s, world);
+        w.cooldown += s.cooldown * mods.cooldown;
+        break;
+      }
+      case 'projectile':
+      case 'stream': {
+        w.cooldown -= dt;
+        if (w.cooldown > 0) break;
+        if (fireProjectiles(w, def, world)) {
+          w.cooldown += statsAt(def.levels, w.level).cooldown * mods.cooldown;
+        } else {
+          w.cooldown = 0;
+        }
+        break;
+      }
+    }
   }
 }

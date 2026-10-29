@@ -1,6 +1,5 @@
 import { COMBAT } from '../../data/combat';
 import type { Enemy } from '../enemies';
-import { emit } from '../events';
 import type { Player } from '../player';
 import type { World } from '../world';
 
@@ -13,25 +12,13 @@ export function damageEnemy(enemy: Enemy, amount: number, kx: number, ky: number
   return enemy.hp <= 0;
 }
 
-/** Applies a hit unless the player is invulnerable. Returns true if the hit landed. */
+/** Applies a hit (reduced by armor, min 1) unless invulnerable. Returns true if it landed. */
 export function damagePlayer(player: Player, amount: number): boolean {
   if (player.invulnTimer > 0 || amount <= 0) return false;
-  if (!player.invincible) player.hp = Math.max(0, player.hp - amount);
+  const taken = Math.max(1, amount - player.mods.armor);
+  if (!player.invincible) player.hp = Math.max(0, player.hp - taken);
   player.invulnTimer = player.invulnTime;
   return true;
-}
-
-/** Removes dead enemies (counting kills) and ends the run when the player dies. */
-export function deathSystem(world: World): void {
-  const enemies = world.enemies;
-  for (let i = enemies.count - 1; i >= 0; i--) {
-    const e = enemies.items[i] as Enemy;
-    if (e.hp > 0) continue;
-    emit(world.events, 'enemyDeath', e.pos.x, e.pos.y, e.def.look.blood);
-    world.kills++;
-    enemies.releaseAt(i);
-  }
-  if (world.player.hp <= 0) world.status = 'dead';
 }
 
 export function timersSystem(world: World, dt: number): void {

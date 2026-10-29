@@ -11,7 +11,9 @@ import {
 import { angleDiff, weaponSystem } from '../src/game/weapons';
 import { addClient, emptyWorld } from './helpers';
 
-const broom = WEAPONS.broom.levels[0];
+const broomDef = WEAPONS.broom;
+if (broomDef.behavior !== 'arc') throw new Error('broom must be an arc weapon');
+const broom = broomDef.levels[0];
 if (!broom) throw new Error('broom level 1 missing');
 
 describe('broom (arc weapon)', () => {

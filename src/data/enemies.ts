@@ -17,6 +17,8 @@ export interface EnemyDef {
   damage: number;
   /** Collision radius in px. */
   radius: number;
+  /** Value of the coupon dropped on death (1, 5 or 20). */
+  xp: number;
   behavior: EnemyBehaviorId;
   look: EnemyLook;
 }
@@ -28,6 +30,7 @@ export const ENEMIES: Readonly<Record<EnemyId, Readonly<EnemyDef>>> = {
     speed: 55,
     damage: 6,
     radius: 12,
+    xp: 1,
     behavior: 'chase',
     look: { shirt: '#8a5a9e', skin: '#8fbf6a', blood: '#4f9a2f' },
   },

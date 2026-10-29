@@ -1,6 +1,7 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
 import { COMBAT } from '../data/combat';
 import { ENEMIES, type EnemyBehaviorId, type EnemyDef } from '../data/enemies';
+import { WEAPON_IDS } from '../data/weapons';
 import type { World } from './world';
 
 export interface Enemy {
@@ -18,6 +19,13 @@ export interface Enemy {
   radius: number;
   /** Remaining white-flash time after being hit, s. */
   hitTimer: number;
+  /** Fraction of speed removed while `slowTimer` > 0. */
+  slowFactor: number;
+  slowTimer: number;
+  poisonDps: number;
+  poisonTimer: number;
+  /** Per weapon (WEAPON_IDS order): time until that weapon may hit this enemy again. */
+  weaponHitTimers: Float32Array;
 }
 
 /** Largest enemy radius; pads spatial queries so big enemies are not missed. */
@@ -36,6 +44,11 @@ export function createEnemyObject(): Enemy {
     damage: 0,
     radius: 0,
     hitTimer: 0,
+    slowFactor: 0,
+    slowTimer: 0,
+    poisonDps: 0,
+    poisonTimer: 0,
+    weaponHitTimers: new Float32Array(WEAPON_IDS.length),
   };
 }
 
@@ -59,6 +72,11 @@ export function spawnEnemy(
   e.damage = def.damage;
   e.radius = def.radius;
   e.hitTimer = 0;
+  e.slowFactor = 0;
+  e.slowTimer = 0;
+  e.poisonDps = 0;
+  e.poisonTimer = 0;
+  e.weaponHitTimers.fill(0);
   return e;
 }
 
@@ -90,10 +108,11 @@ export function enemyMovementSystem(world: World, dt: number): void {
   const decay = Math.exp(-COMBAT.knockbackDecay * dt);
   for (let i = 0; i < count; i++) {
     const e = items[i] as Enemy;
+    const speedScale = e.slowTimer > 0 ? 1 - e.slowFactor : 1;
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;
-    e.pos.x += (e.vel.x + e.knockback.x) * dt;
-    e.pos.y += (e.vel.y + e.knockback.y) * dt;
+    e.pos.x += (e.vel.x * speedScale + e.knockback.x) * dt;
+    e.pos.y += (e.vel.y * speedScale + e.knockback.y) * dt;
     e.knockback.x *= decay;
     e.knockback.y *= decay;
   }

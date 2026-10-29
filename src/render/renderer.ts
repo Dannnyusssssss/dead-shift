@@ -1,13 +1,37 @@
 import type { Camera } from '../core/camera';
 import type { Input } from '../core/input';
 import { lerp, type Vec2 } from '../core/math';
-import { BACKGROUND_COLOR, MAX_DPR, PLAYER_BLINK_RATE, SWEEP } from '../data/render';
+import {
+  BACKGROUND_COLOR,
+  MAX_DPR,
+  MICROWAVE_STYLE,
+  PLAYER_BLINK_RATE,
+  PROJECTILE_STYLE,
+  STATUS_TINT,
+  SWEEP,
+} from '../data/render';
 import type { Enemy } from '../game/enemies';
-import { levelStats } from '../game/weapons';
+import type { Coupon } from '../game/pickups';
+import type { Projectile } from '../game/projectiles';
+import type { Turret } from '../game/turrets';
+import { orbitBagAngle, statsAt } from '../game/weapons';
 import type { World } from '../game/world';
 import { drawHud, drawJoystick, type HudDebug } from './hud';
 import type { Particles } from './particles';
-import { drawEnemy, drawFloor, drawPlayer, drawSweep } from './sprites';
+import {
+  drawBeam,
+  drawCan,
+  drawCloud,
+  drawCoupon,
+  drawEnemy,
+  drawFloor,
+  drawIceBag,
+  drawLabel,
+  drawMicrowave,
+  drawPlayer,
+  drawStatusTint,
+  drawSweep,
+} from './sprites';
 
 export interface RenderFrame {
   world: Readonly<World>;
@@ -28,6 +52,10 @@ export interface Renderer {
   readonly viewH: number;
 }
 
+const toRad = (deg: number): number => (deg * Math.PI) / 180;
+/** Off-screen margin for culling, px. */
+const CULL_PAD = 40;
+
 export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const maybeCtx = canvas.getContext('2d', { alpha: false });
   if (!maybeCtx) throw new Error('Canvas 2D no disponible');
@@ -36,6 +64,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   let viewW = 0;
   let viewH = 0;
   let dpr = 1;
+  let left = 0;
+  let top = 0;
 
   /** Cheap per-frame check; handles window resize, rotation and DPR changes (zoom). */
   function syncSize(): void {
@@ -50,39 +80,93 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     canvas.height = Math.round(h * dpr);
   }
 
-  function drawEnemies(world: Readonly<World>, alpha: number, left: number, top: number): void {
+  const visible = (x: number, y: number): boolean =>
+    x >= left - CULL_PAD &&
+    x <= left + viewW + CULL_PAD &&
+    y >= top - CULL_PAD &&
+    y <= top + viewH + CULL_PAD;
+
+  function drawCoupons(world: Readonly<World>): void {
+    const { items, count } = world.coupons;
+    for (let i = 0; i < count; i++) {
+      const c = items[i] as Coupon;
+      if (visible(c.pos.x, c.pos.y)) drawCoupon(ctx, c.pos.x, c.pos.y, c.value, world.time);
+    }
+  }
+
+  function drawEnemies(world: Readonly<World>, alpha: number): void {
     const { items, count } = world.enemies;
-    const pad = 40;
     for (let i = 0; i < count; i++) {
       const e = items[i] as Enemy;
       const x = lerp(e.prevPos.x, e.pos.x, alpha);
       const y = lerp(e.prevPos.y, e.pos.y, alpha);
-      if (x < left - pad || x > left + viewW + pad || y < top - pad || y > top + viewH + pad) {
-        continue;
-      }
+      if (!visible(x, y)) continue;
       const angle = Math.atan2(e.vel.y, e.vel.x);
       drawEnemy(ctx, x, y, angle, e.radius, e.def.look, e.hitTimer > 0);
+      if (e.poisonTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.poison);
+      else if (e.slowTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.slow);
     }
   }
 
-  function drawWeaponEffects(world: Readonly<World>, playerPos: Readonly<Vec2>): void {
+  function drawProjectiles(world: Readonly<World>, alpha: number): void {
+    const { items, count } = world.projectiles;
+    for (let i = 0; i < count; i++) {
+      const p = items[i] as Projectile;
+      const x = lerp(p.prevPos.x, p.pos.x, alpha);
+      const y = lerp(p.prevPos.y, p.pos.y, alpha);
+      if (!visible(x, y)) continue;
+      if (p.look === 'can') drawCan(ctx, x, y, p.radius, p.life * PROJECTILE_STYLE.canSpin);
+      else drawLabel(ctx, x, y, Math.atan2(p.vel.y, p.vel.x));
+    }
+  }
+
+  function drawTurrets(world: Readonly<World>): void {
+    const { items, count } = world.turrets;
+    for (let i = 0; i < count; i++) {
+      const t = items[i] as Turret;
+      drawMicrowave(ctx, t.pos.x, t.pos.y, t.life, world.time);
+      const since = world.time - t.lastFireTime;
+      if (since >= MICROWAVE_STYLE.beamTime) continue;
+      const a = 1 - since / MICROWAVE_STYLE.beamTime;
+      for (let b = 0; b < t.beamCount; b++) {
+        drawBeam(ctx, t.pos.x, t.pos.y, t.beamX[b] ?? t.pos.x, t.beamY[b] ?? t.pos.y, a);
+      }
+    }
+  }
+
+  /** Effects attached to the player (swing, cloud, orbiting bags). */
+  function drawWeaponEffects(world: Readonly<World>, pp: Readonly<Vec2>): void {
     for (const w of world.player.weapons) {
-      if (w.def.behavior !== 'arc') continue;
-      const progress = (world.time - w.lastFireTime) / SWEEP.fadeTime;
-      if (progress >= 1) continue;
-      const stats = levelStats(w);
-      const halfArc = ((stats.arcDegrees / 2) * Math.PI) / 180;
-      drawSweep(ctx, playerPos.x, playerPos.y, w.fireAngle, halfArc, stats.range, progress);
-      if (stats.bothSides) {
-        drawSweep(
-          ctx,
-          playerPos.x,
-          playerPos.y,
-          w.fireAngle + Math.PI,
-          halfArc,
-          stats.range,
-          progress,
-        );
+      const def = w.def;
+      switch (def.behavior) {
+        case 'arc': {
+          const progress = (world.time - w.lastFireTime) / SWEEP.fadeTime;
+          if (progress >= 1) break;
+          const s = statsAt(def.levels, w.level);
+          const half = toRad(s.arcDegrees / 2);
+          drawSweep(ctx, pp.x, pp.y, w.fireAngle, half, s.range, progress);
+          if (s.bothSides)
+            drawSweep(ctx, pp.x, pp.y, w.fireAngle + Math.PI, half, s.range, progress);
+          break;
+        }
+        case 'cone': {
+          if (w.activeTimer <= 0) break;
+          const s = statsAt(def.levels, w.level);
+          drawCloud(ctx, pp.x, pp.y, w.fireAngle, toRad(s.angleDegrees / 2), s.range, world.time);
+          break;
+        }
+        case 'orbit': {
+          const s = statsAt(def.levels, w.level);
+          for (let b = 0; b < s.bags; b++) {
+            const a = orbitBagAngle(w, b, s.bags);
+            const x = pp.x + Math.cos(a) * s.orbitRadius;
+            const y = pp.y + Math.sin(a) * s.orbitRadius;
+            drawIceBag(ctx, x, y, s.bagRadius, a + Math.PI / 2);
+          }
+          break;
+        }
+        default:
+          break;
       }
     }
   }
@@ -106,14 +190,17 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       // Snap the camera to device pixels to avoid shimmering tile lines.
       const camX = Math.round(camera.x * dpr) / dpr;
       const camY = Math.round(camera.y * dpr) / dpr;
-      const left = camX - viewW / 2;
-      const top = camY - viewH / 2;
+      left = camX - viewW / 2;
+      top = camY - viewH / 2;
 
       ctx.save();
       ctx.translate(-left, -top);
       drawFloor(ctx, left, top, viewW, viewH, world.seed);
       frame.particles.draw(ctx);
-      drawEnemies(world, frame.alpha, left, top);
+      drawCoupons(world);
+      drawTurrets(world);
+      drawEnemies(world, frame.alpha);
+      drawProjectiles(world, frame.alpha);
       drawWeaponEffects(world, playerPos);
       const blinkOff =
         player.invulnTimer > 0 && Math.floor(world.time * PLAYER_BLINK_RATE * 2) % 2 === 1;

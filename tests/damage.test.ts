@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { PLAYER_BASE } from '../src/data/player';
-import { damageEnemy, damagePlayer, deathSystem, timersSystem } from '../src/game/systems/damage';
+import { damageEnemy, damagePlayer, timersSystem } from '../src/game/systems/damage';
+import { deathSystem } from '../src/game/systems/death';
 import { addClient, emptyWorld } from './helpers';
 
 describe('damageEnemy', () => {

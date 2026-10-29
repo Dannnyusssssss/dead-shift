@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FIXED_STEP } from '../src/core/loop';
 import { COMBAT } from '../src/data/combat';
 import { WAVES } from '../src/data/waves';
+import { chooseOffer } from '../src/game/progression';
 import { spawnHorde, spawnRadiusForView, spawnSystem } from '../src/game/spawner';
 import { updateWorld } from '../src/game/world';
 import { emptyWorld } from './helpers';
@@ -81,7 +82,8 @@ describe('full simulation', () => {
   it('a standing player eventually dies and the world freezes', () => {
     const world = emptyWorld(7);
     let steps = 0;
-    while (world.status === 'playing' && steps < 60 * 600) {
+    while (world.status !== 'dead' && steps < 60 * 600) {
+      if (world.status === 'levelup') chooseOffer(world, 0);
       updateWorld(world, FIXED_STEP);
       steps++;
     }

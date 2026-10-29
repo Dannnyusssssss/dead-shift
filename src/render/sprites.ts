@@ -1,7 +1,18 @@
 import type { Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
-import { ENEMY_SPRITE, FLOOR, PLAYER_SPRITE, SHELVES, SWEEP } from '../data/render';
+import {
+  COUPON_STYLE,
+  CLOUD_STYLE,
+  ENEMY_SPRITE,
+  FLOOR,
+  ICE_STYLE,
+  MICROWAVE_STYLE,
+  PLAYER_SPRITE,
+  PROJECTILE_STYLE,
+  SHELVES,
+  SWEEP,
+} from '../data/render';
 
 /** Draws the supermarket floor covering the world-space rect [left, left+w] x [top, top+h]. */
 export function drawFloor(
@@ -241,5 +252,198 @@ export function drawSweep(
   ctx.beginPath();
   ctx.arc(x, y, range, angle - halfArc, angle + halfArc);
   ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+/** Ring around a slowed or poisoned enemy. */
+export function drawStatusTint(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  radius: number,
+  color: string,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/** Discount coupon: a small ticket with a notch, colored by value tier. */
+export function drawCoupon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  value: number,
+  time: number,
+): void {
+  const tiers = COUPON_STYLE.tiers;
+  let tier = tiers[tiers.length - 1];
+  for (const t of tiers) {
+    if (value >= t.min) {
+      tier = t;
+      break;
+    }
+  }
+  if (!tier) return;
+  const w = COUPON_STYLE.width;
+  const h = COUPON_STYLE.height;
+  const by = y + Math.sin(time * COUPON_STYLE.bobSpeed + x * 0.05) * COUPON_STYLE.bob;
+  ctx.fillStyle = tier.fill;
+  ctx.strokeStyle = tier.stroke;
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(x - w / 2, by - h / 2, w, h);
+  ctx.strokeRect(x - w / 2, by - h / 2, w, h);
+  // Perforation line.
+  ctx.beginPath();
+  ctx.moveTo(x + w * 0.15, by - h / 2);
+  ctx.lineTo(x + w * 0.15, by + h / 2);
+  ctx.stroke();
+}
+
+export function drawCan(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  spin: number,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(spin);
+  ctx.fillStyle = PROJECTILE_STYLE.canBody;
+  ctx.strokeStyle = PROJECTILE_STYLE.canOutline;
+  ctx.lineWidth = 1.5;
+  ctx.fillRect(-r, -r * 0.8, r * 2, r * 1.6);
+  ctx.fillStyle = PROJECTILE_STYLE.canBand;
+  ctx.fillRect(-r, -r * 0.35, r * 2, r * 0.7);
+  ctx.strokeRect(-r, -r * 0.8, r * 2, r * 1.6);
+  ctx.restore();
+}
+
+export function drawLabel(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+): void {
+  const l = PROJECTILE_STYLE.labelLength;
+  const w = PROJECTILE_STYLE.labelWidth;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = PROJECTILE_STYLE.labelFill;
+  ctx.strokeStyle = PROJECTILE_STYLE.labelStroke;
+  ctx.lineWidth = 1;
+  ctx.fillRect(-l / 2, -w / 2, l, w);
+  ctx.strokeRect(-l / 2, -w / 2, l, w);
+  ctx.restore();
+}
+
+export function drawIceBag(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  angle: number,
+): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.fillStyle = ICE_STYLE.fill;
+  ctx.strokeStyle = ICE_STYLE.stroke;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-r, -r * 0.85, r * 2, r * 1.7, r * 0.5);
+  ctx.fill();
+  ctx.stroke();
+  // Knot of the bag.
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(r * 1.45, -r * 0.3);
+  ctx.lineTo(r * 1.45, r * 0.3);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = ICE_STYLE.shine;
+  ctx.fillRect(-r * 0.55, -r * 0.5, r * 0.4, r * 0.3);
+  ctx.restore();
+}
+
+/** Insecticide cloud: translucent wedge plus puffs that drift outwards. */
+export function drawCloud(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  halfArc: number,
+  range: number,
+  time: number,
+): void {
+  ctx.fillStyle = CLOUD_STYLE.color;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, angle - halfArc, angle + halfArc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = CLOUD_STYLE.edge;
+  const n = CLOUD_STYLE.puffs;
+  for (let i = 0; i < n; i++) {
+    const t = (time * 1.5 + i / n) % 1;
+    const a = angle + (((i * 37) % n) / (n - 1) - 0.5) * halfArc * 1.6;
+    const d = range * (0.25 + t * 0.7);
+    ctx.beginPath();
+    ctx.arc(x + Math.cos(a) * d, y + Math.sin(a) * d, 6 + t * 12, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+export function drawMicrowave(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  lifeLeft: number,
+  time: number,
+): void {
+  const s = MICROWAVE_STYLE;
+  if (lifeLeft < s.blinkWhenLeft && Math.floor(time * 10) % 2 === 0) return;
+  const w = s.width;
+  const h = s.height;
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.fillRect(x - w / 2 + 3, y - h / 2 + 4, w, h);
+  ctx.fillStyle = s.body;
+  ctx.strokeStyle = s.outline;
+  ctx.lineWidth = 2;
+  ctx.fillRect(x - w / 2, y - h / 2, w, h);
+  ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+  ctx.fillStyle = s.window;
+  ctx.fillRect(x - w / 2 + 3, y - h / 2 + 3, w * 0.62, h - 6);
+  ctx.fillStyle = s.glow;
+  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 8);
+  ctx.fillRect(x - w / 2 + 5, y - h / 2 + 5, w * 0.62 - 4, h - 10);
+  ctx.globalAlpha = 1;
+}
+
+export function drawBeam(
+  ctx: CanvasRenderingContext2D,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  alpha: number,
+): void {
+  ctx.globalAlpha = alpha;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = MICROWAVE_STYLE.beamGlow;
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.strokeStyle = MICROWAVE_STYLE.beam;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.lineCap = 'butt';
   ctx.globalAlpha = 1;
 }

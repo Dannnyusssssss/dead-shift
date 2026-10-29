@@ -4,6 +4,7 @@ import { formatDuration } from './format';
 export interface RunStats {
   timeSurvived: number;
   kills: number;
+  level: number;
 }
 
 export interface GameOverScreen {
@@ -40,9 +41,10 @@ export function createGameOverScreen(root: HTMLElement): GameOverScreen {
   const subtitle = el('p', 'ds-subtitle', t('gameOverSubtitle'));
   const time = statRow(t('statTime'));
   const kills = statRow(t('statKills'));
+  const level = statRow(t('statLevel'));
   const retry = el('button', 'ds-button', t('retry'));
   retry.type = 'button';
-  panel.append(title, subtitle, time.row, kills.row, retry);
+  panel.append(title, subtitle, time.row, kills.row, level.row, retry);
   overlay.append(panel);
   root.append(overlay);
 
@@ -57,6 +59,7 @@ export function createGameOverScreen(root: HTMLElement): GameOverScreen {
       onRetry = retryHandler;
       time.value.textContent = formatDuration(stats.timeSurvived);
       kills.value.textContent = String(stats.kills);
+      level.value.textContent = String(stats.level);
       overlay.hidden = false;
       retry.focus();
     },

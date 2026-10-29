@@ -70,6 +70,80 @@ export const SWEEP = {
   edgeColor: 'rgba(255, 240, 200, 0.9)',
 } as const;
 
+export const STATUS_TINT = {
+  slow: 'rgba(120, 200, 255, 0.55)',
+  poison: 'rgba(120, 230, 60, 0.5)',
+} as const;
+
+/** Coupon colors by value tier (first tier whose `min` the value reaches, from the top). */
+export const COUPON_STYLE = {
+  tiers: [
+    { min: 20, fill: '#e94f37', stroke: '#8a1f12' },
+    { min: 5, fill: '#3f88c5', stroke: '#173d5c' },
+    { min: 0, fill: '#f6c445', stroke: '#8a6a10' },
+  ],
+  width: 14,
+  height: 9,
+  /** Bob amplitude (px) and speed (rad/s) so coupons catch the eye. */
+  bob: 1.5,
+  bobSpeed: 5,
+} as const;
+
+export const PROJECTILE_STYLE = {
+  canBody: '#b9c0c8',
+  canBand: '#d63a3a',
+  canOutline: '#4a4f55',
+  /** Spin of thrown cans, rad/s. */
+  canSpin: 12,
+  labelFill: '#fff3a8',
+  labelStroke: '#c9a227',
+  labelLength: 9,
+  labelWidth: 5,
+} as const;
+
+export const ICE_STYLE = {
+  fill: '#d8f1ff',
+  stroke: '#5aa6d6',
+  shine: 'rgba(255, 255, 255, 0.9)',
+} as const;
+
+export const CLOUD_STYLE = {
+  color: 'rgba(150, 220, 90, 0.22)',
+  edge: 'rgba(170, 240, 110, 0.35)',
+  /** Puffs drawn along the cone. */
+  puffs: 7,
+} as const;
+
+export const MICROWAVE_STYLE = {
+  body: '#e8e8e8',
+  outline: '#555b62',
+  window: '#2a2f36',
+  glow: '#ffcf4a',
+  width: 30,
+  height: 22,
+  beam: 'rgba(255, 230, 120, 0.95)',
+  beamGlow: 'rgba(255, 200, 60, 0.35)',
+  /** How long a zap stays visible, s. */
+  beamTime: 0.12,
+  /** Starts blinking when this many seconds of life are left. */
+  blinkWhenLeft: 1.5,
+} as const;
+
+export const XP_BAR = {
+  height: 10,
+  bg: 'rgba(0, 0, 0, 0.55)',
+  fill: '#6fd3ff',
+  border: 'rgba(255, 255, 255, 0.7)',
+} as const;
+
+export const LOADOUT_HUD = {
+  iconSize: 22,
+  gap: 6,
+  font: '18px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif',
+  levelFont: '700 10px system-ui, sans-serif',
+  slotBg: 'rgba(0, 0, 0, 0.45)',
+} as const;
+
 export const PARTICLES = {
   capacity: 800,
   drag: 5,

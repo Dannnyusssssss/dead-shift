@@ -3,27 +3,38 @@ import { createCamera, updateCamera } from './core/camera';
 import { createInput } from './core/input';
 import { createFixedLoop, createFrameStats } from './core/loop';
 import { vec2 } from './core/math';
+import { PROGRESSION } from './data/progression';
 import { CAMERA_FOLLOW_RATE, JOYSTICK, PARTICLES } from './data/render';
 import { t } from './data/texts';
+import { WEAPON_IDS } from './data/weapons';
 import { interpolatedPlayerPos } from './game/player';
+import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
 import { spawnHorde, spawnRadiusForView } from './game/spawner';
+import { createWeapon } from './game/weapons';
 import { createWorld, updateWorld, type World } from './game/world';
 import { createParticles } from './render/particles';
 import { createRenderer, type RenderFrame } from './render/renderer';
+import { describeOffer } from './ui/describe';
+import { createLevelUpScreen } from './ui/levelup';
 import { createGameOverScreen } from './ui/menu';
 
-/** Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death. */
+/**
+ * Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death,
+ * `?weapons=all` starts with every weapon at max level (ignores the slot limit).
+ */
 interface DebugOptions {
   enabled: boolean;
   spawn: number;
   god: boolean;
+  allWeapons: boolean;
 }
 
 function readDebugOptions(search: string): DebugOptions {
   const params = new URLSearchParams(search);
   const spawn = Math.max(0, Math.floor(Number(params.get('spawn') ?? 0)) || 0);
   const god = params.has('god');
-  return { enabled: spawn > 0 || god || params.has('debug'), spawn, god };
+  const allWeapons = params.get('weapons') === 'all';
+  return { enabled: spawn > 0 || god || allWeapons || params.has('debug'), spawn, god, allWeapons };
 }
 
 function boot(): void {
@@ -37,11 +48,19 @@ function boot(): void {
   const particles = createParticles();
   const stats = createFrameStats();
   const gameOver = createGameOverScreen(document.body);
+  const levelUp = createLevelUpScreen(document.body);
   const playerPos = vec2();
 
   const newWorld = (): World => {
     const w = createWorld(Date.now() >>> 0);
     w.player.invincible = debug.god;
+    if (debug.allWeapons) {
+      w.player.weapons = WEAPON_IDS.map((id) => {
+        const weapon = createWeapon(id);
+        weapon.level = PROGRESSION.maxLevel;
+        return weapon;
+      });
+    }
     if (debug.spawn > 0) spawnHorde(w, debug.spawn);
     return w;
   };
@@ -60,11 +79,35 @@ function boot(): void {
 
   const restart = (): void => {
     gameOver.hide();
+    levelUp.hide();
     world = newWorld();
     frame.world = world;
     particles.clear();
     camera.x = world.player.pos.x;
     camera.y = world.player.pos.y;
+  };
+
+  const showLevelUp = (): void => {
+    if (world.status !== 'levelup') {
+      levelUp.hide();
+      return;
+    }
+    levelUp.show(
+      {
+        level: levelBeingChosen(world.player),
+        offers: world.offers.map((o) => describeOffer(o, world.player)),
+        rerollsLeft: world.rerollsLeft,
+      },
+      {
+        onChoose: (i) => {
+          chooseOffer(world, i);
+          showLevelUp();
+        },
+        onReroll: () => {
+          if (rerollOffers(world)) showLevelUp();
+        },
+      },
+    );
   };
 
   /** Turns gameplay events into cosmetic effects, then empties the queue. */
@@ -98,8 +141,12 @@ function boot(): void {
       frame.alpha = alpha;
       renderer.render(frame);
 
+      if (world.status === 'levelup' && !levelUp.visible) showLevelUp();
       if (world.status === 'dead' && !gameOver.visible) {
-        gameOver.show({ timeSurvived: world.time, kills: world.kills }, restart);
+        gameOver.show(
+          { timeSurvived: world.time, kills: world.kills, level: world.player.level },
+          restart,
+        );
       }
 
       stats.tick(frameDt, performance.now() - frameStart);
@@ -110,10 +157,17 @@ function boot(): void {
       if (debug.enabled && now - lastStatsPublish >= 500) {
         // Exposed for automated checks (headless browser).
         lastStatsPublish = now;
-        document.body.dataset.fps = String(stats.fps);
-        document.body.dataset.cpu = stats.cpuMs.toFixed(2);
-        document.body.dataset.enemies = String(world.enemies.count);
-        document.body.dataset.kills = String(world.kills);
+        const ds = document.body.dataset;
+        ds.fps = String(stats.fps);
+        ds.cpu = stats.cpuMs.toFixed(2);
+        ds.enemies = String(world.enemies.count);
+        ds.kills = String(world.kills);
+        ds.level = String(world.player.level);
+        ds.status = world.status;
+        ds.loadout = [
+          ...world.player.weapons.map((w) => `${w.def.id}:${w.level}`),
+          ...world.player.passives.map((p) => `${p.def.id}:${p.level}`),
+        ].join(',');
       }
     },
   });
