@@ -53,6 +53,47 @@ export const PLAYER_SPRITE = {
   outline: '#1b1b1b',
 } as const;
 
+export const ENEMY_SPRITE = {
+  shadow: 'rgba(0, 0, 0, 0.22)',
+  outline: '#1b1b1b',
+  eyes: '#e8f0a0',
+  flash: '#ffffff',
+} as const;
+
+/** Player blinks at this rate (Hz) while invulnerable. */
+export const PLAYER_BLINK_RATE = 12;
+
+export const SWEEP = {
+  /** How long the broom swing stays visible, s. */
+  fadeTime: 0.18,
+  color: 'rgba(255, 255, 255, 0.55)',
+  edgeColor: 'rgba(255, 240, 200, 0.9)',
+} as const;
+
+export const PARTICLES = {
+  capacity: 800,
+  drag: 5,
+  death: {
+    count: 10,
+    speedMin: 40,
+    speedMax: 170,
+    lifeMin: 0.3,
+    lifeMax: 0.7,
+    sizeMin: 2,
+    sizeMax: 5,
+  },
+  hit: {
+    count: 8,
+    speedMin: 60,
+    speedMax: 180,
+    lifeMin: 0.2,
+    lifeMax: 0.45,
+    sizeMin: 2,
+    sizeMax: 4,
+  },
+  hitColor: '#e23b3b',
+} as const;
+
 export const HUD = {
   margin: 16,
   font: '600 14px system-ui, sans-serif',

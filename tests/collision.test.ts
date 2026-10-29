@@ -1,0 +1,104 @@
+import { describe, expect, it } from 'vitest';
+import { FIXED_STEP } from '../src/core/loop';
+import { setVec } from '../src/core/math';
+import { ENEMIES } from '../src/data/enemies';
+import { WEAPONS } from '../src/data/weapons';
+import {
+  contactDamageSystem,
+  separationSystem,
+  spatialIndexSystem,
+} from '../src/game/systems/collision';
+import { angleDiff, weaponSystem } from '../src/game/weapons';
+import { addClient, emptyWorld } from './helpers';
+
+const broom = WEAPONS.broom.levels[0];
+if (!broom) throw new Error('broom level 1 missing');
+
+describe('broom (arc weapon)', () => {
+  it('hits enemies inside the arc and ignores those behind or out of reach', () => {
+    const world = emptyWorld();
+    setVec(world.player.facing, 1, 0);
+    const front = addClient(world, 50, 0);
+    const frontEdge = addClient(world, 40, 40); // 45°, inside the 100° arc
+    const behind = addClient(world, -50, 0);
+    const side = addClient(world, 0, 60); // 90°, outside
+    const far = addClient(world, broom.range + 40, 0);
+    spatialIndexSystem(world);
+    weaponSystem(world, FIXED_STEP);
+    const full = ENEMIES.client.hp;
+    expect(front.hp).toBe(full - broom.damage);
+    expect(frontEdge.hp).toBe(full - broom.damage);
+    expect(behind.hp).toBe(full);
+    expect(side.hp).toBe(full);
+    expect(far.hp).toBe(full);
+  });
+
+  it('pushes hit enemies away from the player', () => {
+    const world = emptyWorld();
+    setVec(world.player.facing, 0, -1);
+    const e = addClient(world, 0, -40);
+    spatialIndexSystem(world);
+    weaponSystem(world, FIXED_STEP);
+    expect(e.knockback.y).toBeLessThan(0);
+    expect(Math.abs(e.knockback.x)).toBeLessThan(1e-6);
+  });
+
+  it('respects the cooldown', () => {
+    const world = emptyWorld();
+    const e = addClient(world, 30, 0);
+    e.hp = 1000;
+    spatialIndexSystem(world);
+    const steps = Math.round(broom.cooldown / FIXED_STEP) * 3;
+    for (let i = 0; i < steps; i++) weaponSystem(world, FIXED_STEP);
+    // Fires on the first step, then once per cooldown.
+    const hits = (1000 - e.hp) / broom.damage;
+    expect(hits).toBeGreaterThanOrEqual(3);
+    expect(hits).toBeLessThanOrEqual(4);
+  });
+
+  it('angleDiff wraps around', () => {
+    expect(angleDiff(Math.PI - 0.1, -Math.PI + 0.1)).toBeCloseTo(-0.2);
+    expect(angleDiff(0.1, -0.1)).toBeCloseTo(0.2);
+  });
+});
+
+describe('contact damage', () => {
+  it('hurts the player when a zombie touches, once per invulnerability window', () => {
+    const world = emptyWorld();
+    addClient(world, 10, 0);
+    addClient(world, -10, 0);
+    spatialIndexSystem(world);
+    contactDamageSystem(world);
+    expect(world.player.hp).toBe(world.player.maxHp - ENEMIES.client.damage);
+    contactDamageSystem(world);
+    expect(world.player.hp).toBe(world.player.maxHp - ENEMIES.client.damage);
+    expect(world.events.items[0]?.type).toBe('playerHit');
+  });
+
+  it('does nothing when no zombie is touching', () => {
+    const world = emptyWorld();
+    addClient(world, 100, 0);
+    spatialIndexSystem(world);
+    contactDamageSystem(world);
+    expect(world.player.hp).toBe(world.player.maxHp);
+  });
+});
+
+describe('separation', () => {
+  it('pushes overlapping zombies apart, including perfectly stacked ones', () => {
+    const world = emptyWorld();
+    const a = addClient(world, 500, 500);
+    const b = addClient(world, 505, 500);
+    const c = addClient(world, 800, 800);
+    const d = addClient(world, 800, 800);
+    const gap = () => Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y);
+    const before = gap();
+    for (let i = 0; i < 30; i++) {
+      spatialIndexSystem(world);
+      separationSystem(world);
+    }
+    expect(gap()).toBeGreaterThan(before);
+    expect(gap()).toBeGreaterThanOrEqual(a.radius + b.radius - 0.5);
+    expect(Math.hypot(d.pos.x - c.pos.x, d.pos.y - c.pos.y)).toBeGreaterThan(0);
+  });
+});

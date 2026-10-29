@@ -1,0 +1,93 @@
+.ds-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 10, 8, 0.72);
+  font-family: system-ui, sans-serif;
+  color: #f2f2f2;
+  animation: ds-fade-in 0.4s ease-out;
+}
+
+.ds-overlay[hidden] {
+  display: none;
+}
+
+.ds-panel {
+  width: min(360px, 100%);
+  padding: 28px 24px 24px;
+  border-radius: 12px;
+  background: #1d221d;
+  border: 2px solid #3b4a36;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.ds-title {
+  margin: 0 0 6px;
+  font-size: 32px;
+  letter-spacing: 0.02em;
+}
+
+.ds-title-danger {
+  color: #e86a5a;
+}
+
+.ds-subtitle {
+  margin: 0 0 20px;
+  color: #b8c2b2;
+  font-size: 15px;
+}
+
+.ds-stat {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-bottom: 1px solid #2f382c;
+  font-size: 16px;
+}
+
+.ds-stat-label {
+  color: #b8c2b2;
+}
+
+.ds-stat-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-button {
+  margin-top: 22px;
+  width: 100%;
+  min-height: 48px;
+  border: none;
+  border-radius: 8px;
+  background: #c8f03c;
+  color: #1b1b1b;
+  font:
+    700 18px system-ui,
+    sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ds-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.ds-button:active {
+  transform: translateY(1px);
+  filter: brightness(0.92);
+}
+
+@keyframes ds-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

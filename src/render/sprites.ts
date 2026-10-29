@@ -1,6 +1,7 @@
 import type { Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
-import { FLOOR, PLAYER_SPRITE, SHELVES } from '../data/render';
+import type { EnemyLook } from '../data/enemies';
+import { ENEMY_SPRITE, FLOOR, PLAYER_SPRITE, SHELVES, SWEEP } from '../data/render';
 
 /** Draws the supermarket floor covering the world-space rect [left, left+w] x [top, top+h]. */
 export function drawFloor(
@@ -164,4 +165,81 @@ export function drawPlayer(
   ctx.fill();
 
   ctx.restore();
+}
+
+/** Top-down zombie: arms stretched toward where it walks; solid white while flashing. */
+export function drawEnemy(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  radius: number,
+  look: Readonly<EnemyLook>,
+  flash: boolean,
+): void {
+  const skin = flash ? ENEMY_SPRITE.flash : look.skin;
+  const shirt = flash ? ENEMY_SPRITE.flash : look.shirt;
+
+  ctx.fillStyle = ENEMY_SPRITE.shadow;
+  ctx.beginPath();
+  ctx.ellipse(x + 2, y + radius * 0.6, radius, radius * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = ENEMY_SPRITE.outline;
+
+  // Arms reaching forward.
+  ctx.fillStyle = skin;
+  ctx.fillRect(radius * 0.1, -radius * 0.85, radius * 1.05, radius * 0.32);
+  ctx.fillRect(radius * 0.1, radius * 0.53, radius * 1.05, radius * 0.32);
+
+  ctx.fillStyle = shirt;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, radius * 0.75, radius, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.arc(radius * 0.15, 0, radius * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  if (!flash) {
+    ctx.fillStyle = ENEMY_SPRITE.eyes;
+    ctx.fillRect(radius * 0.4, -radius * 0.25, radius * 0.16, radius * 0.16);
+    ctx.fillRect(radius * 0.4, radius * 0.09, radius * 0.16, radius * 0.16);
+  }
+
+  ctx.restore();
+}
+
+/** Fading wedge showing a melee swing. `progress` goes 0 -> 1 over the fade time. */
+export function drawSweep(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+  halfArc: number,
+  range: number,
+  progress: number,
+): void {
+  const alpha = 1 - progress;
+  if (alpha <= 0) return;
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = SWEEP.color;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.arc(x, y, range, angle - halfArc, angle + halfArc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = SWEEP.edgeColor;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(x, y, range, angle - halfArc, angle + halfArc);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }

@@ -1,15 +1,22 @@
 import type { JoystickConfig, JoystickState } from '../core/input';
 import { HUD, JOYSTICK_STYLE } from '../data/render';
 import { t } from '../data/texts';
-import type { Player } from '../game/player';
+import type { World } from '../game/world';
+
+export interface HudDebug {
+  fps: number;
+  /** Average CPU time of update + render per frame, ms. */
+  cpuMs: number;
+}
 
 export function drawHud(
   ctx: CanvasRenderingContext2D,
   viewW: number,
-  player: Readonly<Player>,
-  fps: number,
+  world: Readonly<World>,
+  debug: Readonly<HudDebug>,
 ): void {
   const m = HUD.margin;
+  const player = world.player;
   const ratio = player.maxHp > 0 ? Math.max(0, player.hp / player.maxHp) : 0;
 
   ctx.fillStyle = HUD.hpBg;
@@ -29,10 +36,16 @@ export function drawHud(
     m + 8,
     m + HUD.hpBarHeight / 2 + 1,
   );
+  drawText(ctx, `${t('kills')}: ${world.kills}`, m, m + HUD.hpBarHeight + 16);
 
   ctx.font = HUD.smallFont;
   ctx.textAlign = 'right';
-  drawText(ctx, `${t('fps')} ${fps}`, viewW - m, m + HUD.hpBarHeight / 2);
+  drawText(
+    ctx,
+    `${t('fps')} ${debug.fps} · ${debug.cpuMs.toFixed(1)} ms · ${world.enemies.count} ${t('zombies')}`,
+    viewW - m,
+    m + HUD.hpBarHeight / 2,
+  );
 }
 
 function drawText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number): void {

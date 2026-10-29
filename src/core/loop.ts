@@ -73,27 +73,36 @@ export function createFixedLoop(handlers: LoopHandlers, step = FIXED_STEP): Loop
   };
 }
 
-/** Rolling frames-per-second estimate, refreshed every `window` seconds. */
-export interface FpsMeter {
+/** Frames per second and average CPU ms per frame, refreshed every `window` seconds. */
+export interface FrameStats {
   readonly fps: number;
-  tick(frameDt: number): void;
+  readonly cpuMs: number;
+  tick(frameDt: number, cpuMs: number): void;
 }
 
-export function createFpsMeter(window = 0.5): FpsMeter {
+export function createFrameStats(window = 0.5): FrameStats {
   let frames = 0;
   let elapsed = 0;
+  let cpuTotal = 0;
   let fps = 0;
+  let cpuMs = 0;
   return {
     get fps() {
       return fps;
     },
-    tick(frameDt) {
+    get cpuMs() {
+      return cpuMs;
+    },
+    tick(frameDt, frameCpuMs) {
       frames++;
       elapsed += frameDt;
+      cpuTotal += frameCpuMs;
       if (elapsed >= window) {
         fps = Math.round(frames / elapsed);
+        cpuMs = cpuTotal / frames;
         frames = 0;
         elapsed = 0;
+        cpuTotal = 0;
       }
     },
   };

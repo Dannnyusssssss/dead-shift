@@ -1,5 +1,7 @@
 import { lerp, setVec, vec2, type Vec2 } from '../core/math';
 import { PLAYER_BASE, type PlayerStats } from '../data/player';
+import { STARTING_WEAPON } from '../data/weapons';
+import { createWeapon, type WeaponInstance } from './weapons';
 
 export interface Player {
   pos: Vec2;
@@ -12,6 +14,13 @@ export interface Player {
   speed: number;
   radius: number;
   pickupRadius: number;
+  /** Invulnerability granted per hit, s. */
+  invulnTime: number;
+  /** Remaining invulnerability, s. */
+  invulnTimer: number;
+  weapons: WeaponInstance[];
+  /** Debug only: hits land but never reduce hp. */
+  invincible: boolean;
 }
 
 export function createPlayer(stats: Readonly<PlayerStats> = PLAYER_BASE): Player {
@@ -24,6 +33,10 @@ export function createPlayer(stats: Readonly<PlayerStats> = PLAYER_BASE): Player
     speed: stats.speed,
     radius: stats.radius,
     pickupRadius: stats.pickupRadius,
+    invulnTime: stats.invulnTime,
+    invulnTimer: 0,
+    weapons: [createWeapon(STARTING_WEAPON)],
+    invincible: false,
   };
 }
 
