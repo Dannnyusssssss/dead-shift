@@ -7,9 +7,10 @@ export const PROGRESSION = {
   rerollsPerRun: 1,
   /** Fraction of max hp restored by the fallback "heal" offer. */
   healFraction: 0.3,
-  /** XP needed to reach level N: base + N * perLevel + floor(N ^ exponent). */
-  xpBase: 5,
-  xpPerLevel: 4,
+  /** XP needed to reach level N: base + N * perLevel + floor(powerCoef * N ^ exponent). */
+  xpBase: 4,
+  xpPerLevel: 2,
+  xpPowerCoef: 0,
   xpExponent: 1.5,
   /** Lower bound of the cooldown multiplier, whatever passives stack up. */
   minCooldownMultiplier: 0.2,

@@ -26,8 +26,8 @@ export type Offer =
 
 /** XP needed to go from level N-1 to level N. */
 export function xpForLevel(level: number): number {
-  const { xpBase, xpPerLevel, xpExponent } = PROGRESSION;
-  return xpBase + level * xpPerLevel + Math.floor(level ** xpExponent);
+  const { xpBase, xpPerLevel, xpPowerCoef, xpExponent } = PROGRESSION;
+  return xpBase + level * xpPerLevel + Math.floor(xpPowerCoef * level ** xpExponent);
 }
 
 /** XP needed for the player's next level. */

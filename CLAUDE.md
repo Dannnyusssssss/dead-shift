@@ -130,7 +130,7 @@ docs/DEBUG.md            # parámetros de URL y teclas de depuración (Hito 7)
 ### 5.3 Experiencia y niveles
 
 - Los zombis sueltan **cupones** (gemas de XP; 1, 5 y 20 de valor según el enemigo).
-- Curva de XP para subir al nivel N: `5 + N * 4 + floor(N^1.5)`.
+- Curva de XP para subir al nivel N: `4 + 2N` (lineal, desde el Hito 9.5; antes `5 + N * 4 + floor(N^1.5)`).
 - Al subir de nivel: el juego se pausa y se ofrecen **3 opciones al azar** (nueva arma, mejorar arma, pasivo, o curar 30% si no hay nada).
 - Botón "Reroll" 1 vez por partida (se amplía luego).
 
@@ -326,6 +326,17 @@ El workflow de despliegue corre lint, tests y build antes de publicar, así que 
 - HUD y pantalla de mejora actualizados. `?weapons=all` incluye la escopeta.
 - **Listo cuando:** se puede jugar y ganar usando las tres armas manuales, el cambio automático funciona con las tres y hay
   tests de munición, recarga, cambio de arma y mods.
+
+### Hito 9.5 — Curva de poder (balance con datos)
+- Problema reportado: el jugador real no pasa de ~las 3 AM (minuto ~6). Una partida completa da ~20 mejoras (nivel 21, ~1868 XP) y completar una build cuesta ~53 elecciones (4 armas automáticas = 20, 4 pasivos = 20, 3 armas manuales = 13, más mods). Con ~14 mejoras al minuto 6, las armas no alcanzan para la horda.
+- Ampliar tests/balance.test.ts (BALANCE=1) para reportar por minuto (2, 4, 6, 8, 10): nivel y mejoras acumuladas, XP total ganada, vida media de enemigos, enemigos en pantalla, DPS del jugador, tiempo para matar un Cliente y tasa de bajas vs tasa de aparición. Probar también con ?weapons=all para separar problema de poder del jugador de problema de escalado enemigo.
+- Palanca 1 (la principal): aplanar la curva de XP en data/. Probar 4+2N (lineal) y 5+3N+N^1.2, reportando cuántos niveles da una partida completa y cuántos se alcanzan al minuto 3, 5 (primer jefe) y 10. Objetivo orientativo (a validar): ~10 niveles al minuto 3, ~18 al minuto 5 y 35-40 al final.
+- Palanca 2: pesos en las ofertas de mejora (más peso a mejoras de armas ya equipadas) y rerolls de 1 a 3 por partida.
+- Palanca 3 (solo si hace falta): pasivos con nivel máximo 3.
+- Palanca 4 (al final, con la curva nueva ya aplicada): escalado de vida de enemigos por minuto, ritmo de oleadas, daño en área y empuje.
+- Cambiar una o dos palancas por prueba. Tabla antes/después en DECISIONS.md. No usar el bot como medida de dificultad absoluta: sirve para comparar configuraciones; la referencia es el jugador real.
+- Objetivo: una build razonable limpia la horda hasta el jefe 2 y un jugador normal pasa del minuto 6 sin que el juego sea trivial.
+- Listo cuando: hay una tabla antes/después con números, los cambios están en data/ sin números mágicos y los tests de progresión y oleadas siguen pasando.
 
 ### Hito 10 — Evoluciones de armas
 - Receta = arma en nivel 5 + pasivo específico en nivel 3 o más. La evolución reemplaza al arma base en su slot

@@ -59,10 +59,17 @@ function maxedPlayer() {
 }
 
 describe('xp curve', () => {
-  it('matches 5 + N*4 + floor(N^1.5)', () => {
-    expect(xpForLevel(2)).toBe(5 + 8 + 2);
-    expect(xpForLevel(3)).toBe(5 + 12 + 5);
-    expect(xpForLevel(10)).toBe(5 + 40 + 31);
+  it('matches 4 + 2N (Hito 9.5)', () => {
+    expect(xpForLevel(2)).toBe(8);
+    expect(xpForLevel(3)).toBe(10);
+    expect(xpForLevel(10)).toBe(24);
+  });
+
+  it('a full run of ~1870 XP reaches level 35-40', () => {
+    let level = 1;
+    for (let xp = 1868 - xpForLevel(2); xp >= 0; xp -= xpForLevel(level + 1)) level++;
+    expect(level).toBeGreaterThanOrEqual(35);
+    expect(level).toBeLessThanOrEqual(40);
   });
 
   it('is strictly increasing', () => {

@@ -62,8 +62,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 
 ## Hito 3
 
-- **Curva de XP.** `5 + N*4 + floor(N^1.5)` es el XP para _llegar_ al nivel N (lectura literal): 15 para el 2, 22 para el 3,
-  30 para el 4... El sobrante se conserva. Si una recogida da varios niveles, se encolan y las pantallas salen una tras otra.
+- **Curva de XP.** ~~`5 + N*4 + floor(N^1.5)` es el XP para _llegar_ al nivel N (lectura literal): 15 para el 2, 22 para el 3,
+  30 para el 4...~~ **Reemplazada en Hito 9.5:** `4 + 2N` (8 para el 2, 10 para el 3...). El sobrante se conserva. Si una recogida da varios niveles, se encolan y las pantallas salen una tras otra.
 - **Ofertas.** Se arma la lista de candidatos válidos (arma nueva si hay < 4 armas, mejora si el nivel es < 5,
   y lo mismo para los pasivos) y se sacan hasta 3 distintos con el RNG sembrado (Fisher-Yates parcial).
   Si hay menos de 3 candidatos se muestran los que haya; sin ninguno, la única opción es curar 30 %.
@@ -554,3 +554,64 @@ Con solo armas manuales, el juego normal vuelve a superar con claridad a "solo E
 automáticas sigue algo por debajo (243 s contra 257 s). Esa brecha viene sobre todo de la experiencia: la Escoba mata
 pegada a Mati y recoge los cupones al instante, así que el bot de Escoba sube más de nivel y llega con más armas
 automáticas. No se tocó más; queda por confirmar con partidas reales.
+
+## Hito 9.5
+
+### Bot por minuto
+
+`tests/balance.test.ts` (`BALANCE=1`) mantiene los 6 escenarios anteriores y suma una tabla por minuto (cortes en
+2, 4, 6, 8 y 10) para tres escenarios de 12 semillas:
+
+- `mixed` mortal: solo cuentan las partidas vivas en cada corte.
+- `curve`: `mixed` con modo dios, así las 12 llegan a las 6 AM y se mide la curva entera.
+- `weaponsAll`: todas las armas en nivel 5 (`giveAllWeapons`) y modo dios. Es el techo de poder del jugador.
+
+Columnas: nivel, mejoras (niveles + cofres), XP total (`Σ xpForLevel + xp`), vida media de los zombis vivos (sin el
+jefe), enemigos en pantalla (media de la ventana), DPS (daño de `world.hits`, que el bot vacía en cada paso; **no
+incluye veneno ni incendiaria**), tiempo teórico de la Pistola para matar un Cliente (DPS sostenido con recarga, un
+solo objetivo), bajas/s y apariciones/s (`Δcount + Δkills`; las reubicaciones no cuentan). Al final, una proyección
+de qué nivel daría cada curva candidata con la XP medida.
+
+### Palanca 1: curva de XP
+
+**Elegida `4 + 2N`** (se prueba primero porque, con la XP que ya da una partida, es la única que llega a 35-40
+niveles; `5+3N+N^1.2` se queda en ~26). La fórmula en datos es `xpBase + xpPerLevel·N + ⌊xpPowerCoef·N^xpExponent⌋`;
+`xpPowerCoef: 0` la vuelve lineal sin código nuevo.
+
+Antes / después (`curve`, modo dios, 12 semillas):
+
+| Min | Nivel antes | Nivel después | XP antes | XP después | Bajas/s vs apariciones/s antes | Después     |
+| --- | ----------- | ------------- | -------- | ---------- | ------------------------------ | ----------- |
+| 2   | 3.6         | 6.8           | 73       | 86         | 0.99 / 1.37                    | 1.05 / 1.37 |
+| 3   | 4.7         | **8.3**       | 109      | 118        | —                              | —           |
+| 4   | 5.8         | 10.3          | 172      | 162        | 1.64 / 2.32                    | 1.71 / 2.32 |
+| 5   | 7.8         | **12.1**      | 280      | 217        | —                              | —           |
+| 6   | 9.3         | 17.7          | 411      | 432        | 1.96 / 3.36                    | 2.62 / 3.35 |
+| 8   | 13.3        | 25.3          | 803      | 823        | 3.22 / 3.19                    | 4.31 / 4.22 |
+| 10  | 16.4        | **39.4**      | 1266     | 1889       | 3.73 / 3.80                    | 6.17 / 6.03 |
+
+DPS al minuto 10: 184 → 311. Zombis en pantalla al minuto 6: 199 → 156. Tiempo de la Pistola por Cliente al
+minuto 10: 0.79 → 0.35 s.
+
+Partidas mortales (12 semillas):
+
+| Escenario                     | Antes          | Después         |
+| ----------------------------- | -------------- | --------------- |
+| `mixed` (con automáticas)     | 243 s / 77 kpm | 310 s / 94 kpm  |
+| `broomOnly` (con automáticas) | 257 s          | 311 s           |
+| `gunOnly` (con automáticas)   | 331 s          | 314 s           |
+| `mixed` (solo manuales)       | 257 s / 75 kpm | 313 s / 100 kpm |
+| `broomOnly` (solo manuales)   | 235 s          | 280 s           |
+| `gunOnly` (solo manuales)     | 323 s          | 392 s           |
+
+`mixed` mortal: al minuto 4 seguían vivas 5 de 12 y ahora 12 de 12; al minuto 6, 0 y ahora 1.
+
+**Lectura:**
+
+- El final de partida queda en el objetivo (39 niveles, 35-40). El arranque se queda corto: 8 al minuto 3 (objetivo
+  ~10) y 12 al minuto 5 (objetivo ~18). No es la curva, es la XP que entra: el bot junta solo ~120 XP en 3 minutos y
+  ~220 en 5. Con esa XP ninguna curva razonable da 18 niveles al minuto 5.
+- `weaponsAll` (techo de poder) mantiene la horda baja (≤ 86 en pantalla), así que el escalado enemigo no es un muro
+  absoluto. Con la build normal, entre los minutos 4 y 6 aparecen más zombis de los que mueren.
+- El bot mortal sigue muriendo alrededor de las 5:10 (Carrito y primer jefe). Como pide el hito, eso sirve para
+  comparar, no como dificultad absoluta.
