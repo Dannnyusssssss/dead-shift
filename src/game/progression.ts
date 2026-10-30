@@ -97,13 +97,22 @@ export function buildCandidates(player: Readonly<Player>): Offer[] {
   return out;
 }
 
-/** Up to `count` distinct random picks from `pool`; a lone heal when it is empty. */
+/** Relative chance of a card being drawn (`PROGRESSION.offerWeights`). */
+export function offerWeight(offer: Readonly<Offer>): number {
+  return offer.kind === 'heal' ? 1 : PROGRESSION.offerWeights[offer.kind];
+}
+
+/** Up to `count` distinct weighted picks from `pool`; a lone heal when it is empty. */
 function sample(pool: Offer[], rng: Rng, count: number): Offer[] {
   if (pool.length === 0) return [{ kind: 'heal' }];
-  // Partial Fisher-Yates: the first `count` slots end up a uniform random sample.
+  // Weighted draw without replacement: each pick is swapped into the next front slot.
   const n = Math.min(count, pool.length);
   for (let i = 0; i < n; i++) {
-    const j = rng.int(i, pool.length - 1);
+    let total = 0;
+    for (let j = i; j < pool.length; j++) total += offerWeight(pool[j] as Offer);
+    let r = rng.next() * total;
+    let j = i;
+    while (j < pool.length - 1 && (r -= offerWeight(pool[j] as Offer)) >= 0) j++;
     const tmp = pool[i] as Offer;
     pool[i] = pool[j] as Offer;
     pool[j] = tmp;

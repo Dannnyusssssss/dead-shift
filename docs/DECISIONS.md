@@ -67,8 +67,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Ofertas.** Se arma la lista de candidatos válidos (arma nueva si hay < 4 armas, mejora si el nivel es < 5,
   y lo mismo para los pasivos) y se sacan hasta 3 distintos con el RNG sembrado (Fisher-Yates parcial).
   Si hay menos de 3 candidatos se muestran los que haya; sin ninguno, la única opción es curar 30 %.
-  Todos los candidatos pesan igual.
-- **Reroll:** 1 por partida (`PROGRESSION.rerollsPerRun`); vuelve a sortear desde cero (puede repetir alguna opción).
+  ~~Todos los candidatos pesan igual.~~ **Reemplazada en Hito 9.5:** pesos por tipo de carta (`offerWeights`).
+- **Reroll:** ~~1 por partida~~ 3 por partida desde el Hito 9.5 (`PROGRESSION.rerollsPerRun`); vuelve a sortear desde cero (puede repetir alguna opción).
 - **Pasivos como datos** `{ stat, perLevel }`; las stats se recalculan al cambiar el equipo. Los porcentajes se _suman_
   (Café nivel 5 = ×0.60 de cooldown). El multiplicador de cooldown nunca baja de 0.2.
 - **Niveles de las armas.** Los valores de los niveles 2-5 no estaban especificados; quedaron así (ajustables en `data/weapons.ts`):
@@ -615,3 +615,43 @@ Partidas mortales (12 semillas):
   absoluto. Con la build normal, entre los minutos 4 y 6 aparecen más zombis de los que mueren.
 - El bot mortal sigue muriendo alrededor de las 5:10 (Carrito y primer jefe). Como pide el hito, eso sirve para
   comparar, no como dificultad absoluta.
+
+### Ajustes del bot (antes de medir la palanca 2)
+
+- **Usa los rerolls:** si una pantalla de nivel no trae ninguna carta de arma (nueva o mejora) y le quedan rerolls,
+  vuelve a sortear (`botWantsReroll`). Sin eso, la palanca de los rerolls no se podía medir.
+- **Límite del bucle por tiempo de juego,** no por vueltas. Con la curva nueva, los niveles encadenados gastaban vueltas
+  sin avanzar el reloj y 2 de las 12 partidas en modo dios no llegaban al minuto 10.
+- Columna nueva `wpnLv`: suma de los niveles de todas las armas que tiene (manuales y automáticas).
+
+Con estos cambios la base (`4+2N`, 1 reroll, pesos iguales) quedó: `mixed` 307 s, `mixed` solo manuales 303 s y, en
+`curve`, nivel 12.6 al minuto 5 y 42.3 al minuto 10.
+
+### Palanca 2: pesos de las ofertas y rerolls
+
+- **Sorteo con pesos sin reposición:** en cada carta se elige un candidato con probabilidad proporcional a su peso
+  (`offerWeight`) y se saca de la lista. Gasta un número del RNG por carta, como antes, así que sigue siendo
+  determinista. Con pesos iguales es el mismo sorteo uniforme de antes. El cofre usa el mismo sorteo (solo trae
+  mejoras de armas, así que no cambia).
+- **Pesos** en `PROGRESSION.offerWeights`: mejora de un arma que ya tienes 2.5; arma nueva, pasivo nuevo, mejora de
+  pasivo y mod de Pistola 1.
+- **Rerolls:** 3 por partida. El botón dice "(restantes: N)", que funciona en singular y en plural.
+
+Barrido (12 semillas; `mixed` = juego normal mortal; `curve` = modo dios):
+
+| Variante                                     | `mixed` autos | `mixed` solo manuales | `curve` nv min 5 | `curve` nv min 10 | `curve` XP min 10 |
+| -------------------------------------------- | ------------- | --------------------- | ---------------- | ----------------- | ----------------- |
+| Base: 1 reroll, pesos iguales                | 307 s         | 303 s                 | 12.6             | 42.3              | 2159              |
+| Solo 3 rerolls                               | 304 s         | 309 s                 | 12.7             | 39.5              | 1937              |
+| **3 rerolls + mejoras ×2.5 (aplicada)**      | **292 s**     | **382 s**             | **14.2**         | **34.0**          | **1446**          |
+| 3 rerolls + mejoras ×2.5 + armas nuevas ×2.5 | 299 s         | 341 s                 | 11.4             | 37.0              | 1659              |
+
+**Lectura:**
+
+- **Los rerolls solos no cambian nada medible** (dentro del ruido de 12 semillas).
+- **El peso en las mejoras ayuda mucho cuando la build depende de pocas armas:** con solo manuales, +79 s. En el juego
+  normal no ayuda (−15 s, cerca del ruido), y en modo dios se termina con menos XP. Al pesar más las mejoras, salen
+  menos cartas de arma automática nueva; el bot llega con menos daño en área y la horda tarda más en morir.
+- **El bot ya elegía siempre armas antes que pasivos,** así que los pesos lo afectan menos que a una persona que toma
+  pasivos. Por eso la decisión final depende de una partida real.
+- **La palanca 2 no cierra la brecha del arranque:** al minuto 5 sigue en 14 niveles contra ~18 del objetivo.

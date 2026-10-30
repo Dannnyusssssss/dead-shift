@@ -21,7 +21,7 @@ const es = {
   levelUpTitle: '¡Subiste al nivel {level}!',
   levelUpHint: 'Elige una mejora',
   reroll: 'Cambiar opciones',
-  rerollsLeft: '({n} restante)',
+  rerollsLeft: '(restantes: {n})',
   tagNew: 'Nuevo',
   tagLevel: 'Nv {from} → {to}',
   healName: 'Sándwich de la góndola',

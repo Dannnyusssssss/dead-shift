@@ -7,10 +7,10 @@ import { giveAllWeapons } from '../src/game/debug';
 import { scaleAt } from '../src/game/enemies';
 import { gunStats, hasAmmo, maxReserve, selectManual } from '../src/game/manual';
 import { pistolOf } from './helpers';
-import { chooseOffer, xpForLevel } from '../src/game/progression';
+import { chooseOffer, rerollOffers, xpForLevel } from '../src/game/progression';
 import { shiftClock } from '../src/game/shift';
 import { updateWorld, type World } from '../src/game/world';
-import { botPickOffer, emptyWorld, playerBot } from './helpers';
+import { botPickOffer, botWantsReroll, emptyWorld, playerBot } from './helpers';
 
 /**
  * Balance report (not part of the normal run): `BALANCE=1 npx vitest run tests/balance.test.ts`.
@@ -50,6 +50,8 @@ interface MinuteStats {
   level: number;
   /** Level-ups plus chests opened. */
   upgrades: number;
+  /** Sum of the levels of every owned weapon (manual and automatic). */
+  weaponLevels: number;
   totalXp: number;
   /** Mean max hp of the zombies alive at the cut, boss excluded. */
   enemyHp: number;
@@ -144,6 +146,10 @@ class MinuteTracker {
     const stats: MinuteStats = {
       level: p.level,
       upgrades: p.level - 1 + p.chestsOpened,
+      weaponLevels: [...p.weapons, ...p.manual.owned.map((e) => e.weapon)].reduce(
+        (sum, w) => sum + w.level,
+        0,
+      ),
       totalXp: totalXp(world),
       enemyHp: meanEnemyHp(world),
       onScreen: this.countSum / Math.max(1, this.steps),
@@ -179,9 +185,13 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
   let steps = 0;
   let meleeSteps = 0;
   let dryShots = 0;
-  const limit = Math.round(SHIFT.durationSeconds / FIXED_STEP) + 10;
-  while (world.status !== 'won' && world.status !== 'dead' && steps < limit) {
-    if (world.status === 'levelup') chooseOffer(world, botPickOffer(world, newWeapons));
+  // Bounded by game time, not loop turns: chained level-ups take turns without advancing it.
+  const limit = SHIFT.durationSeconds + 1;
+  while (world.status !== 'won' && world.status !== 'dead' && world.time < limit) {
+    if (world.status === 'levelup') {
+      if (botWantsReroll(world)) rerollOffers(world);
+      chooseOffer(world, botPickOffer(world, newWeapons));
+    }
     playerBot(world, scenario !== 'gunOnly');
     updateWorld(world, FIXED_STEP);
     if (scenario === 'broomOnly') {
@@ -242,7 +252,8 @@ function levelWith(xp: number, cost: (n: number) => number): number {
 
 /** Per-minute averages over the runs still alive at each cut. */
 function minuteTable(title: string, runs: readonly RunResult[]): string[] {
-  const head = '  min  alive  level  upgrds    xp  zombHp  onScrn    dps  cliTtk  kills/s  spwn/s';
+  const head =
+    '  min  alive  level  upgrds  wpnLv    xp  zombHp  onScrn    dps  cliTtk  kills/s  spwn/s';
   const rows = CHECKPOINTS.map((min, i) => {
     const cuts = defined(runs.map((r) => r.minutes[i]));
     const col = (f: (s: MinuteStats) => number, digits = 0, width = 6): string =>
@@ -252,6 +263,7 @@ function minuteTable(title: string, runs: readonly RunResult[]): string[] {
       `${cuts.length}/${runs.length}`.padStart(6),
       col((s) => s.level, 1),
       col((s) => s.upgrades, 1, 8),
+      col((s) => s.weaponLevels, 1),
       col((s) => s.totalXp, 0),
       col((s) => s.enemyHp, 1, 7),
       col((s) => s.onScreen, 0, 7),

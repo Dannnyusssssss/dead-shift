@@ -74,6 +74,15 @@ export function botPickOffer(world: World, newWeapons = true): number {
   return best;
 }
 
+/** The bot rerolls a level-up screen that offers no weapon at all, while rerolls are left. */
+export function botWantsReroll(world: World): boolean {
+  return (
+    world.offerSource === 'level' &&
+    world.rerollsLeft > 0 &&
+    !world.offers.some((o) => o.kind === 'newWeapon' || o.kind === 'upgradeWeapon')
+  );
+}
+
 /** Distance within which the bot feels "pressure" from a zombie and steps away from it, px. */
 const BOT_DANGER_RADIUS = 220;
 /** Fraction of the gun's reach within which the bot pulls the trigger. */

@@ -132,7 +132,7 @@ docs/DEBUG.md            # parámetros de URL y teclas de depuración (Hito 7)
 - Los zombis sueltan **cupones** (gemas de XP; 1, 5 y 20 de valor según el enemigo).
 - Curva de XP para subir al nivel N: `4 + 2N` (lineal, desde el Hito 9.5; antes `5 + N * 4 + floor(N^1.5)`).
 - Al subir de nivel: el juego se pausa y se ofrecen **3 opciones al azar** (nueva arma, mejorar arma, pasivo, o curar 30% si no hay nada).
-- Botón "Reroll" 1 vez por partida (se amplía luego).
+- Botón "Reroll" 3 veces por partida (desde el Hito 9.5; antes 1).
 
 ### 5.4 Armas (niveles 1 a 5)
 

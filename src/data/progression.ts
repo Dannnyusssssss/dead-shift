@@ -4,7 +4,15 @@ export const PROGRESSION = {
   /** Max level of every weapon and passive. */
   maxLevel: 5,
   offerCount: 3,
-  rerollsPerRun: 1,
+  rerollsPerRun: 3,
+  /** Relative chance of each kind of card in a draw: upgrades of weapons you own weigh more. */
+  offerWeights: {
+    newWeapon: 1,
+    upgradeWeapon: 2.5,
+    newPassive: 1,
+    upgradePassive: 1,
+    pistolMod: 1,
+  },
   /** Fraction of max hp restored by the fallback "heal" offer. */
   healFraction: 0.3,
   /** XP needed to reach level N: base + N * perLevel + floor(powerCoef * N ^ exponent). */

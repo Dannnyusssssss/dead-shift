@@ -19,6 +19,7 @@ import {
   chooseOffer,
   levelBeingChosen,
   progressionSystem,
+  offerWeight,
   rerollOffers,
   rollChestOffers,
   rollOffers,
@@ -203,6 +204,23 @@ describe('offers', () => {
     expect(rollOffers(p, createRng(1))).toEqual([{ kind: 'upgradeWeapon', weaponId: w?.def.id }]);
   });
 
+  it('upgrades of owned weapons show up more often than a uniform draw', () => {
+    const p = createPlayer();
+    const pool = buildCandidates(p);
+    const upgrades = pool.filter((o) => o.kind === 'upgradeWeapon').length;
+    const uniformShare = upgrades / pool.length;
+    let drawn = 0;
+    let shown = 0;
+    for (let seed = 0; seed < 2000; seed++) {
+      for (const o of rollOffers(p, createRng(seed))) {
+        shown++;
+        if (o.kind === 'upgradeWeapon') drawn++;
+      }
+    }
+    expect(offerWeight({ kind: 'upgradeWeapon', weaponId: 'labelGun' })).toBeGreaterThan(1);
+    expect(drawn / shown).toBeGreaterThan(uniformShare + 0.05);
+  });
+
   it('is deterministic for a given seed and varies across seeds', () => {
     const p = createPlayer();
     expect(rollOffers(p, createRng(9))).toEqual(rollOffers(p, createRng(9)));
@@ -253,11 +271,11 @@ describe('level-up flow', () => {
     expect(chooseOffer(world, 0)).toBe(false);
   });
 
-  it('allows exactly one reroll per run', () => {
+  it('allows exactly rerollsPerRun rerolls per run', () => {
     const world = emptyWorld(4);
     addXp(world.player, xpForLevel(2));
     progressionSystem(world);
-    expect(rerollOffers(world)).toBe(true);
+    for (let i = 0; i < PROGRESSION.rerollsPerRun; i++) expect(rerollOffers(world)).toBe(true);
     expect(rerollOffers(world)).toBe(false);
     expect(world.rerollsLeft).toBe(0);
   });
