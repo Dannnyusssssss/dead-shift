@@ -121,10 +121,12 @@ export function spawnSystem(world: World, dt: number): void {
   const minute = Math.floor(world.time / 60);
   const intoMinute = world.time - minute * 60;
   const acc = world.spawner.acc;
-  for (let i = 0; i < WAVES.length; i++) {
-    const entry = WAVES[i] as WaveEntry;
+  const waves = world.waves;
+  const rate = world.difficulty.spawnRate;
+  for (let i = 0; i < waves.length; i++) {
+    const entry = waves[i] as WaveEntry;
     if (entry.minute !== minute || intoMinute < (entry.offset ?? 0)) continue;
-    let owed = (acc[i] ?? 0) + entry.spawnPerSecond * dt;
+    let owed = (acc[i] ?? 0) + entry.spawnPerSecond * rate * dt;
     while (owed >= 1) {
       owed -= 1;
       spawnGroup(world, entry);

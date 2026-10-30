@@ -10,7 +10,7 @@ export function deathSystem(world: World): void {
     const e = enemies.items[i] as Enemy;
     if (e.hp > 0) continue;
     emit(world.events, 'enemyDeath', e.pos.x, e.pos.y, e.def.look.blood);
-    dropCoupon(world, e.pos.x, e.pos.y, e.def.xp);
+    dropCoupon(world, e.pos.x, e.pos.y, e.def.xp * world.difficulty.xp);
     maybeDropAmmo(world, e.pos.x, e.pos.y, e.def.xp);
     maybeDropFloorItems(world, e.pos.x, e.pos.y, e.def.xp);
     if (e.def.dropsChest) {

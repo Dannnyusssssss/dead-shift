@@ -36,6 +36,7 @@ Se agregan a la dirección, por ejemplo `http://localhost:5173/?god&spawn=200`. 
 | `?weapons=all`     | Las 4 automáticas y las 3 manuales (escopeta incluida) en nivel 5, con la reserva llena (ignora el tope de slots) |
 | `?weapons=evolved` | Igual que `?weapons=all`, pero con las 7 armas ya evolucionadas (Hito 10)                                         |
 | `?ammo=N`          | Cargador vacío y N balas de reserva (`?ammo=0` arranca directo en la Escoba)                                      |
+| `?difficulty=X`    | `easy`, `normal` o `hard` (Hito 11). No cambia la dificultad guardada del menú. Un valor inválido se ignora       |
 
 Ejemplos útiles:
 
@@ -44,6 +45,7 @@ Ejemplos útiles:
 - `?t=299&god`: llega el primer jefe.
 - `?t=590`: amanecer y pantalla de victoria en 10 s.
 - `?ammo=0&god`: jugar solo con la Escoba.
+- `?difficulty=hard&spawn=300&god&t=540`: rendimiento en Difícil con la arena llena.
 
 ## Teclas
 
@@ -75,6 +77,7 @@ headless (`document.body.dataset.fps`, etc.):
 | `pistolMods`, `shellBoxes`                    | Mods de Pistola tomados y cajas de cartuchos en el suelo                                                              |
 | `trauma`                                      | Pico de screen shake desde la publicación anterior                                                                    |
 | `stuck`, `stuckRelocations`                   | Zombis contando tiempo de atasco contra una góndola y reubicados en la partida                                        |
+| `difficulty`                                  | Dificultad de la partida (`easy`, `normal` o `hard`)                                                                  |
 | `muted`, `showDebug`                          | Ajustes guardados                                                                                                     |
 
 ## Reporte de balance
@@ -94,3 +97,8 @@ y tres escenarios, cada uno con y sin armas automáticas:
 
 Imprime por escenario el tiempo sobrevivido, las bajas por minuto (`kpm`), la parte de las bajas manuales que hizo la
 Escoba y, por semilla, las reubicaciones por atasco contra góndolas (`stuck=`) y las bajas por arma. Los resultados del Hito 7 están en `DECISIONS.md`.
+
+Al final agrega una sección por dificultad (Hito 11): `mixed` mortal (tiempo medio, victorias, primera muerte, `kpm`) y
+`curve` en modo dios (nivel por minuto) en Fácil, Medio y Difícil. Para correr solo esa parte:
+`BALANCE=difficulty npx vitest run tests/balance.test.ts --silent=false` (`--silent=false` porque Vitest oculta la
+consola de los tests que pasan).

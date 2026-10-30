@@ -5,6 +5,7 @@ import { createInput, type AimResult } from './core/input';
 import { createFixedLoop, createFrameStats } from './core/loop';
 import { setVec, vec2 } from './core/math';
 import type { SoundId } from './data/audio';
+import type { DifficultyId } from './data/difficulty';
 import { SHIFT } from './data/shift';
 import {
   CAMERA_FOLLOW_RATE,
@@ -19,6 +20,7 @@ import { t } from './data/texts';
 import { WEAPON_IDS } from './data/weapons';
 import type { GameEventType } from './game/events';
 import { giveAllWeapons, setPistolAmmo } from './game/debug';
+import { initialDifficulty, parseDifficulty } from './game/difficulty';
 import { isGun } from './game/manual';
 import { interpolatedPlayerPos } from './game/player';
 import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
@@ -38,7 +40,8 @@ import { createTouchControls } from './ui/touch';
  * Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death,
  * `?weapons=all` starts with every weapon at max level (ignores the slot limit),
  * `?t=540` starts the shift clock at that many seconds,
- * `?ammo=N` starts with an empty magazine and N rounds in reserve (0 = straight to the broom).
+ * `?ammo=N` starts with an empty magazine and N rounds in reserve (0 = straight to the broom),
+ * `?difficulty=easy|normal|hard` plays on that difficulty (an invalid value is ignored).
  * Any of them (or `?debug`) skips the main menu, shows the performance line for this session
  * (without saving it) and publishes stats to `document.body.dataset`. See docs/DEBUG.md.
  */
@@ -52,6 +55,8 @@ interface DebugOptions {
   startTime: number;
   /** Starting reserve with an empty magazine, or null to keep the normal start. */
   ammo: number | null;
+  /** Raw `?difficulty=` value (validated by `initialDifficulty`). */
+  difficulty: string | null;
 }
 
 function readDebugOptions(search: string): DebugOptions {
@@ -63,9 +68,16 @@ function readDebugOptions(search: string): DebugOptions {
   const evolved = params.get('weapons') === 'evolved';
   const allWeapons = evolved || params.get('weapons') === 'all';
   const ammo = params.has('ammo') ? Math.floor(num('ammo')) : null;
+  const difficulty = params.get('difficulty');
   const enabled =
-    spawn > 0 || god || allWeapons || startTime > 0 || ammo !== null || params.has('debug');
-  return { enabled, spawn, god, allWeapons, evolved, startTime, ammo };
+    spawn > 0 ||
+    god ||
+    allWeapons ||
+    startTime > 0 ||
+    ammo !== null ||
+    parseDifficulty(difficulty) !== undefined ||
+    params.has('debug');
+  return { enabled, spawn, god, allWeapons, evolved, startTime, ammo, difficulty };
 }
 
 /** Sound played for each gameplay event (events without one only drive visuals). */
@@ -105,6 +117,8 @@ function boot(): void {
   const debug = readDebugOptions(window.location.search);
   const store = createSaveStore(browserStorage());
   let save = store.load();
+  /** Difficulty of the next run: the URL parameter, else the last one chosen in the menu. */
+  let difficulty = initialDifficulty(debug.difficulty, save.difficulty);
   const sfx = createSfx(save.muted);
   const input = createInput(canvas, JOYSTICK);
   const renderer = createRenderer(canvas);
@@ -121,7 +135,7 @@ function boot(): void {
   }
 
   const newWorld = (): World => {
-    const w = createWorld(Date.now() >>> 0);
+    const w = createWorld(Date.now() >>> 0, difficulty);
     w.player.invincible = debug.god;
     if (debug.allWeapons) giveAllWeapons(w, debug.evolved);
     if (debug.ammo !== null) setPistolAmmo(w, debug.ammo);
@@ -169,8 +183,11 @@ function boot(): void {
     camera.trauma = 0;
   };
 
+  const bestTime = (): number => save.records[difficulty].bestTime;
   const menuInfo = () => ({
-    bestClock: save.bestTime > 0 ? shiftClock(save.bestTime) : null,
+    difficulty,
+    bestClock: bestTime() > 0 ? shiftClock(bestTime()) : null,
+    wins: save.records[difficulty].wins,
     totalKills: save.totalKills,
     muted: save.muted,
     touch: input.touchMode,
@@ -203,6 +220,14 @@ function boot(): void {
     pauseMenu.setMuted(save.muted);
   };
 
+  const selectDifficulty = (id: DifficultyId): void => {
+    difficulty = id;
+    save = { ...save, difficulty: id };
+    store.save(save);
+    // The idle world behind the menu keeps its difficulty: `startRun` builds a new one.
+    mainMenu.show(menuInfo());
+  };
+
   const startRun = (): void => {
     mainMenu.hide();
     endScreen.hide();
@@ -223,7 +248,7 @@ function boot(): void {
   const pause = (): void => {
     if (phase !== 'run' || paused || world.status !== 'playing') return;
     paused = true;
-    pauseMenu.show(save.muted, frame.hud.debug.visible);
+    pauseMenu.show(save.muted, frame.hud.debug.visible, world.difficulty.id);
   };
 
   const resume = (): void => {
@@ -232,7 +257,11 @@ function boot(): void {
     pauseMenu.hide();
   };
 
-  const mainMenu = createMainMenu(document.body, startRun, toggleMute);
+  const mainMenu = createMainMenu(document.body, {
+    onPlay: startRun,
+    onToggleMute: toggleMute,
+    onSelectDifficulty: selectDifficulty,
+  });
   const pauseMenu = createPauseMenu(document.body, {
     onResume: resume,
     onToggleMute: toggleMute,
@@ -279,7 +308,13 @@ function boot(): void {
   /** Saves the finished run once and remembers its stats for the end screen. */
   const finishRun = (): RunStats => {
     if (lastRun) return lastRun;
-    const result = recordRun(save, world.time, world.kills);
+    const result = recordRun(
+      save,
+      world.difficulty.id,
+      world.time,
+      world.kills,
+      world.status === 'won',
+    );
     save = result.save;
     store.save(save);
     runRecorded = true;
@@ -289,6 +324,7 @@ function boot(): void {
       level: world.player.level,
       clock: shiftClock(world.time),
       newRecord: result.newRecord,
+      difficulty: world.difficulty.id,
     };
     return lastRun;
   };
@@ -481,6 +517,7 @@ function boot(): void {
         ds.pistolMods = m.mods.join(',');
         ds.trauma = peakTrauma.toFixed(2);
         peakTrauma = 0;
+        ds.difficulty = world.difficulty.id;
         ds.muted = String(save.muted);
         ds.showDebug = String(save.showDebug);
         const weaponKills: Record<string, number> = {};

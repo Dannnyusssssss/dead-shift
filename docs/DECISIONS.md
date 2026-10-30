@@ -750,3 +750,115 @@ El bot ahora prioriza las cartas de evolución. Reporte de 12 semillas:
   Nv 3: el bot elige armas antes que pasivos y no apunta a una receta. Una persona que busca la receta debería
   llegar antes.
 - No se ajustaron los números de la receta. Queda por confirmar con partidas reales si llegan demasiado tarde.
+
+## Hito 11
+
+### Fácil = el juego anterior (regresión)
+
+- `tests/regression.test.ts` guarda una huella **capturada con el código del Hito 10, antes de escribir nada del
+  hito**: el bot juega la semilla 1 en modo dios (10 min, dos jefes, tres evoluciones) y la semilla 2 mortal (muere a
+  los 376 s). Compara valores exactos (bajas, nivel, XP, vida, posición, bajas por arma, loadout, munición) y el
+  **siguiente número del RNG**, que prueba que se consumió la misma secuencia. Corre con `createWorld(seed)` y con
+  `createWorld(seed, 'easy')`.
+- Por construcción: cada multiplicador es un factor extra al final de la expresión de siempre (`x * 1 === x` exacto en
+  IEEE-754), ninguno consume RNG y, sin adelanto, `wavesFor` devuelve la misma tabla `WAVES`.
+- Confirmado también por el reporte: Fácil da exactamente los números del Hito 10 (3 de 12 evolucionan en modo dios,
+  el aerosol desde el minuto 8.8).
+
+### Dónde se aplica cada multiplicador (`data/difficulty.ts`)
+
+`World.difficulty` se fija en `createWorld(seed, difficulty)` y no cambia en la partida.
+
+| Parámetro          | Dónde                                                                                                                                                                                                                                                                                             |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ritmo de aparición | `spawnSystem`: grupos por segundo de cada fila de oleada. No cambia el tamaño de grupo, los jefes ni las invocaciones                                                                                                                                                                             |
+| Vida de enemigos   | `spawnEnemy`: todo enemigo que no es jefe (oleadas, invocaciones del jefe, `?spawn`)                                                                                                                                                                                                              |
+| Vida de los jefes  | `spawnEnemy`: reemplaza a la vida de enemigos cuando `behavior.kind === 'boss'`; se suma al ×1.5 del jefe 2                                                                                                                                                                                       |
+| Daño de enemigos   | `spawnEnemy`: `damage` y `scale`, así que también recibos y onda del jefe. Los charcos solo frenan: no cambian                                                                                                                                                                                    |
+| XP por baja        | `deathSystem`: valor del cupón. Queda fraccional (redondear dejaría el Cliente en 1 y el multiplicador no haría nada)                                                                                                                                                                             |
+| Caídas             | `ammoDropChance` / `medkitDropChance`. El tier sigue saliendo de la XP base. El imán de suelo y los cofres no cambian                                                                                                                                                                             |
+| Adelanto           | `wavesFor` (`game/difficulty.ts`): el primer inicio de cada tipo se adelanta un 20 %; si cruza de minuto, se agregan filas que copian la primera para los minutos intermedios (Repartidor 1:30→1:12, Congelado 3:00→2:24, Carrito 4:30→3:36, Cajero 6:00→4:48). El Cliente y los jefes no cambian |
+
+### Guardado
+
+- Misma clave `deadshift:v1`. Campos nuevos: `difficulty` (la última elegida en el menú) y
+  `records: { easy|normal|hard: { bestTime, wins } }`. Todo se valida campo por campo; una dificultad desconocida
+  vuelve a Fácil.
+- **Migración:** si `records.easy` no trae un `bestTime` válido, se toma el `bestTime` antiguo de nivel superior. Si ese
+  récord llegó a las 6 AM, `wins` arranca en 1 (lo único seguro: ganó al menos una vez); si no, en 0. El campo
+  antiguo ya no se escribe.
+- `recordRun(save, difficulty, time, kills, won)`: "Nuevo récord" se compara con la dificultad jugada. Las bajas totales
+  siguen siendo globales.
+- `?difficulty=` cuenta como parámetro de depuración (salta el menú, como los demás) y **no** cambia la dificultad
+  guardada del menú. La partida sí se registra en los récords de esa dificultad, igual que cualquier partida con
+  parámetros de depuración.
+
+### UI
+
+- Menú: fila de tres botones (`aria-pressed`) sobre "Jugar". Mejor hora y victorias de la dificultad seleccionada.
+- Pausa: "Dificultad: Medio". Victoria y derrota: fila "Dificultad".
+- No se puso en el HUD: la pausa alcanza y el HUD ya está cargado.
+
+### Balance (bot, 12 semillas, `mixed`)
+
+Primer intento con la tabla del CLAUDE.md:
+
+| Dificultad | Tiempo medio | Primera muerte | Lv min 5 (`curve`) | Lv min 10 (`curve`) |
+| ---------- | ------------ | -------------- | ------------------ | ------------------- |
+| Fácil      | 316 s        | 258 s          | 14.4               | 30.3                |
+| Medio      | 277 s        | 185 s          | 14.8               | 34.8                |
+| Difícil    | **77 s**     | **51 s**       | 12.7               | 39.2                |
+
+Difícil era un muro: el 97 % del daño venía de Clientes antes del minuto 2 y al minuto 4 había 316 zombis en pantalla
+(en modo dios). Ritmo ×1.7 por vida ×1.6 son ×2.7 de vida enemiga por segundo, justo cuando Mati todavía no tiene
+mejoras.
+
+Cada parámetro de Difícil por separado, sobre los valores de Medio:
+
+| Variante (sobre Medio) | Tiempo medio |
+| ---------------------- | ------------ |
+| Medio tal cual         | 277 s        |
+| + daño ×1.5            | 272 s        |
+| + caídas ×0.75         | 245 s        |
+| + adelanto 20 %        | 219 s        |
+| + XP ×0.9              | 210 s        |
+| + ritmo ×1.5           | 184 s        |
+| + vida ×1.5            | 165 s        |
+
+- **La XP ×0.9 cuesta 67 s por sí sola:** desde el Hito 9.5 la XP es el cuello de botella de la curva de poder. Se
+  quita (Difícil queda en XP ×1.0).
+- **La vida tiene un escalón:** la Pistola hace 10 y el Cliente tiene 20. Con ×1.25 a ×1.5 son 3 balas; con ×1.6, 4.
+
+Combinaciones completas (daño ×1.5, jefes ×1.8, caídas ×0.75):
+
+| Ritmo   | Vida    | XP    | Adelanto | Tiempo medio | Primera muerte |
+| ------- | ------- | ----- | -------- | ------------ | -------------- |
+| 1.5     | 1.4     | 1     | 20 %     | 136 s        | 89 s           |
+| 1.4     | 1.4     | 0.9   | 0        | 147 s        | 85 s           |
+| 1.5     | 1.25    | 1     | 20 %     | 169 s        | 103 s          |
+| 1.5     | 1.35    | 1     | 20 %     | 154 s        | 78 s           |
+| 1.4     | 1.3     | 0.9   | 20 %     | 138 s        | 91 s           |
+| **1.5** | **1.3** | **1** | **20 %** | **170 s**    | **117 s**      |
+
+**Elegido para Difícil:** ritmo ×1.5, vida ×1.3, daño ×1.5, jefes ×1.8, XP ×1.0, caídas ×0.75 y adelanto del 20 %.
+Medio queda como la tabla original.
+
+| Dificultad | Tiempo medio | Primera muerte | Vivos min 4 | Lv min 5 (`curve`) | Lv min 10 (`curve`) | XP min 10 (`curve`) |
+| ---------- | ------------ | -------------- | ----------- | ------------------ | ------------------- | ------------------- |
+| Fácil      | 316 s        | 258 s          | 12/12       | 14.4               | 30.3                | 1232                |
+| Medio      | 277 s        | 185 s          | 10/12       | 14.8               | 34.8                | 1599                |
+| Difícil    | 170 s        | 117 s          | 1/12        | 17.9               | 39.3                | 2006                |
+
+- El bot no gana en ninguna dificultad (tampoco en Fácil, que el jugador real sí gana): sirve para comparar, no como
+  medida absoluta. La escala Fácil > Medio > Difícil es clara.
+- En modo dios, Difícil sube más de nivel (hay más zombis que matar). Sobrevivir el arranque es lo que exige la build.
+- **Falta validarlo jugando:** que en Medio se gane con una buena build y en Difícil solo con una build casi óptima y
+  evoluciones.
+
+### Rendimiento
+
+Chrome headless sobre `dist/` (tope de ~57 FPS por el vsync headless):
+
+- `?difficulty=hard&spawn=300&god&t=540`: 56-57 FPS, ~1.0-1.2 ms de CPU por frame con 330-393 zombis.
+- `?difficulty=hard&weapons=evolved&spawn=300&god`: 56-57 FPS, ~1.0-1.1 ms.
+- Sin errores en consola en ninguna de las tres dificultades.

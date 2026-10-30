@@ -219,8 +219,9 @@ Los enemigos aparecen en un anillo fuera de la pantalla alrededor del jugador.
 
 ## 6. Persistencia
 
-`localStorage` con clave `deadshift:v1`: mejor tiempo sobrevivido, total de kills, ajustes de sonido y (desde el Hito 7)
-la preferencia de mostrar el overlay de debug.
+`localStorage` con clave `deadshift:v1`: total de kills, ajustes de sonido, (desde el Hito 7) la preferencia de mostrar
+el overlay de debug y (desde el Hito 11) la última dificultad elegida y, por dificultad, el mejor tiempo y las victorias.
+El `bestTime` de guardados anteriores se migra a Fácil.
 Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 7. Rendimiento y calidad
@@ -232,7 +233,7 @@ Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 8. Hitos (implementa UNO a la vez, en orden)
 
-**Estado actual:** Hitos 1 a 9.5 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 10.
+**Estado actual:** Hitos 1 a 11 (incluidos el 4.5 y el 9.5) completados; 1 a 6 publicados en GitHub Pages.
 Actualiza esta línea al cerrar cada hito.
 
 Al terminar cada hito: corre `npm run lint && npm run test && npm run build`, ejecuta el juego, verifica
@@ -355,6 +356,27 @@ El workflow de despliegue corre lint, tests y build antes de publicar, así que 
 - La pantalla de mejora muestra la receta y qué falta para cumplirla. HUD con ícono distinto para el arma evolucionada.
 - **Listo cuando:** las 7 evoluciones funcionan, hay tests de condiciones de evolución y de slots, y una partida con
   evolución se mantiene a 60 FPS.
+
+### Hito 11 — Dificultades (Fácil, Medio, Difícil)
+- Tres dificultades definidas como multiplicadores en src/data/difficulty.ts. Fácil es el juego actual (todos los multiplicadores en 1.0, sin cambiar ningún número existente). Medio y Difícil se aplican encima.
+- Se elige en el menú principal antes de jugar y no se puede cambiar durante la partida. Se muestra en el HUD o en la pausa y en las pantallas de victoria y derrota.
+- Parámetros que escalan (punto de partida, a ajustar con el bot y jugando):
+  | Parámetro | Fácil | Medio | Difícil |
+  | Ritmo de aparición (grupos por segundo) | x1.0 | x1.3 | x1.7 |
+  | Vida de enemigos | x1.0 | x1.25 | x1.6 |
+  | Daño de enemigos | x1.0 | x1.2 | x1.5 |
+  | Vida de los jefes | x1.0 | x1.3 | x1.8 |
+  | XP por baja | x1.0 | x1.0 | x0.9 |
+  | Caída de munición y botiquines | x1.0 | x0.9 | x0.75 |
+- Opcional en Difícil: los enemigos nuevos aparecen un 20 % antes (usando el offset de las oleadas).
+- Valores finales tras ajustar con el bot: `src/data/difficulty.ts` y `docs/DECISIONS.md` (Difícil quedó en ritmo x1.5,
+  vida x1.3 y XP x1.0).
+- No cambian: stats del jugador, curva de XP, tope de 400 enemigos ni la duración del turno.
+- Guardado (deadshift:v1): agregar `difficulty` (última elegida) y récords por dificultad (mejor tiempo y victorias). Migrar el `bestTime` actual a Fácil. Validar campo por campo y tolerar datos antiguos o corruptos.
+- Textos en texts.ts (Fácil, Medio, Difícil). Parámetro de depuración ?difficulty=easy|normal|hard. Actualizar docs/DEBUG.md y el README.
+- El bot de balance (BALANCE=1) reporta cada dificultad por separado.
+- Objetivo orientativo: en Fácil un jugador normal gana; en Medio gana con una buena build; en Difícil solo con build casi óptima y evoluciones. Validarlo jugando, no solo con el bot.
+- Listo cuando: Fácil produce exactamente los mismos resultados que antes (test de regresión con semilla fija), Medio y Difícil son claramente más duros en el bot, el récord antiguo se conserva en Fácil, hay tests de aplicación de multiplicadores, migración de guardado y selección en el menú, y Difícil mantiene 60 FPS con la arena llena.
 
 ### Ideas de expansión (NO implementar hasta que se pida)
 - Más personajes con stats distintos (Guardia de seguridad, Pastelera).

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FIXED_STEP } from '../src/core/loop';
 import { ENEMIES } from '../src/data/enemies';
+import { DIFFICULTIES, DIFFICULTY_IDS, type DifficultyId } from '../src/data/difficulty';
 import { SHIFT } from '../src/data/shift';
 import { WEAPON_IDS } from '../src/data/weapons';
 import { giveAllWeapons } from '../src/game/debug';
@@ -29,6 +30,9 @@ import { botPickOffer, botWantsReroll, emptyWorld, playerBot } from './helpers';
  * - `weaponsAll`: every weapon at level 5 (`?weapons=all`) and god mode: the ceiling of player
  *   power. If the horde still outgrows it, the wall is enemy scaling, not the upgrades.
  * Plus the level each candidate XP curve would give with the XP `curve` earned.
+ *
+ * Then each difficulty (Hito 11): `mixed` mortal and `curve` (god mode) on easy, normal and hard.
+ * `BALANCE=difficulty` runs only that part.
  */
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
 
@@ -69,6 +73,7 @@ interface MinuteStats {
 }
 
 interface RunResult {
+  won: boolean;
   time: number;
   kills: number;
   broomShare: number;
@@ -88,6 +93,7 @@ interface RunOptions {
   newWeapons?: boolean;
   god?: boolean;
   allWeapons?: boolean;
+  difficulty?: DifficultyId;
 }
 
 function weaponKills(world: World): string {
@@ -192,8 +198,8 @@ function hurtSource(world: World): string {
 }
 
 function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunResult {
-  const { newWeapons = true, god = false, allWeapons = false } = opts;
-  const world = emptyWorld(seed);
+  const { newWeapons = true, god = false, allWeapons = false, difficulty = 'easy' } = opts;
+  const world = emptyWorld(seed, difficulty);
   const m = world.player.manual;
   const pistol = pistolOf(world);
   world.player.invincible = god;
@@ -272,6 +278,7 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     weaponKills(world),
   ].join('  ');
   return {
+    won: world.status === 'won',
     time: world.time,
     kills: world.kills,
     broomShare,
@@ -360,7 +367,55 @@ function curveProjection(runs: readonly RunResult[]): string[] {
   ];
 }
 
-describe.skipIf(!env?.BALANCE)('balance report', () => {
+/** Mortal `mixed` and god-mode `curve` runs on every difficulty. */
+function difficultyReport(): string[] {
+  const lines = ['', '=== difficulties (mixed, 12 seeds) ==='];
+  lines.push(
+    '  difficulty   avg t  wins  first death  kpm   curve lv min 5  curve lv min 10  curve xp min 10',
+  );
+  const tables: string[] = [];
+  for (const id of DIFFICULTY_IDS) {
+    const runs = SEEDS.map((seed) => playRun('mixed', seed, { difficulty: id }));
+    const curve = SEEDS.map((seed) => playRun('mixed', seed, { god: true, difficulty: id }));
+    const deaths = runs.filter((r) => !r.won).map((r) => r.time);
+    const lvAt = (i: number): string => avg(defined(curve.map((r) => r.levelAt[i]))).toFixed(1);
+    const xp10 = avg(defined(curve.map((r) => r.xpAt[2])));
+    lines.push(
+      [
+        `  ${id.padEnd(10)}`,
+        `${avg(runs.map((r) => r.time)).toFixed(0)}s`.padStart(6),
+        `${runs.filter((r) => r.won).length}/${runs.length}`.padStart(5),
+        `${deaths.length > 0 ? Math.min(...deaths).toFixed(0) : '-'}s`.padStart(12),
+        avg(runs.map((r) => r.kills / (r.time / 60)))
+          .toFixed(0)
+          .padStart(4),
+        lvAt(1).padStart(15),
+        lvAt(2).padStart(16),
+        xp10.toFixed(0).padStart(16),
+      ].join(' '),
+    );
+    const d = DIFFICULTIES[id];
+    tables.push(
+      '',
+      `${id}: spawn x${d.spawnRate} hp x${d.enemyHp} dmg x${d.enemyDamage} boss x${d.bossHp} xp x${d.xp} drops x${d.drops} lead ${d.introLead}`,
+      hurtTable(`${id} mixed (mortal)`, runs),
+      ...minuteTable(`${id} mixed (mortal)`, runs),
+      ...minuteTable(`${id} curve (god mode)`, curve),
+      evolutionLine(`${id} curve (god mode)`, curve),
+    );
+  }
+  return [...lines, ...tables];
+}
+
+describe.skipIf(env?.BALANCE !== 'difficulty')('difficulty report', () => {
+  it('mixed and curve on every difficulty', () => {
+    const lines = difficultyReport();
+    console.log('\n' + lines.join('\n'));
+    expect(lines.length).toBeGreaterThan(DIFFICULTY_IDS.length);
+  }, 1_800_000);
+});
+
+describe.skipIf(!env?.BALANCE || env.BALANCE === 'difficulty')('balance report', () => {
   it('bot runs without god mode, then the power curve per minute', () => {
     const lines: string[] = [];
     let mixedRuns: RunResult[] = [];
@@ -388,6 +443,7 @@ describe.skipIf(!env?.BALANCE)('balance report', () => {
       ...curveProjection(curveRuns),
       evolutionLine('mixed (autos, mortal)', mixedRuns),
       evolutionLine('curve (god mode)', curveRuns),
+      ...difficultyReport(),
     );
     console.log('\n' + lines.join('\n'));
     expect(lines.length).toBeGreaterThan(SCENARIOS.length);

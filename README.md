@@ -10,6 +10,10 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 
 ## Cómo jugar
 
+- **Dificultad:** se elige en el menú principal antes de jugar (Fácil, Medio o Difícil) y no cambia durante la
+  partida. Fácil es el juego base. Medio y Difícil traen más zombis, con más vida y más daño, y menos munición y
+  botiquines. En Difícil, además, cada tipo de zombi nuevo llega antes. El menú muestra la mejor hora y las victorias
+  de cada dificultad.
 - **Tus armas manuales:**
   - **Pistola de etiquetas:** tu arma principal. Tiene cargador y munición de reserva.
   - **Escoba:** el respaldo cuerpo a cuerpo; no gasta munición.
@@ -26,7 +30,7 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
     El jefe siempre suelta uno.
   - Muy de vez en cuando, un **imán**: atrae todos los cupones del mapa.
 - **Al subir de nivel** el juego se pausa y eliges 1 de 3 mejoras: un arma automática nueva, subir de nivel un arma
-  o un pasivo. Tienes 1 "Cambiar opciones" por partida.
+  o un pasivo. Tienes 3 "Cambiar opciones" por partida.
   - Armas automáticas: latas de conserva, bolsas de hielo, aerosol insecticida y microondas.
   - Pasivos: zapatillas, café, imán, chaleco, termo con sopa y calculadora.
 - **El Gerente Zombi** (jefe) llega a las 2:00 AM y vuelve, más fuerte, a las 5:12 AM. Al vencerlo suelta un cofre
@@ -34,7 +38,7 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 - **Las góndolas son sólidas:** frenan a Mati, a los zombis y a las balas (la escoba barre por encima). Úsalas para
   cortar el paso a la horda.
 - **Ganas** si llegas a las 6:00 AM con vida: amanece y los zombis se desmayan. Tu mejor hora y tus bajas totales
-  quedan guardadas en el navegador.
+  quedan guardadas en el navegador (la mejor hora y las victorias, por dificultad).
 
 ## Controles
 
@@ -93,6 +97,7 @@ FPS, CPU, zombis y bajas. Detalles, teclas, el dataset para pruebas y el reporte
 | `?t=S`         | Adelanta el reloj S segundos (`?t=299`: llega el jefe)  |
 | `?weapons=all` | Todas las armas (escopeta incluida) en nivel 5          |
 | `?ammo=N`      | Cargador vacío y N balas de reserva (`0` = solo escoba) |
+| `?difficulty=` | `easy`, `normal` o `hard`: juega en esa dificultad      |
 
 ### Estructura
 

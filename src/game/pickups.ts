@@ -63,9 +63,9 @@ export function dropCoupon(world: World, x: number, y: number, value: number): v
   if (target) target.value += value;
 }
 
-/** Chance that an enemy worth `xp` drops an ammo box. */
-export function ammoDropChance(xp: number): number {
-  return tierChance(AMMO.dropTiers, xp);
+/** Chance that an enemy worth `xp` drops an ammo box, times the difficulty's `drops`. */
+export function ammoDropChance(xp: number, dropMultiplier = 1): number {
+  return tierChance(AMMO.dropTiers, xp) * dropMultiplier;
 }
 
 /**
@@ -73,7 +73,7 @@ export function ammoDropChance(xp: number): number {
  * the player has the shotgun, a share of the drops are shell boxes; the overall chance is the same.
  */
 export function maybeDropAmmo(world: World, x: number, y: number, xp: number): void {
-  if (world.rng.next() >= ammoDropChance(xp)) return;
+  if (world.rng.next() >= ammoDropChance(xp, world.difficulty.drops)) return;
   const shells = entryOf(world.player.manual, 'shotgun') !== undefined;
   const pool = shells && world.rng.next() < AMMO.shellShare ? world.shellBoxes : world.ammoBoxes;
   const box = pool.acquire();
@@ -86,9 +86,9 @@ function tierChance(tiers: readonly { minXp: number; chance: number }[], xp: num
   return 0;
 }
 
-/** Chance that an enemy worth `xp` drops a medkit (elites and the boss only). */
-export function medkitDropChance(xp: number): number {
-  return tierChance(FLOOR_ITEMS.medkit.dropTiers, xp);
+/** Chance that an enemy worth `xp` drops a medkit (elites and the boss only), times `drops`. */
+export function medkitDropChance(xp: number, dropMultiplier = 1): number {
+  return tierChance(FLOOR_ITEMS.medkit.dropTiers, xp) * dropMultiplier;
 }
 
 function dropFloorItem(world: World, x: number, y: number, kind: FloorItemKind): void {
@@ -100,7 +100,8 @@ function dropFloorItem(world: World, x: number, y: number, kind: FloorItemKind):
 
 /** Rolls the seeded RNG for a medkit and a floor magnet (silently skipped if the pool is full). */
 export function maybeDropFloorItems(world: World, x: number, y: number, xp: number): void {
-  if (world.rng.next() < medkitDropChance(xp)) dropFloorItem(world, x, y, 'medkit');
+  if (world.rng.next() < medkitDropChance(xp, world.difficulty.drops))
+    dropFloorItem(world, x, y, 'medkit');
   if (world.rng.next() < FLOOR_ITEMS.magnet.chance) dropFloorItem(world, x, y, 'magnet');
 }
 

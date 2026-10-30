@@ -105,6 +105,13 @@ const es = {
   statClock: 'Hora del turno',
   newRecord: '¡Nuevo récord!',
   menuButton: 'Menú principal',
+  difficultyEasy: 'Fácil',
+  difficultyNormal: 'Medio',
+  difficultyHard: 'Difícil',
+  difficultyTitle: 'Dificultad',
+  difficultyLabel: 'Dificultad: {name}',
+  statDifficulty: 'Dificultad',
+  statWins: 'Victorias',
 
   passiveShoes: 'Zapatillas antideslizantes',
   passiveShoesDesc: '+8% velocidad de movimiento',

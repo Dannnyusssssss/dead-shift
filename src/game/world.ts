@@ -3,10 +3,18 @@ import { createPool, type Pool } from '../core/pool';
 import { createRng, type Rng } from '../core/rng';
 import { createSpatialHash, type SpatialHash } from '../core/spatial-hash';
 import { COMBAT } from '../data/combat';
+import {
+  DEFAULT_DIFFICULTY,
+  DIFFICULTIES,
+  type DifficultyDef,
+  type DifficultyId,
+} from '../data/difficulty';
 import { COUPONS, FLOOR_ITEMS, PROGRESSION } from '../data/progression';
 import { AMMO, WEAPON_IDS } from '../data/weapons';
+import { WAVES, type WaveEntry } from '../data/waves';
 import { arcSystem, createArcObject, type Arc } from './arcs';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
+import { wavesFor } from './difficulty';
 import { createEventQueue, createHitQueue, type EventQueue, type HitQueue } from './events';
 import { createHazardObject, hazardSystem, type Hazard } from './hazards';
 import { manualWeaponSystem } from './manual';
@@ -44,6 +52,10 @@ export type OfferSource = 'level' | 'chest';
 export interface World {
   seed: number;
   rng: Rng;
+  /** Chosen before the run; fixed for its whole length. */
+  difficulty: Readonly<DifficultyDef>;
+  /** Wave table of this run (WAVES itself unless the difficulty brings enemies in early). */
+  waves: readonly Readonly<WaveEntry>[];
   status: WorldStatus;
   /** Seconds of simulated game time. */
   time: number;
@@ -120,10 +132,14 @@ const SYSTEMS: readonly System[] = [
   timersSystem,
 ];
 
-export function createWorld(seed: number): World {
+export function createWorld(seed: number, difficultyId: DifficultyId = DEFAULT_DIFFICULTY): World {
+  const difficulty = DIFFICULTIES[difficultyId];
+  const waves = wavesFor(WAVES, difficulty.introLead);
   return {
     seed,
     rng: createRng(seed),
+    difficulty,
+    waves,
     status: 'playing',
     time: 0,
     tick: 0,
@@ -152,7 +168,7 @@ export function createWorld(seed: number): World {
     queryBuf: new Int32Array(COMBAT.queryBufferSize),
     events: createEventQueue(COMBAT.eventCapacity),
     hits: createHitQueue(COMBAT.hitCapacity),
-    spawner: createSpawnerState(),
+    spawner: createSpawnerState(waves),
     spawnRadius: COMBAT.spawnRingMinRadius,
     offers: [],
     offerSource: 'level',

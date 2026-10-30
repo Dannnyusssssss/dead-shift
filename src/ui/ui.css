@@ -236,6 +236,45 @@
   cursor: default;
 }
 
+/* Difficulty picker in the main menu: three buttons, the chosen one filled. */
+.ds-segmented-label {
+  margin: 18px 0 6px;
+  color: #9fb294;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ds-segmented {
+  display: flex;
+  gap: 6px;
+}
+
+.ds-segment {
+  flex: 1;
+  min-height: 44px;
+  border: 2px solid #3b4a36;
+  border-radius: 8px;
+  background: transparent;
+  color: #dfe8d8;
+  font:
+    600 15px system-ui,
+    sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ds-segment[aria-pressed='true'] {
+  border-color: #c8f03c;
+  background: #c8f03c;
+  color: #1b1b1b;
+}
+
+.ds-segment:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
 @media (max-width: 560px) {
   .ds-panel {
     padding: 18px 14px 14px;

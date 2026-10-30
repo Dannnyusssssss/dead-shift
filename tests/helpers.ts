@@ -1,4 +1,5 @@
 import { setVec } from '../src/core/math';
+import type { DifficultyId } from '../src/data/difficulty';
 import { ENEMIES } from '../src/data/enemies';
 import { spawnEnemy, type Enemy } from '../src/game/enemies';
 import { entryOf, gunStats, hasAmmo, isGun, type ManualEntry } from '../src/game/manual';
@@ -22,8 +23,8 @@ export function shotgunOf(world: World): ManualEntry {
 }
 
 /** Fresh world with no enemies; tests call individual systems on it. */
-export function emptyWorld(seed = 1): World {
-  return createWorld(seed);
+export function emptyWorld(seed = 1, difficulty: DifficultyId = 'easy'): World {
+  return createWorld(seed, difficulty);
 }
 
 export function addClient(world: World, x: number, y: number): Enemy {
