@@ -1,8 +1,17 @@
 import type { Rng } from '../core/rng';
 import { PROGRESSION } from '../data/progression';
 import { PASSIVE_IDS, type PassiveId } from '../data/upgrades';
-import { WEAPON_IDS, WEAPONS, isManual, type WeaponId } from '../data/weapons';
+import {
+  PISTOL_MOD_IDS,
+  PISTOL_MOD_RULES,
+  WEAPON_IDS,
+  WEAPONS,
+  isManual,
+  type PistolModId,
+  type WeaponId,
+} from '../data/weapons';
 import { emit } from './events';
+import { addManualWeapon, addPistolMod, entryOf, gunDefOf } from './manual';
 import { addPassive, findOwnedWeapon, findPassive, recomputeStats, type Player } from './player';
 import { createWeapon } from './weapons';
 import type { World } from './world';
@@ -12,6 +21,7 @@ export type Offer =
   | { kind: 'upgradeWeapon'; weaponId: WeaponId }
   | { kind: 'newPassive'; passiveId: PassiveId }
   | { kind: 'upgradePassive'; passiveId: PassiveId }
+  | { kind: 'pistolMod'; modId: PistolModId }
   | { kind: 'heal' };
 
 /** XP needed to go from level N-1 to level N. */
@@ -39,8 +49,30 @@ export function addXp(player: Player, amount: number): number {
 }
 
 /**
+ * A weapon the player doesn't own yet that may be offered as new: an automatic one while a slot
+ * is free, or a manual one with `offerFromLevel` once the player reaches it (no slot needed).
+ */
+function canOfferNew(player: Readonly<Player>, id: WeaponId): boolean {
+  const def = WEAPONS[id];
+  if (!isManual(def)) return player.weapons.length < PROGRESSION.maxWeapons;
+  const from = gunDefOf(id)?.offerFromLevel;
+  return from !== undefined && player.level >= from;
+}
+
+/** Pistol mods still available: the pistol is high enough, under the per-run limit, not taken. */
+function modCandidates(player: Readonly<Player>, out: Offer[]): void {
+  const m = player.manual;
+  const level = entryOf(m, PISTOL_MOD_RULES.weapon)?.weapon.level ?? 0;
+  if (level < PISTOL_MOD_RULES.minWeaponLevel || m.mods.length >= PISTOL_MOD_RULES.maxPerRun)
+    return;
+  for (const id of PISTOL_MOD_IDS) {
+    if (!m.mods.includes(id)) out.push({ kind: 'pistolMod', modId: id });
+  }
+}
+
+/**
  * Every valid upgrade for the current loadout. Each target appears at most once.
- * Manual weapons are always owned, so they are only ever offered as upgrades.
+ * The starting manual weapons are always owned, so they are only ever offered as upgrades.
  */
 export function buildCandidates(player: Readonly<Player>): Offer[] {
   const out: Offer[] = [];
@@ -49,10 +81,11 @@ export function buildCandidates(player: Readonly<Player>): Offer[] {
     const owned = findOwnedWeapon(player, id);
     if (owned) {
       if (owned.level < max) out.push({ kind: 'upgradeWeapon', weaponId: id });
-    } else if (!isManual(WEAPONS[id]) && player.weapons.length < PROGRESSION.maxWeapons) {
+    } else if (canOfferNew(player, id)) {
       out.push({ kind: 'newWeapon', weaponId: id });
     }
   }
+  modCandidates(player, out);
   for (const id of PASSIVE_IDS) {
     const owned = player.passives.find((p) => p.def.id === id);
     if (owned) {
@@ -90,9 +123,12 @@ export function rollOffers(
 export function applyOffer(player: Player, offer: Readonly<Offer>): void {
   switch (offer.kind) {
     case 'newWeapon':
-      if (!findOwnedWeapon(player, offer.weaponId) && !isManual(WEAPONS[offer.weaponId])) {
-        player.weapons.push(createWeapon(offer.weaponId));
-      }
+      if (findOwnedWeapon(player, offer.weaponId)) break;
+      if (isManual(WEAPONS[offer.weaponId])) addManualWeapon(player.manual, offer.weaponId);
+      else player.weapons.push(createWeapon(offer.weaponId));
+      break;
+    case 'pistolMod':
+      addPistolMod(player.manual, offer.modId);
       break;
     case 'upgradeWeapon': {
       const w = findOwnedWeapon(player, offer.weaponId);
@@ -114,14 +150,23 @@ export function applyOffer(player: Player, offer: Readonly<Offer>): void {
   }
 }
 
-/** Boss chest: a free level for one of the weapons you own; heal if all are maxed. */
+/** Manual weapon the first boss chest always offers if the player doesn't have it yet. */
+export const FIRST_CHEST_WEAPON: WeaponId = 'shotgun';
+
+/**
+ * Boss chest: a free level for one of the weapons you own; heal if all are maxed. The first
+ * chest of the run also always offers the shotgun (if not owned yet) as one of the options.
+ */
 export function rollChestOffers(
   player: Readonly<Player>,
   rng: Rng,
   count: number = PROGRESSION.offerCount,
 ): Offer[] {
   const pool: Offer[] = buildCandidates(player).filter((o) => o.kind === 'upgradeWeapon');
-  return sample(pool, rng, count);
+  const guaranteed = player.chestsOpened === 0 && !findOwnedWeapon(player, FIRST_CHEST_WEAPON);
+  if (!guaranteed) return sample(pool, rng, count);
+  const rest = pool.length > 0 ? sample(pool, rng, count - 1) : [];
+  return [{ kind: 'newWeapon', weaponId: FIRST_CHEST_WEAPON }, ...rest];
 }
 
 function rollFor(world: World): Offer[] {
@@ -170,8 +215,10 @@ export function chooseOffer(world: World, index: number): boolean {
   if (!offer) return false;
   applyOffer(world.player, offer);
   const p = world.player;
-  if (world.offerSource === 'chest') p.pendingChests = Math.max(0, p.pendingChests - 1);
-  else p.pendingLevelUps = Math.max(0, p.pendingLevelUps - 1);
+  if (world.offerSource === 'chest') {
+    p.pendingChests = Math.max(0, p.pendingChests - 1);
+    p.chestsOpened++;
+  } else p.pendingLevelUps = Math.max(0, p.pendingLevelUps - 1);
   openNextChoice(world);
   return true;
 }

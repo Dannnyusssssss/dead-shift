@@ -1,6 +1,6 @@
 import { PROGRESSION } from '../data/progression';
 import { PASSIVES } from '../data/upgrades';
-import { WEAPONS, type WeaponDef } from '../data/weapons';
+import { PISTOL_MODS, WEAPONS, type WeaponDef } from '../data/weapons';
 import { t, type TextKey } from '../data/texts';
 import { findOwnedWeapon, type Player } from '../game/player';
 import type { Offer } from '../game/progression';
@@ -103,6 +103,15 @@ export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>):
         name: t(def.nameKey),
         tag: owned ? levelTag(owned.level) : t('tagNew'),
         description: t(def.descKey),
+      };
+    }
+    case 'pistolMod': {
+      const def = PISTOL_MODS[offer.modId];
+      return {
+        icon: def.icon,
+        name: t(def.nameKey),
+        tag: t('tagMod'),
+        description: t(def.descKey, { dps: def.burnDps ?? 0, time: def.burnTime ?? 0 }),
       };
     }
     case 'heal':

@@ -1,8 +1,8 @@
 import type { TextKey } from './texts';
 
-export type WeaponId = 'broom' | 'cans' | 'ice' | 'aerosol' | 'microwave' | 'labelGun';
+export type WeaponId = 'broom' | 'cans' | 'ice' | 'aerosol' | 'microwave' | 'labelGun' | 'shotgun';
 
-/** Stable order; also the index of per-enemy, per-weapon hit timers. */
+/** Stable order (new weapons go at the end); also the index of per-enemy, per-weapon hit timers. */
 export const WEAPON_IDS: readonly WeaponId[] = [
   'broom',
   'cans',
@@ -10,6 +10,7 @@ export const WEAPON_IDS: readonly WeaponId[] = [
   'aerosol',
   'microwave',
   'labelGun',
+  'shotgun',
 ];
 
 /** Melee sweep toward the aim that hits everything inside the arc. */
@@ -43,6 +44,13 @@ export interface ProjectileLevel {
   /** Seconds before it disappears. */
   lifetime: number;
   knockback: number;
+  /** Burn applied on hit (reuses the poison of the aerosol), damage per second. Pistol mod. */
+  burnDps?: number;
+  burnTime?: number;
+  /** Times a shot that would be used up jumps to the nearest enemy it hasn't hit. Pistol mod. */
+  bounces?: number;
+  /** Max distance of a bounce, px. */
+  bounceRange?: number;
 }
 
 /** Manual gun: a projectile weapon with a magazine. `cooldown` is the time between shots. */
@@ -116,7 +124,7 @@ export interface MeleeWeaponDef extends WeaponBase {
   levels: readonly Readonly<ArcLevel>[];
 }
 
-export type ProjectileLook = 'can' | 'label';
+export type ProjectileLook = 'can' | 'label' | 'pellet';
 
 export interface AmmoSpec {
   /** Rounds in the reserve at the start of a run (the magazine starts full). */
@@ -129,6 +137,11 @@ export interface GunWeaponDef extends WeaponBase {
   behavior: 'gun';
   look: ProjectileLook;
   ammo: AmmoSpec;
+  /**
+   * Player level from which it can be offered as a new weapon (it then joins the manual weapons,
+   * outside the slots). Without it the weapon is never offered as new (the starting ones).
+   */
+  offerFromLevel?: number;
   levels: readonly Readonly<GunLevel>[];
 }
 
@@ -241,6 +254,23 @@ const labelL1: GunLevel = {
 const labelL3: GunLevel = { ...labelL1, damage: 12, magazine: 18, reloadTime: 1.1 };
 const labelL4: GunLevel = { ...labelL3, pierce: 1, cooldown: 0.15 };
 
+// Shotgun: 5 pellets over ±15°, ~220 px of reach (600 px/s × 0.37 s), strong knockback.
+const shotgunL1: GunLevel = {
+  damage: 6,
+  cooldown: 0.9,
+  count: 5,
+  pierce: 0,
+  spreadDegrees: 7.5,
+  speed: 600,
+  radius: 4,
+  lifetime: 0.37,
+  knockback: 260,
+  magazine: 6,
+  reloadTime: 2,
+};
+const shotgunL3: GunLevel = { ...shotgunL1, damage: 7, count: 6, spreadDegrees: 6, magazine: 8 };
+const shotgunL4: GunLevel = { ...shotgunL3, reloadTime: 1.6, cooldown: 0.75 };
+
 export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
   broom: {
     id: 'broom',
@@ -329,25 +359,125 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       { ...labelL4, count: 2, spreadDegrees: 6, damage: 14 },
     ],
   },
+  shotgun: {
+    id: 'shotgun',
+    behavior: 'gun',
+    look: 'pellet',
+    icon: '💥',
+    nameKey: 'weaponShotgun',
+    descKey: 'weaponShotgunDesc',
+    ammo: { startReserve: 12, maxReserve: 36 },
+    offerFromLevel: 4,
+    levels: [
+      shotgunL1,
+      { ...shotgunL1, damage: 7 },
+      shotgunL3,
+      shotgunL4,
+      { ...shotgunL4, count: 7, spreadDegrees: 5, damage: 8, pierce: 1 },
+    ],
+  },
 };
 
-/** The two manual weapons every run starts with (outside the automatic slots). */
-export const MANUAL_WEAPONS = { gun: 'labelGun', melee: 'broom' } as const satisfies Record<
-  string,
-  WeaponId
->;
+/** Manual weapons (outside the automatic slots), in cycle order (Q / wheel) and auto-switch priority. */
+export const MANUAL_ORDER: readonly WeaponId[] = ['labelGun', 'shotgun', 'broom'];
+
+/** Manual weapons every run starts with. */
+export const STARTING_MANUAL: readonly WeaponId[] = ['labelGun', 'broom'];
+
+/** The melee fallback: always usable, picked last by the automatic switch. */
+export const MELEE_FALLBACK: WeaponId = 'broom';
+
+/** Number keys that select each manual weapon (fixed, so they never change meaning). */
+export const MANUAL_KEYS: Readonly<Partial<Record<WeaponId, number>>> = {
+  labelGun: 1,
+  broom: 2,
+  shotgun: 3,
+};
+
+export type PistolModId = 'piercing' | 'extendedMag' | 'incendiary' | 'ricochet';
+
+export const PISTOL_MOD_IDS: readonly PistolModId[] = [
+  'piercing',
+  'extendedMag',
+  'incendiary',
+  'ricochet',
+];
+
+/** Pistol mod: a permanent tweak to the gun's stats. It has no levels and uses no slot. */
+export interface PistolModDef {
+  id: PistolModId;
+  icon: string;
+  nameKey: TextKey;
+  descKey: TextKey;
+  /** Extra enemies each shot passes through. */
+  pierce?: number;
+  /** Magazine size multiplier (rounded). */
+  magazineMultiplier?: number;
+  burnDps?: number;
+  burnTime?: number;
+  bounces?: number;
+  bounceRange?: number;
+}
+
+export const PISTOL_MODS: Readonly<Record<PistolModId, Readonly<PistolModDef>>> = {
+  piercing: {
+    id: 'piercing',
+    icon: '📌',
+    nameKey: 'modPiercing',
+    descKey: 'modPiercingDesc',
+    pierce: 1,
+  },
+  extendedMag: {
+    id: 'extendedMag',
+    icon: '📦',
+    nameKey: 'modExtendedMag',
+    descKey: 'modExtendedMagDesc',
+    magazineMultiplier: 1.5,
+  },
+  incendiary: {
+    id: 'incendiary',
+    icon: '🔥',
+    nameKey: 'modIncendiary',
+    descKey: 'modIncendiaryDesc',
+    burnDps: 4,
+    burnTime: 2,
+  },
+  ricochet: {
+    id: 'ricochet',
+    icon: '↪️',
+    nameKey: 'modRicochet',
+    descKey: 'modRicochetDesc',
+    bounces: 1,
+    bounceRange: 220,
+  },
+};
+
+/** When pistol mods are offered: from this pistol level, and at most this many per run. */
+export const PISTOL_MOD_RULES = {
+  weapon: 'labelGun',
+  minWeaponLevel: 3,
+  maxPerRun: 2,
+} as const satisfies { weapon: WeaponId; minWeaponLevel: number; maxPerRun: number };
 
 /** Ammo boxes dropped by zombies. */
 export const AMMO = {
-  /** Rounds added to the reserve per box. */
-  boxAmount: 15,
+  /** Rounds added to the pistol reserve per box (Hito 9: 15 → 20, see DECISIONS.md). */
+  boxAmount: 20,
+  /** Shells added to the shotgun reserve per shell box. */
+  shellAmount: 6,
+  /**
+   * Once the player has the shotgun, this share of the drops are shell boxes instead of rounds
+   * (the overall drop chance stays the same).
+   */
+  shellShare: 0.4,
   /** Drop chance by enemy xp value: the first tier whose `minXp` the enemy reaches. */
   dropTiers: [
     { minXp: 20, chance: 1 },
     { minXp: 5, chance: 0.5 },
-    { minXp: 0, chance: 0.22 },
+    { minXp: 0, chance: 0.28 },
   ],
   capacity: 40,
+  shellCapacity: 30,
   /** Pickup collision radius, px. */
   radius: 9,
 } as const;

@@ -5,7 +5,6 @@ import { createInput, type AimResult } from './core/input';
 import { createFixedLoop, createFrameStats } from './core/loop';
 import { setVec, vec2 } from './core/math';
 import type { SoundId } from './data/audio';
-import { PROGRESSION } from './data/progression';
 import { SHIFT } from './data/shift';
 import {
   CAMERA_FOLLOW_RATE,
@@ -17,14 +16,14 @@ import {
   VICTORY_SCREEN_DELAY,
 } from './data/render';
 import { t } from './data/texts';
-import { WEAPON_IDS, WEAPONS, isManual } from './data/weapons';
+import { WEAPON_IDS } from './data/weapons';
 import type { GameEventType } from './game/events';
-import { gunStats, maxReserve } from './game/manual';
+import { giveAllWeapons, setPistolAmmo } from './game/debug';
+import { isGun } from './game/manual';
 import { interpolatedPlayerPos } from './game/player';
 import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
 import { shiftClock } from './game/shift';
 import { fastForward, spawnHorde, spawnRadiusForView } from './game/spawner';
-import { createWeapon } from './game/weapons';
 import { createWorld, updateWorld, type World } from './game/world';
 import { createFloaters } from './render/floaters';
 import { createParticles } from './render/particles';
@@ -119,21 +118,8 @@ function boot(): void {
   const newWorld = (): World => {
     const w = createWorld(Date.now() >>> 0);
     w.player.invincible = debug.god;
-    if (debug.allWeapons) {
-      w.player.weapons = WEAPON_IDS.filter((id) => !isManual(WEAPONS[id])).map((id) => {
-        const weapon = createWeapon(id);
-        weapon.level = PROGRESSION.maxLevel;
-        return weapon;
-      });
-      const m = w.player.manual;
-      m.gun.level = m.melee.level = PROGRESSION.maxLevel;
-      m.mag = gunStats(m).magazine;
-      m.reserve = maxReserve();
-    }
-    if (debug.ammo !== null) {
-      w.player.manual.mag = 0;
-      w.player.manual.reserve = Math.min(debug.ammo, maxReserve());
-    }
+    if (debug.allWeapons) giveAllWeapons(w);
+    if (debug.ammo !== null) setPistolAmmo(w, debug.ammo);
     if (debug.startTime > 0) fastForward(w, debug.startTime);
     if (debug.spawn > 0) spawnHorde(w, debug.spawn);
     return w;
@@ -406,6 +392,7 @@ function boot(): void {
       if (aim.active) setVec(world.aim, aim.dir.x, aim.dir.y);
       world.triggerHeld = aim.trigger;
       if (input.consumeSwap()) world.swapRequested = true;
+      world.selectRequested = input.consumeSelect();
       if (input.consumeReload()) world.reloadRequested = true;
       updateWorld(world, dt);
     },
@@ -472,10 +459,15 @@ function boot(): void {
         ds.chests = String(world.chests.count);
         const m = world.player.manual;
         ds.active = m.active;
-        ds.ammo = `${m.mag}/${m.reserve}`;
+        ds.ammo = m.owned
+          .filter(isGun)
+          .map((e) => `${e.weapon.def.id}:${e.mag}/${e.reserve}`)
+          .join(',');
         ds.reloading = String(m.reloadTimer > 0);
         ds.ammoBoxes = String(world.ammoBoxes.count);
-        ds.manualLevels = `${m.gun.level}/${m.melee.level}`;
+        ds.shellBoxes = String(world.shellBoxes.count);
+        ds.manualLevels = m.owned.map((e) => `${e.weapon.def.id}:${e.weapon.level}`).join(',');
+        ds.pistolMods = m.mods.join(',');
         ds.trauma = peakTrauma.toFixed(2);
         peakTrauma = 0;
         ds.muted = String(save.muted);

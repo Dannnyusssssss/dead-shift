@@ -197,7 +197,7 @@ describe('kills by weapon', () => {
     }
     expect(world.killsByWeapon[idx('labelGun')]).toBe(1);
 
-    selectManual(world.player.manual, 'melee');
+    selectManual(world.player.manual, 'broom');
     addClient(world, 30, 0).hp = 1;
     spatialIndexSystem(world);
     manualWeaponSystem(world, FIXED_STEP);

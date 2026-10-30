@@ -165,14 +165,18 @@ describe('Gerente Zombi (boss)', () => {
     progressionSystem(world);
     expect(world.status).toBe('levelup');
     expect(world.offerSource).toBe('chest');
-    expect(world.offers.every((o) => o.kind === 'upgradeWeapon')).toBe(true);
+    // The first chest always offers the shotgun; the rest are free weapon upgrades.
+    expect(world.offers[0]).toEqual({ kind: 'newWeapon', weaponId: 'shotgun' });
+    expect(world.offers.slice(1).every((o) => o.kind === 'upgradeWeapon')).toBe(true);
+    expect(world.offers.length).toBe(3);
     // The chest may upgrade an automatic or a manual weapon.
     const levels = (): number => {
       const { weapons, manual } = world.player;
-      return weapons.reduce((sum, w) => sum + w.level, manual.gun.level + manual.melee.level);
+      const manualLevels = manual.owned.reduce((sum, e) => sum + e.weapon.level, 0);
+      return weapons.reduce((sum, w) => sum + w.level, manualLevels);
     };
     const before = levels();
-    chooseOffer(world, 0);
+    chooseOffer(world, 1);
     const after = levels();
     expect(after).toBe(before + 1);
     expect(world.player.pendingChests).toBe(0);

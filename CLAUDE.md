@@ -125,7 +125,7 @@ docs/DEBUG.md            # parámetros de URL y teclas de depuración (Hito 7)
 - **Armas automáticas** (latas, bolsas de hielo, aerosol, microondas): disparan solas.
 - Slots: máximo **4 armas automáticas** y **4 pasivos**.
 - Empieza con la **Pistola de etiquetas** y la **Escoba**, sin armas automáticas.
-- Controles: R recarga, Q o rueda cambian de arma (en el Hito 9, 1/2/3 seleccionan), Esc/P pausa, M silencio.
+- Controles: R recarga, Q o rueda ciclan las armas manuales, 1 Pistola / 2 Escoba / 3 Escopeta, Esc/P pausa, M silencio, F3 métricas.
 
 ### 5.3 Experiencia y niveles
 
@@ -145,7 +145,7 @@ Los números definitivos viven en `src/data/weapons.ts` y las decisiones de dise
 |---|---|---|---|
 | **Pistola de etiquetas** (inicial) | Disparo manual con cargador, reserva de munición y recarga (R) | 10 daño, cadencia 0.18 s, cargador 12, recarga 1.3 s | +daño, +cargador, perfora, nivel 5: 2 balas |
 | **Escoba** (inicial, respaldo sin munición) | Golpe en arco hacia donde se apunta | 10 daño, cd 0.75 s, arco 95°, 65 px (Hito 7) | +daño, +arco y alcance, +cadencia, nivel 5: ambos lados |
-| **Escopeta** (Hito 9) | Ráfaga de perdigones en cono, cargador y reserva propios | ver Hito 9 | ver Hito 9 |
+| **Escopeta** (desde nivel 4 o el primer cofre) | Ráfaga de perdigones en cono, cargador y reserva propios | 5 perdigones ±15°, 6 daño c/u, ~220 px, cd 0.9 s, cargador 6, recarga 2 s | +daño, +perdigones y cargador, +recarga y cadencia, nivel 5: perfora |
 
 **Automáticas** (disparan solas; se obtienen al subir de nivel):
 
@@ -231,7 +231,7 @@ Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 8. Hitos (implementa UNO a la vez, en orden)
 
-**Estado actual:** Hitos 1 a 8 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 9.
+**Estado actual:** Hitos 1 a 9 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 10.
 Actualiza esta línea al cerrar cada hito.
 
 Al terminar cada hito: corre `npm run lint && npm run test && npm run build`, ejecuta el juego, verifica

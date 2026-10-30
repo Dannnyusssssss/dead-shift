@@ -6,7 +6,7 @@ import { BOSSES, WAVES } from '../src/data/waves';
 import { chooseOffer } from '../src/game/progression';
 import { spawnHorde, spawnRadiusForView, spawnSystem } from '../src/game/spawner';
 import { updateWorld } from '../src/game/world';
-import { emptyWorld, playerBot } from './helpers';
+import { emptyWorld, playerBot, pistolOf } from './helpers';
 
 function runSpawner(seed: number, seconds: number) {
   const world = emptyWorld(seed);
@@ -161,7 +161,7 @@ describe('full simulation', () => {
     const world = emptyWorld(11);
     world.player.invincible = true;
     // No reserve: the first magazine runs dry, so the broom takeover and the return are exercised.
-    world.player.manual.reserve = 0;
+    pistolOf(world).reserve = 0;
     let maxEnemies = 0;
     let steps = 0;
     let autoSwitches = 0;
@@ -173,8 +173,8 @@ describe('full simulation', () => {
       playerBot(world);
       updateWorld(world, FIXED_STEP);
       const m = world.player.manual;
-      if (prev === 'gun' && m.active === 'melee' && m.autoSwitched) autoSwitches++;
-      if (prev === 'melee' && m.active === 'gun') returnsToGun++;
+      if (prev !== 'broom' && m.active === 'broom' && m.autoSwitched) autoSwitches++;
+      if (prev === 'broom' && m.active !== 'broom') returnsToGun++;
       prev = m.active;
       maxEnemies = Math.max(maxEnemies, world.enemies.count);
       steps++;

@@ -51,6 +51,12 @@ export function keyAction(code: string): KeyAction | undefined {
   return ACTION_KEYS[code];
 }
 
+/** 1-9 for the number keys (top row or numpad), 0 for anything else. */
+export function digitKey(code: string): number {
+  const match = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+  return match ? Number(match[1]) : 0;
+}
+
 /** Keyboard direction, normalized so diagonals are not faster. */
 export function keysToAxis(keys: KeyState, out: Vec2): Vec2 {
   setVec(out, (keys.right ? 1 : 0) - (keys.left ? 1 : 0), (keys.down ? 1 : 0) - (keys.up ? 1 : 0));
@@ -159,7 +165,9 @@ export interface Input {
   consumeMute(): boolean;
   /** F3: show / hide the performance overlay. */
   consumeDebug(): boolean;
-  /** Drops pending gameplay presses (swap, reload) e.g. while a menu is open. */
+  /** Number key pressed since the last call (1-9, from the top row or the numpad), 0 = none. */
+  consumeSelect(): number;
+  /** Drops pending gameplay presses (swap, reload, number keys) e.g. while a menu is open. */
   clearEdges(): void;
   requestSwap(): void;
   requestReload(): void;
@@ -189,6 +197,7 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   let pausePressed = false;
   let mutePressed = false;
   let debugPressed = false;
+  let selectPressed = 0;
   // Until the first pointer arrives, guess from the device (phones and tablets report "coarse").
   let touchMode = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   let lastWheelSwap = 0;
@@ -203,6 +212,11 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     if (e.code === 'Space') {
       fireKey = true;
       e.preventDefault();
+      return;
+    }
+    const digit = digitKey(e.code);
+    if (digit > 0) {
+      if (!e.repeat) selectPressed = digit;
       return;
     }
     const action = keyAction(e.code);
@@ -355,6 +369,11 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       mutePressed = false;
       return v;
     },
+    consumeSelect() {
+      const v = selectPressed;
+      selectPressed = 0;
+      return v;
+    },
     consumeDebug() {
       const v = debugPressed;
       debugPressed = false;
@@ -373,6 +392,7 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     clearEdges() {
       swapPressed = false;
       reloadPressed = false;
+      selectPressed = 0;
     },
     requestSwap() {
       swapPressed = true;

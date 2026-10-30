@@ -13,10 +13,15 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 - **Tus armas manuales:**
   - **Pistola de etiquetas:** tu arma principal. Tiene cargador y munición de reserva.
   - **Escoba:** el respaldo cuerpo a cuerpo; no gasta munición.
-  - Si te quedas sin balas, Mati saca la escoba sola. Cuando recoges una caja de munición, vuelve a la pistola.
+  - **Escopeta:** ráfaga de perdigones de corto alcance y mucho empuje, con cartuchos propios. Aparece como mejora desde
+    el nivel 4 y está garantizada en el primer cofre del jefe.
+  - Si un arma se queda sin munición, Mati cambia sola a la siguiente con munición (la escoba es la última). Cuando
+    recoges munición, vuelve al arma que se había quedado seca.
+- **Mods de pistola:** desde la Pistola nivel 3 pueden salir mejoras especiales (perforante, cargador extendido,
+  incendiaria o con rebote). Como máximo 2 por partida.
 - **Los zombis sueltan:**
   - Cupones (experiencia).
-  - A veces, cajas de munición.
+  - A veces, cajas de munición: verdes con balas y, si tienes la escopeta, rojas con cartuchos.
   - Los zombis élite, a veces, un **botiquín** (cura 25 % de la vida; si estás con la vida llena, queda en el suelo).
     El jefe siempre suelta uno.
   - Muy de vez en cuando, un **imán**: atrae todos los cupones del mapa.
@@ -35,17 +40,18 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 
 ### PC
 
-| Acción                   | Tecla                                    |
-| ------------------------ | ---------------------------------------- |
-| Moverse                  | WASD o flechas                           |
-| Apuntar                  | Mouse                                    |
-| Disparar / golpear       | Clic izquierdo (mantenido) o Espacio     |
-| Recargar                 | R                                        |
-| Cambiar pistola ↔ escoba | Q o rueda del mouse                      |
-| Pausa                    | Esc o P (también el botón ❚❚)            |
-| Silenciar                | M                                        |
-| Mostrar FPS y métricas   | F3 (o la casilla en la pausa)            |
-| Elegir mejora            | 1 / 2 / 3, clic; R para cambiar opciones |
+| Acción                 | Tecla                                    |
+| ---------------------- | ---------------------------------------- |
+| Moverse                | WASD o flechas                           |
+| Apuntar                | Mouse                                    |
+| Disparar / golpear     | Clic izquierdo (mantenido) o Espacio     |
+| Recargar               | R                                        |
+| Elegir arma            | 1 Pistola · 2 Escoba · 3 Escopeta        |
+| Cambiar de arma        | Q o rueda del mouse                      |
+| Pausa                  | Esc o P (también el botón ❚❚)            |
+| Silenciar              | M                                        |
+| Mostrar FPS y métricas | F3 (o la casilla en la pausa)            |
+| Elegir mejora          | 1 / 2 / 3, clic; R para cambiar opciones |
 
 Sin mouse (solo teclado), Mati apunta hacia donde camina y dispara con Espacio.
 
@@ -85,7 +91,7 @@ FPS, CPU, zombis y bajas. Detalles, teclas, el dataset para pruebas y el reporte
 | `?god`         | Mati no pierde vida                                     |
 | `?spawn=N`     | Empieza con una horda de N zombis                       |
 | `?t=S`         | Adelanta el reloj S segundos (`?t=299`: llega el jefe)  |
-| `?weapons=all` | Todas las armas en nivel 5                              |
+| `?weapons=all` | Todas las armas (escopeta incluida) en nivel 5          |
 | `?ammo=N`      | Cargador vacío y N balas de reserva (`0` = solo escoba) |
 
 ### Estructura

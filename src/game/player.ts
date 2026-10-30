@@ -56,12 +56,14 @@ export interface Player {
   pendingLevelUps: number;
   /** Boss chests picked up but not opened yet. */
   pendingChests: number;
+  /** Boss chests already opened this run (the first one guarantees the shotgun). */
+  chestsOpened: number;
   /** Fraction of speed removed while `slowTimer` > 0 (puddles). */
   slowFactor: number;
   slowTimer: number;
   /** Automatic weapons (the slots filled by level-ups). */
   weapons: WeaponInstance[];
-  /** The always-owned manual gun and melee weapon. */
+  /** Manual weapons (pistol, broom and, once found, the shotgun) and their ammo. */
   manual: ManualState;
   passives: PassiveInstance[];
   /** Debug only: hits land but never reduce hp. */
@@ -86,6 +88,7 @@ export function createPlayer(stats: Readonly<PlayerStats> = PLAYER_BASE): Player
     xp: 0,
     pendingLevelUps: 0,
     pendingChests: 0,
+    chestsOpened: 0,
     slowFactor: 0,
     slowTimer: 0,
     weapons: [],
@@ -126,9 +129,8 @@ export function findOwnedWeapon(
   player: Readonly<Player>,
   id: WeaponId,
 ): WeaponInstance | undefined {
-  const m = player.manual;
-  if (m.gun.def.id === id) return m.gun;
-  if (m.melee.def.id === id) return m.melee;
+  const manual = player.manual.owned.find((e) => e.weapon.def.id === id);
+  if (manual) return manual.weapon;
   return player.weapons.find((w) => w.def.id === id);
 }
 

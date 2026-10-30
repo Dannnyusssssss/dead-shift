@@ -1,11 +1,25 @@
 import { setVec } from '../src/core/math';
 import { ENEMIES } from '../src/data/enemies';
 import { spawnEnemy, type Enemy } from '../src/game/enemies';
-import { gunStats, hasAmmo } from '../src/game/manual';
+import { entryOf, gunStats, hasAmmo, isGun, type ManualEntry } from '../src/game/manual';
 import type { Vec2 } from '../src/core/math';
 import { circleHitsShelf } from '../src/game/shelves';
 import { findNearestEnemy } from '../src/game/weapons';
 import { createWorld, type World } from '../src/game/world';
+
+/** The pistol's ammo entry (always owned). */
+export function pistolOf(world: World): ManualEntry {
+  const e = entryOf(world.player.manual, 'labelGun');
+  if (!e) throw new Error('no pistol');
+  return e;
+}
+
+/** The shotgun's ammo entry; throws if the player doesn't have it. */
+export function shotgunOf(world: World): ManualEntry {
+  const e = entryOf(world.player.manual, 'shotgun');
+  if (!e) throw new Error('no shotgun');
+  return e;
+}
 
 /** Fresh world with no enemies; tests call individual systems on it. */
 export function emptyWorld(seed = 1): World {
@@ -64,6 +78,8 @@ export function botPickOffer(world: World, newWeapons = true): number {
 const BOT_DANGER_RADIUS = 220;
 /** Fraction of the gun's reach within which the bot pulls the trigger. */
 const BOT_FIRE_REACH = 0.85;
+const reachOf = (s: { speed: number; lifetime: number }): number =>
+  s.speed * s.lifetime * BOT_FIRE_REACH;
 /** With no zombie this close, the bot walks to coupons within `BOT_COUPON_RANGE`, px. */
 const BOT_SAFE_RADIUS = 140;
 const BOT_COUPON_RANGE = 350;
@@ -94,10 +110,19 @@ export function playerBot(world: World, useMelee = true): void {
   const m = world.player.manual;
   const target = findNearestEnemy(world, p.x, p.y, Infinity);
   world.aimActive = true;
-  const meleeActive = m.active === 'melee';
+  // Shotgun when the target is within its reach and it has shells, otherwise the pistol.
+  const dist = target ? Math.hypot(target.pos.x - p.x, target.pos.y - p.y) : Infinity;
+  if (m.active !== 'broom' || !m.autoSwitched) {
+    const sg = entryOf(m, 'shotgun') ? gunStats(m, 'shotgun') : undefined;
+    const wantsShotgun = sg !== undefined && hasAmmo(m, 'shotgun') && dist <= reachOf(sg);
+    if (wantsShotgun && m.active !== 'shotgun') world.selectRequested = 3;
+    else if (!wantsShotgun && m.active === 'shotgun' && hasAmmo(m, 'labelGun')) {
+      world.selectRequested = 1;
+    }
+  }
+  const meleeActive = !isGun(m.owned.find((e) => e.weapon.def.id === m.active) as ManualEntry);
   // Like a person, it only shoots at zombies its rounds can reach (not at the ones off-screen).
-  const g = gunStats(m);
-  const reach = g.speed * g.lifetime * BOT_FIRE_REACH;
+  const reach = meleeActive ? Infinity : reachOf(gunStats(m));
   const inReach =
     target !== undefined &&
     Math.hypot(target.pos.x - p.x, target.pos.y - p.y) <= reach &&
@@ -134,7 +159,9 @@ export function playerBot(world: World, useMelee = true): void {
     }
   }
   const safe = !target || Math.hypot(target.pos.x - p.x, target.pos.y - p.y) > BOT_SAFE_RADIUS;
-  const box = !hasAmmo(m) || m.reserve < 20 ? nearestItem(world, world.ammoBoxes) : undefined;
+  const pistolReserve = entryOf(m, 'labelGun')?.reserve ?? 0;
+  const lowOnAmmo = !hasAmmo(m, 'labelGun') || pistolReserve < 20;
+  const box = lowOnAmmo ? nearestItem(world, world.ammoBoxes) : undefined;
   const coupon = safe && !box ? nearestItem(world, world.coupons, BOT_COUPON_RANGE) : undefined;
   if (coupon && !(meleeActive && useMelee)) {
     const dx = coupon.pos.x - p.x;

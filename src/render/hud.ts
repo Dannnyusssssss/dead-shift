@@ -12,7 +12,8 @@ import {
 } from '../data/render';
 import { t } from '../data/texts';
 import type { Enemy } from '../game/enemies';
-import { gunStats, hasAmmo, isReloading } from '../game/manual';
+import { MANUAL_KEYS, PISTOL_MODS } from '../data/weapons';
+import { activeEntry, gunStats, isGun, isReloading, isUsable } from '../game/manual';
 import { cooldownFraction } from '../game/weapons';
 import { xpToNext } from '../game/progression';
 import { shiftClock } from '../game/shift';
@@ -105,9 +106,12 @@ export function drawHud(
     ctx,
     `${t('fps')} ${debug.fps} · ${debug.cpuMs.toFixed(1)} ms · ${world.enemies.count} ${t('zombies')} · ${world.kills} ${t('killsShort')}`,
     touch ? m : viewW - m,
-    touch ? viewH - m - MANUAL_HUD.height - DEBUG_HUD.gapAbovePanel : viewH - m,
+    touch ? viewH - m - MANUAL_HUD.height - MANUAL_ROW_SPACE - DEBUG_HUD.gapAbovePanel : viewH - m,
   );
 }
+
+/** Height taken by the row of manual weapons above the panel. */
+const MANUAL_ROW_SPACE = MANUAL_HUD.rowHeight + MANUAL_HUD.rowGap;
 
 /** Bottom-left panel: active manual weapon, ammo, reload progress and controls hint. */
 function drawManualPanel(
@@ -117,11 +121,14 @@ function drawManualPanel(
   touch: boolean,
 ): void {
   const s = MANUAL_HUD;
-  const mState = world.player.manual;
+  const m = world.player.manual;
   const x = HUD.margin;
   const y = viewH - HUD.margin - s.height;
-  const gun = mState.active === 'gun';
-  const weapon = gun ? mState.gun : mState.melee;
+  const e = activeEntry(m);
+  const gun = isGun(e);
+  const weapon = e.weapon;
+
+  drawManualRow(ctx, x, y - MANUAL_ROW_SPACE, world);
 
   ctx.fillStyle = s.bg;
   ctx.fillRect(x, y, s.width, s.height);
@@ -139,24 +146,15 @@ function drawManualPanel(
 
   ctx.font = s.ammoFont;
   if (gun) {
-    const low = mState.mag <= gunStats(mState).magazine * s.lowAmmoFraction;
-    drawText(
-      ctx,
-      `${mState.mag} / ${mState.reserve}`,
-      x + 42,
-      y + 34,
-      low ? s.lowAmmoColor : undefined,
-    );
-  } else if (!hasAmmo(mState)) {
+    const low = e.mag <= gunStats(m).magazine * s.lowAmmoFraction;
+    drawText(ctx, `${e.mag} / ${e.reserve}`, x + 42, y + 34, low ? s.lowAmmoColor : undefined);
+  } else if (!m.owned.some((o) => isGun(o) && isUsable(o))) {
     drawText(ctx, t('noAmmo'), x + 42, y + 34, s.emptyColor);
-  } else {
-    // Melee by choice: show the gun's ammo in brackets so the player knows they can swap back.
-    drawText(ctx, `(${mState.mag} / ${mState.reserve})`, x + 42, y + 34, s.lowAmmoColor);
   }
 
-  if (gun && isReloading(mState)) {
-    const total = gunStats(mState).reloadTime;
-    const done = 1 - mState.reloadTimer / total;
+  if (gun && isReloading(m)) {
+    const total = gunStats(m).reloadTime;
+    const done = 1 - m.reloadTimer / total;
     ctx.fillStyle = s.reloadBg;
     ctx.fillRect(x + 42, y + 47, s.width - 52, 5);
     ctx.fillStyle = s.reloadFill;
@@ -171,6 +169,55 @@ function drawManualPanel(
     drawText(ctx, hint, x + 8, y + s.height - 7);
   }
   ctx.textAlign = 'left';
+}
+
+/**
+ * Chips for the owned manual weapons ("1 🏷️ 12/60", the active one highlighted, dry guns
+ * dimmed), followed by the icons of the pistol mods taken.
+ */
+function drawManualRow(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  world: Readonly<World>,
+): void {
+  const s = MANUAL_HUD;
+  const m = world.player.manual;
+  const h = s.rowHeight;
+  const mid = y + h / 2;
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  let cx = x;
+  for (const e of m.owned) {
+    const id = e.weapon.def.id;
+    const key = MANUAL_KEYS[id];
+    const label = `${key ?? ''} ${isGun(e) ? `${e.mag}/${e.reserve}` : ''}`.trim();
+    ctx.font = s.chipFont;
+    const textW = ctx.measureText(label).width;
+    const w = s.chipPadding * 3 + 14 + textW;
+    const active = id === m.active;
+    ctx.globalAlpha = isUsable(e) ? 1 : 0.45;
+    ctx.fillStyle = active ? s.chipActiveBg : s.chipBg;
+    ctx.fillRect(cx, y, w, h);
+    if (active) {
+      ctx.strokeStyle = s.chipActiveBorder;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx + 0.5, y + 0.5, w - 1, h - 1);
+    }
+    ctx.font = s.chipIconFont;
+    ctx.fillStyle = HUD.textColor;
+    ctx.fillText(e.weapon.def.icon, cx + s.chipPadding, mid);
+    ctx.font = s.chipFont;
+    drawText(ctx, label, cx + s.chipPadding * 2 + 14, mid);
+    ctx.globalAlpha = 1;
+    cx += w + s.rowGap;
+  }
+  ctx.font = s.chipIconFont;
+  for (const id of m.mods) {
+    ctx.fillStyle = HUD.textColor;
+    ctx.fillText(PISTOL_MODS[id].icon, cx + 2, mid);
+    cx += 18;
+  }
 }
 
 /** Health of the strongest living boss, if any. */

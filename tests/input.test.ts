@@ -3,6 +3,7 @@ import {
   aimFromScreen,
   combineAxis,
   joystickToAxis,
+  digitKey,
   keyAction,
   keysToAxis,
   readAim,
@@ -161,5 +162,19 @@ describe('keyAction', () => {
     expect(keyAction('KeyW')).toBeUndefined();
     expect(keyAction('Space')).toBeUndefined();
     expect(keyAction('KeyZ')).toBeUndefined();
+  });
+});
+
+describe('digitKey', () => {
+  it('reads the top row and the numpad', () => {
+    expect(digitKey('Digit1')).toBe(1);
+    expect(digitKey('Digit3')).toBe(3);
+    expect(digitKey('Numpad2')).toBe(2);
+  });
+
+  it('ignores everything else', () => {
+    expect(digitKey('Digit0')).toBe(0);
+    expect(digitKey('KeyQ')).toBe(0);
+    expect(digitKey('F3')).toBe(0);
   });
 });

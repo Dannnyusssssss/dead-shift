@@ -16,7 +16,8 @@ import type { World } from '../src/game/world';
 import { spawnEnemy } from '../src/game/enemies';
 import { AMMO } from '../src/data/weapons';
 import { deathSystem } from '../src/game/systems/death';
-import { addClient, emptyWorld } from './helpers';
+import { addClient, emptyWorld, pistolOf } from './helpers';
+import { addManualWeapon } from '../src/game/manual';
 
 describe('coupons', () => {
   it('a dead zombie drops a coupon with its xp value', () => {
@@ -101,11 +102,11 @@ describe('ammo boxes', () => {
 
   it('is pulled in by the magnet and adds rounds to the reserve', () => {
     const world = emptyWorld();
-    const before = world.player.manual.reserve;
+    const before = pistolOf(world).reserve;
     maybeDropAmmo(world, world.player.pickupRadius - 5, 0, ENEMIES.manager.xp);
     for (let i = 0; i < 60 && world.ammoBoxes.count > 0; i++) pickupSystem(world, FIXED_STEP);
     expect(world.ammoBoxes.count).toBe(0);
-    expect(world.player.manual.reserve).toBe(before + AMMO.boxAmount);
+    expect(pistolOf(world).reserve).toBe(before + AMMO.boxAmount);
   });
 });
 
@@ -207,5 +208,36 @@ describe('floor magnet', () => {
     for (let i = 0; i < FLOOR_ITEMS.capacity; i++) placeItem(world, 'magnet', 5000, 5000);
     expect(() => maybeDropFloorItems(world, 0, 0, ENEMIES.manager.xp)).not.toThrow();
     expect(world.floorItems.count).toBe(FLOOR_ITEMS.capacity);
+  });
+});
+
+describe('shell boxes', () => {
+  const drops = (withShotgun: boolean, seed = 4): { rounds: number; shells: number } => {
+    const world = emptyWorld(seed);
+    if (withShotgun) addManualWeapon(world.player.manual, 'shotgun');
+    let rounds = 0;
+    let shells = 0;
+    for (let i = 0; i < 4000; i++) {
+      maybeDropAmmo(world, 5000, 5000, ENEMIES.client.xp);
+      rounds += world.ammoBoxes.count;
+      shells += world.shellBoxes.count;
+      world.ammoBoxes.clear();
+      world.shellBoxes.clear();
+    }
+    return { rounds, shells };
+  };
+
+  it('never drop before the player has the shotgun', () => {
+    expect(drops(false).shells).toBe(0);
+  });
+
+  it('share the drop chance with the rounds once the shotgun is found, deterministically', () => {
+    const a = drops(true);
+    expect(drops(true)).toEqual(a);
+    const total = a.rounds + a.shells;
+    expect(total / 4000).toBeGreaterThan(ammoDropChance(1) * 0.85);
+    expect(total / 4000).toBeLessThan(ammoDropChance(1) * 1.15);
+    expect(a.shells / total).toBeGreaterThan(AMMO.shellShare * 0.8);
+    expect(a.shells / total).toBeLessThan(AMMO.shellShare * 1.2);
   });
 });

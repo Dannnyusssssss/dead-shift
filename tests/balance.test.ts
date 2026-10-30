@@ -3,6 +3,7 @@ import { FIXED_STEP } from '../src/core/loop';
 import { SHIFT } from '../src/data/shift';
 import { WEAPON_IDS } from '../src/data/weapons';
 import { hasAmmo, maxReserve, selectManual } from '../src/game/manual';
+import { pistolOf } from './helpers';
 import { chooseOffer } from '../src/game/progression';
 import { shiftClock } from '../src/game/shift';
 import { updateWorld, type World } from '../src/game/world';
@@ -41,9 +42,10 @@ function weaponKills(world: World): string {
 function playRun(scenario: Scenario, seed: number, newWeapons = true): RunResult {
   const world = emptyWorld(seed);
   const m = world.player.manual;
+  const pistol = pistolOf(world);
   if (scenario === 'broomOnly') {
-    m.mag = m.reserve = 0;
-    selectManual(m, 'melee');
+    pistol.mag = pistol.reserve = 0;
+    selectManual(m, 'broom');
   }
   let steps = 0;
   let meleeSteps = 0;
@@ -53,10 +55,18 @@ function playRun(scenario: Scenario, seed: number, newWeapons = true): RunResult
     if (world.status === 'levelup') chooseOffer(world, botPickOffer(world, newWeapons));
     playerBot(world, scenario !== 'gunOnly');
     updateWorld(world, FIXED_STEP);
-    if (scenario === 'broomOnly') world.ammoBoxes.clear();
-    if (scenario === 'gunOnly') m.reserve = maxReserve();
-    if (m.active === 'melee') meleeSteps++;
-    if (!hasAmmo(m)) dryShots++;
+    if (scenario === 'broomOnly') {
+      world.ammoBoxes.clear();
+      world.shellBoxes.clear();
+      // No shotgun shells either: the broom alone.
+      for (const e of m.owned) if (e.weapon.def.id !== 'broom') e.mag = e.reserve = 0;
+    }
+    if (scenario === 'gunOnly') {
+      for (const e of m.owned)
+        if (e.weapon.def.id !== 'broom') e.reserve = maxReserve(e.weapon.def.id);
+    }
+    if (m.active === 'broom') meleeSteps++;
+    if (!hasAmmo(m, 'labelGun')) dryShots++;
     steps++;
   }
   const broom = world.killsByWeapon[WEAPON_IDS.indexOf('broom')] ?? 0;

@@ -14,7 +14,8 @@ import {
 } from '../data/render';
 import { CHARGE_STATE, type Enemy } from '../game/enemies';
 import { shockwaveRadius, type Hazard } from '../game/hazards';
-import { meleeStats } from '../game/manual';
+import { entryOf, meleeStats } from '../game/manual';
+import { MELEE_FALLBACK } from '../data/weapons';
 import type { AmmoBox, Chest, Coupon, FloorItem } from '../game/pickups';
 import { shiftProgress } from '../game/shift';
 import type { Projectile } from '../game/projectiles';
@@ -27,6 +28,8 @@ import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
   drawAmmoBox,
+  drawPellet,
+  drawShellBox,
   drawFloorMagnet,
   drawMedkit,
   drawBeam,
@@ -202,6 +205,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       const y = lerp(p.prevPos.y, p.pos.y, alpha);
       if (!visible(x, y)) continue;
       if (p.look === 'can') drawCan(ctx, x, y, p.radius, p.life * PROJECTILE_STYLE.canSpin);
+      else if (p.look === 'pellet') drawPellet(ctx, x, y, p.radius);
       else drawLabel(ctx, x, y, Math.atan2(p.vel.y, p.vel.x));
     }
   }
@@ -222,11 +226,13 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
   function drawBroomSwing(world: Readonly<World>, pp: Readonly<Vec2>): void {
     const m = world.player.manual;
-    const progress = (world.time - m.melee.lastFireTime) / SWEEP.fadeTime;
+    const broom = entryOf(m, MELEE_FALLBACK)?.weapon;
+    if (!broom) return;
+    const progress = (world.time - broom.lastFireTime) / SWEEP.fadeTime;
     if (progress >= 1) return;
     const s = meleeStats(m);
     const half = toRad(s.arcDegrees / 2);
-    const a = m.melee.fireAngle;
+    const a = broom.fireAngle;
     drawSweep(ctx, pp.x, pp.y, a, half, s.range, progress);
     if (s.bothSides) drawSweep(ctx, pp.x, pp.y, a + Math.PI, half, s.range, progress);
   }
@@ -236,6 +242,11 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     for (let i = 0; i < count; i++) {
       const b = items[i] as AmmoBox;
       if (visible(b.pos.x, b.pos.y)) drawAmmoBox(ctx, b.pos.x, b.pos.y, world.time);
+    }
+    const shells = world.shellBoxes;
+    for (let i = 0; i < shells.count; i++) {
+      const b = shells.items[i] as AmmoBox;
+      if (visible(b.pos.x, b.pos.y)) drawShellBox(ctx, b.pos.x, b.pos.y, world.time);
     }
   }
 

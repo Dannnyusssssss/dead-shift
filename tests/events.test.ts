@@ -5,7 +5,7 @@ import { ENEMIES } from '../src/data/enemies';
 import { WEAPONS } from '../src/data/weapons';
 import { spawnEnemy } from '../src/game/enemies';
 import type { GameEventType } from '../src/game/events';
-import { manualWeaponSystem, swapManual } from '../src/game/manual';
+import { cycleManual, manualWeaponSystem } from '../src/game/manual';
 import { pickupSystem } from '../src/game/pickups';
 import { addXp, progressionSystem } from '../src/game/progression';
 import { projectileSystem } from '../src/game/projectiles';
@@ -14,7 +14,7 @@ import { hitEnemy } from '../src/game/systems/damage';
 import { deathSystem } from '../src/game/systems/death';
 import { statusSystem } from '../src/game/systems/status';
 import type { World } from '../src/game/world';
-import { addClient, emptyWorld } from './helpers';
+import { addClient, emptyWorld, pistolOf } from './helpers';
 
 const gunDef = WEAPONS.labelGun;
 if (gunDef.behavior !== 'gun') throw new Error('labelGun must be a gun');
@@ -56,13 +56,13 @@ describe('manual weapon events', () => {
   it('each shot emits gunFire', () => {
     const world = aiming();
     run(world, L1.cooldown * 2.5);
-    expect(count(world, 'gunFire')).toBe(L1.magazine - world.player.manual.mag);
+    expect(count(world, 'gunFire')).toBe(L1.magazine - pistolOf(world).mag);
     expect(count(world, 'gunFire')).toBeGreaterThan(1);
   });
 
   it('the last round clicks (dryFire) and starts a reload, which then finishes', () => {
     const world = aiming();
-    const m = world.player.manual;
+    const m = pistolOf(world);
     m.mag = 1;
     run(world, 0.1);
     expect(types(world)).toEqual(['gunFire', 'dryFire', 'reloadStart']);
@@ -74,7 +74,7 @@ describe('manual weapon events', () => {
 
   it('pulling the trigger again while reloading clicks once per press', () => {
     const world = aiming();
-    const m = world.player.manual;
+    const m = pistolOf(world);
     m.mag = 0;
     run(world, 0.05);
     world.events.clear();
@@ -90,7 +90,7 @@ describe('manual weapon events', () => {
     world.reloadRequested = true;
     manualWeaponSystem(world, FIXED_STEP);
     expect(count(world, 'reloadStart')).toBe(0); // full magazine
-    world.player.manual.mag = 3;
+    pistolOf(world).mag = 3;
     world.reloadRequested = true;
     manualWeaponSystem(world, FIXED_STEP);
     expect(count(world, 'reloadStart')).toBe(1);
@@ -102,7 +102,7 @@ describe('manual weapon events', () => {
     manualWeaponSystem(world, FIXED_STEP);
     expect(types(world)).toEqual(['weaponSwap']);
     world.events.clear();
-    const m = world.player.manual;
+    const m = pistolOf(world);
     m.mag = m.reserve = 0;
     world.swapRequested = true;
     manualWeaponSystem(world, FIXED_STEP);
@@ -111,18 +111,18 @@ describe('manual weapon events', () => {
 
   it('running dry switches to the broom with weaponSwap, and the broom swings with meleeSwing', () => {
     const world = aiming();
-    const m = world.player.manual;
+    const m = pistolOf(world);
     m.mag = 0;
     m.reserve = 0;
     run(world, 0.05);
-    expect(m.active).toBe('melee');
+    expect(world.player.manual.active).toBe('broom');
     expect(types(world)).toContain('weaponSwap');
     expect(types(world)).toContain('meleeSwing');
   });
 
   it('picking up ammo emits ammoPickup, plus weaponSwap and reloadStart after an automatic switch', () => {
     const world = aiming();
-    const m = world.player.manual;
+    const m = pistolOf(world);
     m.mag = m.reserve = 0;
     run(world, 0.05);
     world.events.clear();
@@ -131,12 +131,12 @@ describe('manual weapon events', () => {
     setVec(box.pos, world.player.pos.x, world.player.pos.y);
     pickupSystem(world, FIXED_STEP);
     expect(types(world)).toEqual(['ammoPickup', 'weaponSwap', 'reloadStart']);
-    expect(m.active).toBe('gun');
+    expect(world.player.manual.active).toBe('labelGun');
   });
 
   it('picking up ammo with the broom chosen by hand only emits ammoPickup', () => {
     const world = emptyWorld();
-    swapManual(world.player.manual);
+    cycleManual(world.player.manual);
     const box = world.ammoBoxes.acquire();
     if (!box) throw new Error('no box');
     setVec(box.pos, world.player.pos.x, world.player.pos.y);

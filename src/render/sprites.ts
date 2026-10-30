@@ -1,10 +1,12 @@
 import type { Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
+import type { WeaponId } from '../data/weapons';
 import { BLOCK_H, BLOCK_W, createRect, shelfInBlock, type Rect } from '../game/shelves';
 import {
   ACCESSORY_STYLE,
   AMMO_BOX_STYLE,
+  SHELL_BOX_STYLE,
   FLOOR_MAGNET_STYLE,
   MEDKIT_STYLE,
   CHEST_STYLE,
@@ -144,7 +146,7 @@ export function drawPlayer(
   y: number,
   facing: Vec2,
   radius: number,
-  held: 'gun' | 'melee' = 'gun',
+  held: WeaponId = 'labelGun',
 ): void {
   const angle = Math.atan2(facing.y, facing.x);
 
@@ -172,11 +174,17 @@ export function drawPlayer(
   ctx.fillRect(-radius * 0.35, -radius * 0.85, radius * 0.22, radius * 1.7);
 
   // What he holds, in the right hand, pointing where he faces.
-  if (held === 'gun') {
+  if (held === 'labelGun') {
     ctx.fillStyle = HELD_STYLE.gun;
     ctx.fillRect(radius * 0.35, radius * 0.45, radius * 0.95, radius * 0.3);
     ctx.fillStyle = HELD_STYLE.gunTip;
     ctx.fillRect(radius * 1.2, radius * 0.45, radius * 0.15, radius * 0.3);
+  } else if (held === 'shotgun') {
+    // Wooden stock and a long, thick barrel held with both hands.
+    ctx.fillStyle = HELD_STYLE.shotgunStock;
+    ctx.fillRect(-radius * 0.1, radius * 0.3, radius * 0.7, radius * 0.42);
+    ctx.fillStyle = HELD_STYLE.shotgunBarrel;
+    ctx.fillRect(radius * 0.55, radius * 0.34, radius * 1.25, radius * 0.34);
   } else {
     ctx.fillStyle = HELD_STYLE.broomStick;
     ctx.fillRect(-radius * 0.2, radius * 0.5, radius * 1.7, radius * 0.16);
@@ -654,6 +662,36 @@ export function drawBeam(
   ctx.stroke();
   ctx.lineCap = 'butt';
   ctx.globalAlpha = 1;
+}
+
+/** Shotgun pellet: a small round shot. */
+export function drawPellet(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.fillStyle = PROJECTILE_STYLE.pelletFill;
+  ctx.strokeStyle = PROJECTILE_STYLE.pelletStroke;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.75, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+}
+
+/** Red box of shotgun shells, bobbing like the ammo boxes. */
+export function drawShellBox(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  time: number,
+): void {
+  const s = SHELL_BOX_STYLE;
+  const by = y + Math.sin(time * 5 + x * 0.05) * 1.5;
+  ctx.fillStyle = s.body;
+  ctx.strokeStyle = s.edge;
+  ctx.lineWidth = 2;
+  ctx.fillRect(x - s.width / 2, by - s.height / 2, s.width, s.height);
+  ctx.strokeRect(x - s.width / 2, by - s.height / 2, s.width, s.height);
+  ctx.fillStyle = s.shell;
+  ctx.fillRect(x - 5, by - 3, 3, 6);
+  ctx.fillRect(x + 1, by - 3, 3, 6);
 }
 
 /** Small green crate with a bullet mark. */

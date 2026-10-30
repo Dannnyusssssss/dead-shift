@@ -21,7 +21,7 @@ if (!broom) throw new Error('broom level 1 missing');
 /** World with the broom in hand, aiming at (ax, ay), trigger held. */
 function swinging(ax: number, ay: number): World {
   const world = emptyWorld();
-  selectManual(world.player.manual, 'melee');
+  selectManual(world.player.manual, 'broom');
   world.aimActive = true;
   setVec(world.aim, ax, ay);
   world.triggerHeld = true;

@@ -100,6 +100,8 @@ export const PROJECTILE_STYLE = {
   labelStroke: '#c9a227',
   labelLength: 9,
   labelWidth: 5,
+  pelletFill: '#ffd27a',
+  pelletStroke: '#7a4a12',
 } as const;
 
 export const ICE_STYLE = {
@@ -232,6 +234,15 @@ export const AMMO_BOX_STYLE = {
   height: 12,
 } as const;
 
+/** Shotgun shell box: red, with two shells. */
+export const SHELL_BOX_STYLE = {
+  body: '#b8322a',
+  edge: '#5a1410',
+  shell: '#f2c94c',
+  width: 16,
+  height: 12,
+} as const;
+
 /** Medkit: white box with a red cross. */
 export const MEDKIT_STYLE = {
   body: '#f4f1ea',
@@ -255,6 +266,8 @@ export const FLOOR_MAGNET_STYLE = {
 export const HELD_STYLE = {
   gun: '#2b2f36',
   gunTip: '#f6c445',
+  shotgunBarrel: '#3a3f47',
+  shotgunStock: '#8a5a2b',
   broomStick: '#8a5a2b',
   broomHead: '#e0b84c',
 } as const;
@@ -281,6 +294,15 @@ export const MANUAL_HUD = {
   /** Magazine at or below this fraction shows in the warning color. */
   lowAmmoFraction: 0.25,
   cooldownShade: 'rgba(0, 0, 0, 0.6)',
+  /** Row of owned manual weapons above the panel (key, icon, ammo) and the pistol mods. */
+  rowHeight: 22,
+  rowGap: 4,
+  chipPadding: 6,
+  chipBg: 'rgba(0, 0, 0, 0.5)',
+  chipActiveBg: 'rgba(246, 196, 69, 0.35)',
+  chipActiveBorder: '#f6c445',
+  chipFont: '600 11px system-ui, sans-serif',
+  chipIconFont: '13px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif',
 } as const;
 
 export const XP_BAR = {

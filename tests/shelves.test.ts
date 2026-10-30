@@ -351,7 +351,7 @@ describe('what shelves block', () => {
     p.pos.x = s.x + s.w / 2;
     p.pos.y = s.y - p.radius;
     const e = addClient(world, p.pos.x, s.y + s.h + 12);
-    selectManual(p.manual, 'melee');
+    selectManual(p.manual, 'broom');
     world.aimActive = true;
     world.aim.x = 0;
     world.aim.y = 1;
@@ -380,7 +380,8 @@ describe('a full simulated shift', () => {
     }
     expect(world.status).toBe('won');
     expect(maxStuck).toBeLessThan(SHELF_COLLISION.stuckTime);
-    // Relocations are a rare fallback: far fewer than the zombies that appear in a shift.
-    expect(world.stuckRelocations).toBeLessThan(world.kills / 10);
+    // Relocations are a rare fallback: far fewer than the zombies killed in a shift (the
+    // shotgun's knockback pins a few more against shelves, hence the margin).
+    expect(world.stuckRelocations).toBeLessThan(world.kills / 5);
   }, 60_000);
 });

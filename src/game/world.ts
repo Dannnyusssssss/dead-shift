@@ -64,12 +64,16 @@ export interface World {
   /** One-shot requests from the host, consumed by the manual weapon system. */
   swapRequested: boolean;
   reloadRequested: boolean;
+  /** Number key pressed this step (1 / 2 / 3 select a manual weapon), 0 = none. */
+  selectRequested: number;
   enemies: Pool<Enemy>;
   projectiles: Pool<Projectile>;
   turrets: Pool<Turret>;
   coupons: Pool<Coupon>;
   chests: Pool<Chest>;
   ammoBoxes: Pool<AmmoBox>;
+  /** Shotgun shell boxes (only drop once the player has the shotgun). */
+  shellBoxes: Pool<AmmoBox>;
   /** Medkits and floor magnets. */
   floorItems: Pool<FloorItem>;
   hazards: Pool<Hazard>;
@@ -129,12 +133,14 @@ export function createWorld(seed: number): World {
     triggerHeld: false,
     swapRequested: false,
     reloadRequested: false,
+    selectRequested: 0,
     enemies: createPool(COMBAT.maxEnemies, createEnemyObject),
     projectiles: createPool(COMBAT.projectileCapacity, createProjectileObject),
     turrets: createPool(COMBAT.turretCapacity, createTurretObject),
     coupons: createPool(COUPONS.capacity, createCouponObject),
     chests: createPool(COUPONS.chestCapacity, createChestObject),
     ammoBoxes: createPool(AMMO.capacity, createAmmoBoxObject),
+    shellBoxes: createPool(AMMO.shellCapacity, createAmmoBoxObject),
     floorItems: createPool(FLOOR_ITEMS.capacity, createFloorItemObject),
     hazards: createPool(COMBAT.hazardCapacity, createHazardObject),
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),

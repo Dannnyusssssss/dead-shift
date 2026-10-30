@@ -138,7 +138,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Dos armas manuales fuera de los slots.** La Pistola de etiquetas (`behavior: 'gun'`) y la Escoba (`behavior: 'melee'`)
   viven en `player.manual`, no en `player.weapons`. El tope de 4 armas cuenta solo las automáticas, así que entran las cuatro
   (latas, hielo, aerosol, microondas). Las manuales se mejoran del 1 al 5 con las ofertas de nivel (y con el cofre del jefe),
-  pero nunca aparecen como "arma nueva". **Reemplaza** "empieza con la Escoba" (CLAUDE.md §5.2): Mati arranca con pistola
+  ~~pero nunca aparecen como "arma nueva".~~ (**Reemplazada en Hito 9:** la Escopeta sí sale como arma nueva.) **Reemplaza** "empieza con la Escoba" (CLAUDE.md §5.2): Mati arranca con pistola
   y escoba manuales y sin armas automáticas.
 - **Mira = dirección del personaje.** Con mouse o joystick de apuntado, `facing` sigue a la mira: Mati gira hacia ella y
   el aerosol y el microondas también apuntan con el mouse. **Reemplaza** "el jugador mira hacia donde se mueve" (CLAUDE.md §5.2).
@@ -146,6 +146,7 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
 - **Controles:**
   - Escritorio: WASD/flechas para moverse, mouse para apuntar, clic mantenido (o Espacio) para disparar o golpear,
     R para recargar, Q o la rueda para cambiar de arma (la rueda espera 200 ms entre cambios por los trackpads).
+    **Ampliado en Hito 9:** con tres armas, Q y la rueda ciclan y 1/2/3 seleccionan.
   - Táctil: la mitad izquierda es el joystick de movimiento y la mitad derecha el de apuntado, que dispara mientras está empujado.
     Un botón "Cambiar arma" aparece con el primer toque. ~~No hay botón de recarga: es automática al vaciar el cargador.~~
     **Reemplazada en Hito 5:** hay botón "Recargar" (ver Hito 5); la recarga automática al vaciar se mantiene.
@@ -170,8 +171,8 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   | 4     | perfora 1, cadencia 0.15 s                           | 20 daño, cd 0.42 s                  |
   | 5     | 2 balas ±6°, 14 daño                                 | ambos lados                         |
 
-- **Cajas de munición:** 15 balas cada una. Probabilidad de caída según el XP del enemigo:
-  - ~~18 %~~ 22 % los comunes (xp 1) (**cambiado en Hito 7**).
+- **Cajas de munición:** ~~15~~ 20 balas cada una (**cambiado en Hito 9**). Probabilidad de caída según el XP del enemigo:
+  - ~~18 %~~ ~~22 %~~ 28 % los comunes (xp 1) (**cambiado en Hitos 7 y 9**).
   - 50 % los élite (xp 5).
   - 100 % el Gerente.
 
@@ -185,11 +186,12 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
   La dificultad general (vida de los zombis, densidad) no se tocó; queda para ajustar con partidas reales.
 - **HUD:**
   - Panel abajo a la izquierda con el arma activa y su nivel, `cargador / reserva` (amarillo con ≤ 25 %),
-    barra de "Recargando", "SIN MUNICIÓN" en rojo, y la munición entre paréntesis si se eligió la Escoba con balas.
+    barra de "Recargando", "SIN MUNICIÓN" en rojo, ~~y la munición entre paréntesis si se eligió la Escoba con balas~~
+    (**reemplazada en Hito 9** por la fila de armas manuales encima del panel).
   - Las armas automáticas muestran una sombra que baja con su cooldown.
 - **Depuración:** `?ammo=N` arranca con el cargador vacío y N balas de reserva (con `?ammo=0` arranca directo en la Escoba).
-  `?weapons=all` deja las 4 automáticas y las 2 manuales en nivel 5, con la reserva llena.
-  El dataset suma `active`, `ammo`, `reloading`, `ammoBoxes` y `manualLevels`.
+  ~~`?weapons=all` deja las 4 automáticas y las 2 manuales en nivel 5, con la reserva llena.~~ (Hito 9: también la escopeta.)
+  El dataset suma `active`, `ammo`, `reloading`, `ammoBoxes` y `manualLevels` (formato cambiado en Hito 9).
 
 ## Hito 5
 
@@ -448,3 +450,107 @@ Las góndolas frenan las balas pero no la Escoba, así que el cuerpo a cuerpo ga
 "solo Escoba" (256 s) vuelve a durar más que el juego normal (240 s). Parte de la caída es del bot, que no se mueve
 para buscar tiro limpio. **No se rebalanceó en este hito:** queda pendiente decidir si se compensa (por ejemplo, con
 más alcance de la Pistola o más munición) después de probar partidas reales.
+
+## Hito 9
+
+### Escopeta
+
+- **Tercera arma manual**, también en `player.manual`. Reutiliza el comportamiento `'gun'` (cargador, reserva y
+  recarga) con un look propio de perdigón. Valores en `data/weapons.ts`:
+
+  | Nivel | Escopeta                                                                                                       |
+  | ----- | -------------------------------------------------------------------------------------------------------------- |
+  | 1     | 5 perdigones en ±15°, 6 de daño c/u, 600 px/s × 0.37 s ≈ 220 px, cd 0.9 s, cargador 6, recarga 2 s, empuje 260 |
+  | 2     | 7 de daño                                                                                                      |
+  | 3     | 6 perdigones, cargador 8                                                                                       |
+  | 4     | recarga 1.6 s, cd 0.75 s                                                                                       |
+  | 5     | 7 perdigones, 8 de daño, perfora 1                                                                             |
+
+  Al obtenerla trae el cargador lleno y 12 cartuchos de reserva (tope 36). El empuje no se suma entre perdigones:
+  cada impacto pisa el anterior, así que el empuje "fuerte" es el valor por perdigón.
+
+- **Cómo se obtiene:** con el campo `offerFromLevel: 4` del arma, desde el nivel 4 puede salir como "arma nueva" en
+  las ofertas. No ocupa slot de arma automática y es la única manual que sale así.
+  - **El primer cofre** de la partida (contador `player.chestsOpened`) la ofrece siempre como una de sus 3 opciones si
+    no la tienes. Las otras dos siguen siendo mejoras de armas.
+- **Las góndolas frenan los perdigones** igual que las balas (Hito 8).
+
+### Estado manual y cambio de arma
+
+- `ManualState` tenía `gun` / `melee` y una sola munición. Ahora es una lista `owned` de `{ weapon, mag, reserve }` en
+  el orden `MANUAL_ORDER` (Pistola, Escopeta, Escoba), y `active` es el id del arma. La recarga es la del arma activa,
+  y cambiar de arma la cancela, como antes.
+- **Teclas fijas** (decisión del usuario): 1 Pistola, 2 Escoba, 3 Escopeta (`MANUAL_KEYS`). Así nunca cambian de
+  significado al conseguir la escopeta.
+  - La tecla de un arma que no tienes, que está en 0/0 o que ya tienes en mano no hace nada.
+  - Con un menú abierto se descartan (`clearEdges`), igual que Q y R.
+- **Q, la rueda y el botón táctil** ciclan por `MANUAL_ORDER` y saltean las armas de fuego sin munición.
+- **Cambio automático:** con el arma activa en 0/0 pasa a la siguiente arma de fuego con munición en el orden (dando
+  la vuelta). Si no queda ninguna, va a la Escoba (`autoSwitched = true`).
+- **Vuelta automática:** al recoger munición del arma W, si el arma activa la eligió el cambio automático y está
+  después de W en el orden, vuelve a W y recarga.
+  - Una caja de balas devuelve de la Escopeta automática a la Pistola.
+  - Unos cartuchos devuelven de la Escoba a la Escopeta.
+  - Si el jugador eligió el arma a mano, se respeta.
+- **Debug:** `?weapons=all` incluye la escopeta en nivel 5 con todo lleno, y `?ammo=N` sigue siendo de la Pistola. Las
+  dos viven en `game/debug.ts`, como funciones puras con tests.
+
+### Cajas de cartuchos
+
+- Pool propio (`world.shellBoxes`, 30), cajas rojas. La probabilidad total de caída de munición no cambia.
+- Cuando tienes la escopeta, un segundo sorteo del RNG decide que el 40 % (`shellShare`) sean de cartuchos (6 c/u) y
+  el resto de balas. Antes de tenerla nunca caen cartuchos.
+
+### Mods de Pistola
+
+- Hay un tipo de oferta nuevo, `pistolMod`. Aparece desde la Pistola nivel 3, como máximo 2 por partida y sin
+  repetirse. Los mods no suben nivel ni ocupan slots: se guardan en `manual.mods` y se ven como íconos junto a la fila
+  de armas.
+- Se aplican sobre los stats del nivel actual (`applyPistolMods`). Una caché los rehace solo si cambian el nivel o los
+  mods, así que no se crean objetos por frame.
+  - **Perforante:** +1 perforación.
+  - **Cargador extendido:** cargador ×1.5 (redondeado). Sube el máximo, pero el cargador actual no se llena solo.
+  - **Incendiaria:** 4 de daño/s durante 2 s. Reutiliza el veneno del aerosol (`poisonDps` / `poisonTimer`, gana el
+    más fuerte) y lo descuenta `statusSystem`. Como el veneno, no muestra números.
+  - **Rebote** (decisión del usuario: hacia otro zombi): cuando la bala se agotaría al impactar, salta una vez al
+    zombi vivo más cercano que no golpeó, a ≤ 220 px, con vuelo nuevo suficiente para llegar.
+
+### HUD y render
+
+- Encima del panel del arma hay una fila con las armas manuales que tienes: tecla, ícono y munición.
+  - El arma activa va resaltada y las que están en 0/0 se ven apagadas.
+  - La pista dice `1/2/3 · Q: cambiar · R: recargar`.
+- Mati sostiene una escopeta (culata de madera y cañón largo) y los perdigones son bolitas doradas.
+
+### Balance
+
+El bot usa la escopeta (tecla 3) cuando el objetivo está a su alcance y le quedan cartuchos, y la Pistola si no.
+
+Con la escopeta sola, el juego normal seguía por debajo de "solo Escoba": 219 s contra 249 s con automáticas. La
+Pistola con munición infinita duraba 329 s, así que el límite era la munición (desde el Hito 8 las góndolas se comen
+balas). Barrido del juego normal con 16 semillas:
+
+| Variante                     | Con automáticas | Solo manuales |
+| ---------------------------- | --------------- | ------------- |
+| Hito 8 (caída 22 %, caja 15) | 216 s           | 159 s         |
+| Caída 28 %                   | 262 s           | 203 s         |
+| Caída 34 %                   | 249 s           | 206 s         |
+| Caja de 20 balas             | 237 s           | 207 s         |
+| **Caída 28 % + caja 20**     | **255 s**       | **257 s**     |
+| Caída 34 % + caja 20         | 257 s           | 246 s         |
+
+**Valores elegidos:** las cajas caen del 28 % de los zombis comunes (antes 22 %) y traen 20 balas (antes 15).
+
+Reporte oficial (12 semillas):
+
+| Escenario                     | Hito 8         | Hito 9 final   |
+| ----------------------------- | -------------- | -------------- |
+| `mixed` (con automáticas)     | 240 s / 89 kpm | 243 s / 77 kpm |
+| `broomOnly` (con automáticas) | 256 s          | 257 s          |
+| `mixed` (solo manuales)       | 172 s / 64 kpm | 257 s / 75 kpm |
+| `broomOnly` (solo manuales)   | 248 s / 66 kpm | 235 s / 68 kpm |
+
+Con solo armas manuales, el juego normal vuelve a superar con claridad a "solo Escoba" (257 s contra 235 s). Con
+automáticas sigue algo por debajo (243 s contra 257 s). Esa brecha viene sobre todo de la experiencia: la Escoba mata
+pegada a Mati y recoge los cupones al instante, así que el bot de Escoba sube más de nivel y llega con más armas
+automáticas. No se tocó más; queda por confirmar con partidas reales.

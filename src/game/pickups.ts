@@ -1,7 +1,8 @@
 import { setVec, vec2, type Vec2 } from '../core/math';
 import { COUPONS, FLOOR_ITEMS } from '../data/progression';
-import { AMMO } from '../data/weapons';
-import { addAmmo, isReloading } from './manual';
+import type { Pool } from '../core/pool';
+import { AMMO, type WeaponId } from '../data/weapons';
+import { addAmmo, entryOf, isReloading } from './manual';
 import type { Player } from './player';
 import { emit } from './events';
 import { addXp } from './progression';
@@ -67,10 +68,15 @@ export function ammoDropChance(xp: number): number {
   return tierChance(AMMO.dropTiers, xp);
 }
 
-/** Rolls the seeded RNG and maybe drops an ammo box (silently skipped if the pool is full). */
+/**
+ * Rolls the seeded RNG and maybe drops an ammo box (silently skipped if the pool is full). Once
+ * the player has the shotgun, a share of the drops are shell boxes; the overall chance is the same.
+ */
 export function maybeDropAmmo(world: World, x: number, y: number, xp: number): void {
   if (world.rng.next() >= ammoDropChance(xp)) return;
-  const box = world.ammoBoxes.acquire();
+  const shells = entryOf(world.player.manual, 'shotgun') !== undefined;
+  const pool = shells && world.rng.next() < AMMO.shellShare ? world.shellBoxes : world.ammoBoxes;
+  const box = pool.acquire();
   if (box) place(box, x, y);
 }
 
@@ -198,12 +204,24 @@ export function pickupSystem(world: World, dt: number): void {
     coupons.releaseAt(i);
   }
 
-  const boxes = world.ammoBoxes;
+  collectBoxes(world, world.ammoBoxes, 'labelGun', AMMO.boxAmount, dt);
+  collectBoxes(world, world.shellBoxes, 'shotgun', AMMO.shellAmount, dt);
+}
+
+/** Pulls in and collects one kind of ammo box. */
+function collectBoxes(
+  world: World,
+  boxes: Pool<AmmoBox>,
+  gun: WeaponId,
+  amount: number,
+  dt: number,
+): void {
+  const p = world.player;
   for (let i = boxes.count - 1; i >= 0; i--) {
     const b = boxes.items[i] as AmmoBox;
     if (!pull(b, p, p.radius + AMMO.radius, dt)) continue;
     emit(world.events, 'ammoPickup', b.pos.x, b.pos.y);
-    if (addAmmo(p, AMMO.boxAmount)) {
+    if (addAmmo(p, gun, amount)) {
       emit(world.events, 'weaponSwap', p.pos.x, p.pos.y);
       if (isReloading(p.manual)) emit(world.events, 'reloadStart', p.pos.x, p.pos.y);
     }

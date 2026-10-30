@@ -27,14 +27,14 @@ Hay tres formas de mostrarla:
 Se agregan a la dirección, por ejemplo `http://localhost:5173/?god&spawn=200`. Se pueden combinar.
 **Cualquiera de ellos salta el menú principal**, muestra el overlay y publica el dataset (ver abajo).
 
-| Parámetro      | Efecto                                                                                        |
-| -------------- | --------------------------------------------------------------------------------------------- |
-| `?debug`       | Solo el overlay y el dataset                                                                  |
-| `?god`         | Mati recibe los golpes (parpadea, suena) pero no pierde vida                                  |
-| `?spawn=N`     | Empieza con una horda de N zombis alrededor (tope 400)                                        |
-| `?t=S`         | Adelanta el reloj S segundos (máx. 599). Los jefes cuyo momento ya pasó no aparecen           |
-| `?weapons=all` | Las 4 automáticas y las 2 manuales en nivel 5, con la reserva llena (ignora el tope de slots) |
-| `?ammo=N`      | Cargador vacío y N balas de reserva (`?ammo=0` arranca directo en la Escoba)                  |
+| Parámetro      | Efecto                                                                                                            |
+| -------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `?debug`       | Solo el overlay y el dataset                                                                                      |
+| `?god`         | Mati recibe los golpes (parpadea, suena) pero no pierde vida                                                      |
+| `?spawn=N`     | Empieza con una horda de N zombis alrededor (tope 400)                                                            |
+| `?t=S`         | Adelanta el reloj S segundos (máx. 599). Los jefes cuyo momento ya pasó no aparecen                               |
+| `?weapons=all` | Las 4 automáticas y las 3 manuales (escopeta incluida) en nivel 5, con la reserva llena (ignora el tope de slots) |
+| `?ammo=N`      | Cargador vacío y N balas de reserva (`?ammo=0` arranca directo en la Escoba)                                      |
 
 Ejemplos útiles:
 
@@ -56,23 +56,24 @@ Ejemplos útiles:
 Con el overlay visible, cada 500 ms se publica el estado en `document.body.dataset`, para leerlo desde un navegador
 headless (`document.body.dataset.fps`, etc.):
 
-| Clave                                         | Contenido                                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------ |
-| `fps`, `cpu`                                  | FPS y ms de CPU por frame (promedio de 0.5 s)                                  |
-| `enemies`                                     | Zombis vivos                                                                   |
-| `kills`                                       | Bajas de la partida                                                            |
-| `weaponKills`                                 | Bajas por arma en JSON, solo las que tienen alguna (`{"labelGun":40,...}`)     |
-| `level`, `hp`                                 | Nivel y vida de Mati                                                           |
-| `status`                                      | `playing`, `levelup`, `dead`, `won` o `paused`                                 |
-| `time`, `clock`                               | Segundos de partida y hora del turno                                           |
-| `loadout`                                     | Armas automáticas y pasivos con su nivel (`cans:2,coffee:1`)                   |
-| `kinds`                                       | Zombis por tipo en JSON (más `aiming`: carritos apuntando)                     |
-| `hazards`, `hazardKinds`                      | Peligros activos (charcos, recibos, ondas)                                     |
-| `chests`, `ammoBoxes`, `floorItems`           | Cofres, cajas de munición y botiquines / imanes en el suelo                    |
-| `active`, `ammo`, `reloading`, `manualLevels` | Arma manual activa, `cargador/reserva`, recarga, niveles `pistola/escoba`      |
-| `trauma`                                      | Pico de screen shake desde la publicación anterior                             |
-| `stuck`, `stuckRelocations`                   | Zombis contando tiempo de atasco contra una góndola y reubicados en la partida |
-| `muted`, `showDebug`                          | Ajustes guardados                                                              |
+| Clave                                         | Contenido                                                                                                             |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `fps`, `cpu`                                  | FPS y ms de CPU por frame (promedio de 0.5 s)                                                                         |
+| `enemies`                                     | Zombis vivos                                                                                                          |
+| `kills`                                       | Bajas de la partida                                                                                                   |
+| `weaponKills`                                 | Bajas por arma en JSON, solo las que tienen alguna (`{"labelGun":40,...}`)                                            |
+| `level`, `hp`                                 | Nivel y vida de Mati                                                                                                  |
+| `status`                                      | `playing`, `levelup`, `dead`, `won` o `paused`                                                                        |
+| `time`, `clock`                               | Segundos de partida y hora del turno                                                                                  |
+| `loadout`                                     | Armas automáticas y pasivos con su nivel (`cans:2,coffee:1`)                                                          |
+| `kinds`                                       | Zombis por tipo en JSON (más `aiming`: carritos apuntando)                                                            |
+| `hazards`, `hazardKinds`                      | Peligros activos (charcos, recibos, ondas)                                                                            |
+| `chests`, `ammoBoxes`, `floorItems`           | Cofres, cajas de munición y botiquines / imanes en el suelo                                                           |
+| `active`, `ammo`, `reloading`, `manualLevels` | Id del arma manual activa, munición por arma (`labelGun:12/60,shotgun:6/36`), recarga, niveles (`labelGun:3,broom:1`) |
+| `pistolMods`, `shellBoxes`                    | Mods de Pistola tomados y cajas de cartuchos en el suelo                                                              |
+| `trauma`                                      | Pico de screen shake desde la publicación anterior                                                                    |
+| `stuck`, `stuckRelocations`                   | Zombis contando tiempo de atasco contra una góndola y reubicados en la partida                                        |
+| `muted`, `showDebug`                          | Ajustes guardados                                                                                                     |
 
 ## Reporte de balance
 
