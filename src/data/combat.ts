@@ -32,7 +32,7 @@ export const COMBAT = {
   /** Max enemies one projectile remembers having hit (pierce + 1 must fit). */
   maxProjectileHits: 4,
   /** Enemy hp and damage grow by this fraction per minute of game time. */
-  scalingPerMinute: 0.08,
+  scalingPerMinute: 0.05,
   /** Puddles, receipts and shockwaves alive at once. */
   hazardCapacity: 160,
   /** Receipts explode after this long even if they never reach the target, s. */

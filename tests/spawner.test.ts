@@ -133,9 +133,9 @@ describe('spawner over the whole shift', () => {
     expect(b2?.hp ?? 0).toBeGreaterThan((b1?.hp ?? 0) * 1.5);
   });
 
-  it('scales hp by 8% per minute', () => {
+  it('scales hp by COMBAT.scalingPerMinute', () => {
     const late = a.find((r) => r.id === 'client' && r.time >= 300);
-    expect(late?.hp).toBeCloseTo(20 * (1 + 0.08 * ((late?.time ?? 0) / 60)));
+    expect(late?.hp).toBeCloseTo(20 * (1 + COMBAT.scalingPerMinute * ((late?.time ?? 0) / 60)));
   });
 
   it('respects the cap for the whole shift and still spawns bosses when full', () => {

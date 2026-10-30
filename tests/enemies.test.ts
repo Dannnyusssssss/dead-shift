@@ -198,12 +198,12 @@ describe('Gerente Zombi (boss)', () => {
 });
 
 describe('scaling', () => {
-  it('enemies spawned later have more hp and damage (+8%/min)', () => {
+  it('enemies spawned later have more hp and damage (+5%/min since Hito 9.5)', () => {
     const world = emptyWorld();
     world.time = 300;
     const e = add(world, 'client', 500, 0);
-    expect(e.maxHp).toBeCloseTo(20 * 1.4);
-    expect(e.damage).toBeCloseTo(6 * 1.4);
+    expect(e.maxHp).toBeCloseTo(20 * 1.25);
+    expect(e.damage).toBeCloseTo(6 * 1.25);
   });
 
   it('knockback resistance reduces the push', () => {

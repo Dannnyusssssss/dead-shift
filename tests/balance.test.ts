@@ -34,6 +34,8 @@ const env = (globalThis as { process?: { env: Record<string, string | undefined>
 type Scenario = 'mixed' | 'broomOnly' | 'gunOnly';
 const SCENARIOS: readonly Scenario[] = ['mixed', 'broomOnly', 'gunOnly'];
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+/** Extra distance at which a zombie still counts as the one that hit the player, px. */
+const CONTACT_SLACK = 4;
 /** Minutes where the power-curve table is cut. */
 const CHECKPOINTS = [2, 4, 6, 8, 10];
 /** Minutes where the level is compared with the curve targets (~10 / ~18 / 35-40). */
@@ -75,6 +77,8 @@ interface RunResult {
   /** Indexed like LEVEL_MARKS. */
   levelAt: (number | undefined)[];
   xpAt: (number | undefined)[];
+  /** Damage taken by source: the enemy id on contact, `ranged` for receipts and shockwaves. */
+  hurtBy: Map<string, number>;
 }
 
 interface RunOptions {
@@ -165,6 +169,25 @@ class MinuteTracker {
   }
 }
 
+/** Who most likely hurt the player this step: the strongest zombie touching it, else a ranged hazard. */
+function hurtSource(world: World): string {
+  const p = world.player.pos;
+  let best = 'ranged';
+  let bestDamage = 0;
+  for (let i = 0; i < world.enemies.count; i++) {
+    const e = world.enemies.items[i];
+    if (!e) continue;
+    const r = world.player.radius + e.radius + CONTACT_SLACK;
+    const dx = e.pos.x - p.x;
+    const dy = e.pos.y - p.y;
+    if (dx * dx + dy * dy < r * r && e.damage > bestDamage) {
+      bestDamage = e.damage;
+      best = e.def.id;
+    }
+  }
+  return best;
+}
+
 function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunResult {
   const { newWeapons = true, god = false, allWeapons = false } = opts;
   const world = emptyWorld(seed);
@@ -177,6 +200,7 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     selectManual(m, 'broom');
   }
   const tracker = new MinuteTracker();
+  const hurtBy = new Map<string, number>();
   const minutes: (MinuteStats | undefined)[] = CHECKPOINTS.map(() => undefined);
   const levelAt: (number | undefined)[] = LEVEL_MARKS.map(() => undefined);
   const xpAt: (number | undefined)[] = LEVEL_MARKS.map(() => undefined);
@@ -193,7 +217,12 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
       chooseOffer(world, botPickOffer(world, newWeapons));
     }
     playerBot(world, scenario !== 'gunOnly');
+    const hpBefore = world.player.hp;
     updateWorld(world, FIXED_STEP);
+    if (world.player.hp < hpBefore) {
+      const src = hurtSource(world);
+      hurtBy.set(src, (hurtBy.get(src) ?? 0) + hpBefore - world.player.hp);
+    }
     if (scenario === 'broomOnly') {
       world.ammoBoxes.clear();
       world.shellBoxes.clear();
@@ -234,7 +263,16 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     `stuck=${world.stuckRelocations}`,
     weaponKills(world),
   ].join('  ');
-  return { time: world.time, kills: world.kills, broomShare, row, minutes, levelAt, xpAt };
+  return {
+    time: world.time,
+    kills: world.kills,
+    broomShare,
+    row,
+    minutes,
+    levelAt,
+    xpAt,
+    hurtBy,
+  };
 }
 
 const avg = (xs: readonly number[]): number =>
@@ -248,6 +286,19 @@ function levelWith(xp: number, cost: (n: number) => number): number {
   let level = 1;
   for (let left = xp - cost(2); left >= 0; left -= cost(level + 1)) level++;
   return level;
+}
+
+/** Share of the damage taken by source, over every run. */
+function hurtTable(title: string, runs: readonly RunResult[]): string {
+  const total = new Map<string, number>();
+  for (const r of runs) for (const [k, v] of r.hurtBy) total.set(k, (total.get(k) ?? 0) + v);
+  const sum = [...total.values()].reduce((a, b) => a + b, 0) || 1;
+  const parts = [...total.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, v]) => `${k} ${((v / sum) * 100).toFixed(0)}%`);
+  const deaths = runs.map((r) => r.time.toFixed(0)).join(' ');
+  return `${title} damage taken: ${parts.join('  ')}
+  death times (s): ${deaths}`;
 }
 
 /** Per-minute averages over the runs still alive at each cut. */
@@ -313,6 +364,7 @@ describe.skipIf(!env?.BALANCE)('balance report', () => {
     lines.push(
       '',
       '=== power curve (poison and burn are not counted in dps) ===',
+      hurtTable('mixed (autos, mortal)', mixedRuns),
       ...minuteTable('mixed (autos, mortal)', mixedRuns),
       ...minuteTable('curve (mixed, god mode)', curveRuns),
       ...minuteTable('weaponsAll (god mode)', allRuns),

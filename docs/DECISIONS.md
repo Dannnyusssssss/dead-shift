@@ -111,9 +111,9 @@ Decisiones tomadas durante el desarrollo que no están especificadas en `CLAUDE.
     Apunta a donde estabas, así que se puede esquivar.
   - Gerente: 6 Clientes cada 10 s a 70 px de él; onda cada 6 s con 0.5 s de aviso, que crece hasta 220 px en 0.6 s,
     hace 15 de daño (escalado) y golpea una sola vez.
-- **Jefe 2 "más fuerte":** ×1.5 vida y ×1.25 daño, además del escalado por minuto (a los 9:00 ya es ×1.72).
+- **Jefe 2 "más fuerte":** ×1.5 vida y ×1.25 daño, además del escalado por minuto (a los 9:00 ya es ~~×1.72~~ ×1.45 desde el Hito 9.5).
   Si la arena está en el tope de 400, se elimina el zombi común más lejano para que el jefe siempre aparezca.
-- **Escalado:** vida y daño × (1 + 0.08 × minutos), calculado al aparecer con el tiempo continuo, no por minuto entero.
+- **Escalado:** vida y daño × (1 + ~~0.08~~ 0.05 × minutos) (**cambiado en Hito 9.5**), calculado al aparecer con el tiempo continuo, no por minuto entero.
   El factor se guarda en el enemigo, así los recibos y la onda también escalan.
 - **Oleadas:** las filas admiten `offset` (segundos dentro del minuto), para el Repartidor a la 1:30, el Carrito a las 4:30
   y el enjambre final a las 9:30. Los jefes van en su propia tabla `BOSSES`.
@@ -655,3 +655,30 @@ Barrido (12 semillas; `mixed` = juego normal mortal; `curve` = modo dios):
 - **El bot ya elegía siempre armas antes que pasivos,** así que los pesos lo afectan menos que a una persona que toma
   pasivos. Por eso la decisión final depende de una partida real.
 - **La palanca 2 no cierra la brecha del arranque:** al minuto 5 sigue en 14 niveles contra ~18 del objetivo.
+
+### Palanca 4: escalado de los enemigos
+
+El reporte suma de dónde viene el daño que recibe el bot (`hurtSource`): el zombi más fuerte que lo toca en ese paso o,
+si no hay ninguno, `ranged` (recibos y onda del jefe). También lista los tiempos de muerte de cada semilla.
+
+Con las palancas 1 y 2 aplicadas, el bot muere entre los 196 y los 357 s. Daño recibido: Cliente 46 %, `ranged` 21 %
+(sobre todo la onda del primer jefe), Congelado 17 %, Carrito 11 % y Repartidor 4 %. Es la horda común la que lo
+alcanza: entre los minutos 4 y 6 aparecen más zombis de los que mueren.
+
+Barrido (12 semillas, una palanca por prueba):
+
+| Variante                                          | `mixed` autos | Muerte más temprana | `curve` nv min 10 | Vida media zombi min 10 |
+| ------------------------------------------------- | ------------- | ------------------- | ----------------- | ----------------------- |
+| Base (palancas 1 y 2)                             | 292 s         | 196 s               | 34.0              | 48.5                    |
+| **Escalado 8 % → 5 % por minuto (aplicada)**      | **312 s**     | **258 s**           | 37.8              | 40.0                    |
+| Clientes min 3-5: 1.8/2.0/2.0 → 1.5/1.7/1.8 por s | 302 s         | 229 s               | 36.4              | 49.0                    |
+
+**Elegido:** `COMBAT.scalingPerMinute` 0.05 (antes 0.08). Afecta vida y daño, también de los recibos, la onda y los
+jefes: el jefe 2 queda en ×1.45 por escalado (antes ×1.72), además de su ×1.5 de vida.
+
+- Ya no hay muertes antes de los 4 minutos, que es lo que más se parece al jugador real que se trababa.
+- El promedio sube poco (+20 s). El muro del bot sigue entre los minutos 4.5 y 6 (Carrito, primer jefe, Congelados), y
+  ahora el Congelado pesa más en el daño recibido (30 %).
+- La densidad de oleadas no se tocó: ayudó menos y le saca XP al arranque.
+- `weaponsAll` sigue limpiando la horda (≤ 90 zombis en pantalla), así que con una build completa el juego no queda
+  imposible. Falta confirmar con partidas reales que no quede trivial.

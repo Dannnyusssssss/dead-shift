@@ -181,7 +181,7 @@ afecta a todas las armas, manuales y automáticas.
 | **Zombi Cajero** | A distancia | 30 | 45 | 8 | Mantiene distancia y lanza recibos explosivos | 6:00 |
 | **Gerente Zombi** (jefe) | Jefe | 1500 | 60 | 20 | Persigue, invoca 6 zombis cliente cada 10 s, onda expansiva cada 6 s | 5:00 y 9:00 (más fuerte) |
 
-- La vida y el daño de los enemigos escalan un 8% por minuto.
+- La vida y el daño de los enemigos escalan un 5% por minuto (8% hasta el Hito 9.5).
 - Al derrotar al jefe suelta un cofre: da una mejora gratis de nivel de arma.
 - Límite duro de **400 enemigos** simultáneos (el spawner se frena al llegar).
 
