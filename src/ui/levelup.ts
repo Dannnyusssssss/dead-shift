@@ -76,7 +76,7 @@ export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
   function renderCards(view: Readonly<LevelUpView>): void {
     cards.replaceChildren();
     view.offers.forEach((offer, i) => {
-      const card = el('button', 'ds-card');
+      const card = el('button', offer.special ? 'ds-card ds-card-evo' : 'ds-card');
       card.type = 'button';
       const head = el('div', 'ds-card-head');
       head.append(el('span', 'ds-card-icon', offer.icon), el('span', 'ds-card-key', String(i + 1)));
@@ -84,6 +84,7 @@ export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
       card.append(head, name);
       if (offer.tag) card.append(el('div', 'ds-card-tag', offer.tag));
       card.append(el('div', 'ds-card-desc', offer.description));
+      if (offer.recipe) card.append(el('div', 'ds-card-recipe', offer.recipe));
       card.addEventListener('click', () => {
         if (ready()) handlers?.onChoose(i);
       });

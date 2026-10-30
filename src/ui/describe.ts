@@ -1,7 +1,9 @@
+import { EVOLUTIONS, EVOLUTION_RULES } from '../data/evolutions';
 import { PROGRESSION } from '../data/progression';
-import { PASSIVES } from '../data/upgrades';
-import { PISTOL_MODS, WEAPONS, type WeaponDef } from '../data/weapons';
+import { PASSIVES, type PassiveId } from '../data/upgrades';
+import { PISTOL_MODS, WEAPONS, type WeaponDef, type WeaponId } from '../data/weapons';
 import { t, type TextKey } from '../data/texts';
+import { isEvolved, recipeFor, recipeStatus } from '../game/evolutions';
 import { findOwnedWeapon, type Player } from '../game/player';
 import type { Offer } from '../game/progression';
 
@@ -11,6 +13,10 @@ export interface OfferView {
   /** "Nuevo" or "Nv 2 → 3". */
   tag: string;
   description: string;
+  /** Evolution recipe of the weapon (or that the passive completes) and what is missing. */
+  recipe?: string | undefined;
+  /** Evolution card: highlighted. */
+  special?: boolean;
 }
 
 /** Level fields worth showing, with the text that follows the number. */
@@ -73,6 +79,43 @@ export function describeWeaponUpgrade(def: Readonly<WeaponDef>, fromLevel: numbe
 
 const levelTag = (from: number): string => t('tagLevel', { from, to: from + 1 });
 
+/** "✓" when met, "(tienes 2)" otherwise. */
+const mark = (have: number, need: number): string =>
+  have >= need ? t('recipeDone') : t('recipeHave', { have });
+
+/** "⚡ Escoba eléctrica: arma Nv 5 (tienes 3) + 🧲 Imán de heladera Nv 3 ✓". */
+export function describeRecipe(player: Readonly<Player>, id: WeaponId): string | undefined {
+  const status = recipeStatus(player, id);
+  if (!status || status.evolved) return undefined;
+  const { recipe } = status;
+  const passive = PASSIVES[recipe.passive];
+  const need = EVOLUTION_RULES.minPassiveLevel;
+  return t('recipeLine', {
+    icon: recipe.icon,
+    name: t(recipe.nameKey),
+    weapon: t('recipeWeaponPart', {
+      need: PROGRESSION.maxLevel,
+      mark: mark(status.weaponLevel, PROGRESSION.maxLevel),
+    }),
+    passive: t('recipePassivePart', {
+      icon: passive.icon,
+      name: t(passive.nameKey),
+      need,
+      mark: mark(status.passiveLevel, need),
+    }),
+  });
+}
+
+/** "Evoluciona 🧹 con Nv 3", for each owned, not evolved weapon whose recipe uses the passive. */
+function describePassiveRecipes(player: Readonly<Player>, id: PassiveId): string | undefined {
+  const parts = EVOLUTIONS.filter((e) => e.passive === id).flatMap((e) => {
+    const w = findOwnedWeapon(player, e.weapon);
+    if (!w || isEvolved(w)) return [];
+    return [t('recipeForWeapon', { icon: w.def.icon, need: EVOLUTION_RULES.minPassiveLevel })];
+  });
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>): OfferView {
   switch (offer.kind) {
     case 'newWeapon': {
@@ -82,6 +125,7 @@ export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>):
         name: t(def.nameKey),
         tag: t('tagNew'),
         description: t(def.descKey),
+        recipe: describeRecipe(player, def.id),
       };
     }
     case 'upgradeWeapon': {
@@ -92,6 +136,18 @@ export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>):
         name: t(def.nameKey),
         tag: levelTag(level),
         description: describeWeaponUpgrade(def, level),
+        recipe: describeRecipe(player, def.id),
+      };
+    }
+    case 'evolveWeapon': {
+      const recipe = recipeFor(offer.weaponId);
+      const def = WEAPONS[offer.weaponId];
+      return {
+        icon: recipe?.icon ?? def.icon,
+        name: recipe ? t(recipe.nameKey) : t(def.nameKey),
+        tag: t('tagEvolution'),
+        description: recipe ? t(recipe.descKey) : '',
+        special: true,
       };
     }
     case 'newPassive':
@@ -103,6 +159,7 @@ export function describeOffer(offer: Readonly<Offer>, player: Readonly<Player>):
         name: t(def.nameKey),
         tag: owned ? levelTag(owned.level) : t('tagNew'),
         description: t(def.descKey),
+        recipe: describePassiveRecipes(player, def.id),
       };
     }
     case 'pistolMod': {

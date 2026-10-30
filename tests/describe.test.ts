@@ -29,7 +29,7 @@ describe('describeWeaponUpgrade', () => {
   });
 
   it('returns empty past the last level', () => {
-    expect(describeWeaponUpgrade(WEAPONS.broom, 5)).toBe('');
+    expect(describeWeaponUpgrade(WEAPONS.broom, WEAPONS.broom.levels.length)).toBe('');
   });
 });
 

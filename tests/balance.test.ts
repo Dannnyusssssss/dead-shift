@@ -4,6 +4,7 @@ import { ENEMIES } from '../src/data/enemies';
 import { SHIFT } from '../src/data/shift';
 import { WEAPON_IDS } from '../src/data/weapons';
 import { giveAllWeapons } from '../src/game/debug';
+import { isEvolved } from '../src/game/evolutions';
 import { scaleAt } from '../src/game/enemies';
 import { gunStats, hasAmmo, maxReserve, selectManual } from '../src/game/manual';
 import { pistolOf } from './helpers';
@@ -79,6 +80,8 @@ interface RunResult {
   xpAt: (number | undefined)[];
   /** Damage taken by source: the enemy id on contact, `ranged` for receipts and shockwaves. */
   hurtBy: Map<string, number>;
+  /** Evolved weapons at the end of the run, with the game time each one evolved. */
+  evolutions: { id: string; time: number }[];
 }
 
 interface RunOptions {
@@ -201,6 +204,8 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
   }
   const tracker = new MinuteTracker();
   const hurtBy = new Map<string, number>();
+  const evolutions: { id: string; time: number }[] = [];
+  const allOwned = () => [...world.player.weapons, ...m.owned.map((e) => e.weapon)];
   const minutes: (MinuteStats | undefined)[] = CHECKPOINTS.map(() => undefined);
   const levelAt: (number | undefined)[] = LEVEL_MARKS.map(() => undefined);
   const xpAt: (number | undefined)[] = LEVEL_MARKS.map(() => undefined);
@@ -234,6 +239,9 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
         if (e.weapon.def.id !== 'broom') e.reserve = maxReserve(e.weapon.def.id);
     }
     tracker.step(world);
+    for (const w of allOwned())
+      if (isEvolved(w) && !allWeapons && !evolutions.some((e) => e.id === w.def.id))
+        evolutions.push({ id: w.def.id, time: world.time });
     const minute = world.time / 60 + 1e-9;
     if (world.player.hp > 0) {
       for (; nextCut < CHECKPOINTS.length && minute >= (CHECKPOINTS[nextCut] ?? 0); nextCut++)
@@ -272,6 +280,7 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     levelAt,
     xpAt,
     hurtBy,
+    evolutions,
   };
 }
 
@@ -299,6 +308,14 @@ function hurtTable(title: string, runs: readonly RunResult[]): string {
   const deaths = runs.map((r) => r.time.toFixed(0)).join(' ');
   return `${title} damage taken: ${parts.join('  ')}
   death times (s): ${deaths}`;
+}
+
+/** Evolutions reached: how many runs, how many per run and when (game minutes). */
+function evolutionLine(title: string, runs: readonly RunResult[]): string {
+  const all = runs.flatMap((r) => r.evolutions);
+  const withAny = runs.filter((r) => r.evolutions.length > 0).length;
+  const list = all.map((e) => `${e.id}@${(e.time / 60).toFixed(1)}`).join(' ');
+  return `${title} evolutions: ${withAny}/${runs.length} runs, ${all.length} total  ${list}`;
 }
 
 /** Per-minute averages over the runs still alive at each cut. */
@@ -369,6 +386,8 @@ describe.skipIf(!env?.BALANCE)('balance report', () => {
       ...minuteTable('curve (mixed, god mode)', curveRuns),
       ...minuteTable('weaponsAll (god mode)', allRuns),
       ...curveProjection(curveRuns),
+      evolutionLine('mixed (autos, mortal)', mixedRuns),
+      evolutionLine('curve (god mode)', curveRuns),
     );
     console.log('\n' + lines.join('\n'));
     expect(lines.length).toBeGreaterThan(SCENARIOS.length);

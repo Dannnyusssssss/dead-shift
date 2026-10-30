@@ -11,6 +11,7 @@ import {
   type WeaponId,
 } from '../data/weapons';
 import { emit } from './events';
+import { evolveWeapon, readyEvolutions } from './evolutions';
 import { addManualWeapon, addPistolMod, entryOf, gunDefOf } from './manual';
 import { addPassive, findOwnedWeapon, findPassive, recomputeStats, type Player } from './player';
 import { createWeapon } from './weapons';
@@ -22,6 +23,7 @@ export type Offer =
   | { kind: 'newPassive'; passiveId: PassiveId }
   | { kind: 'upgradePassive'; passiveId: PassiveId }
   | { kind: 'pistolMod'; modId: PistolModId }
+  | { kind: 'evolveWeapon'; weaponId: WeaponId }
   | { kind: 'heal' };
 
 /** XP needed to go from level N-1 to level N. */
@@ -99,7 +101,9 @@ export function buildCandidates(player: Readonly<Player>): Offer[] {
 
 /** Relative chance of a card being drawn (`PROGRESSION.offerWeights`). */
 export function offerWeight(offer: Readonly<Offer>): number {
-  return offer.kind === 'heal' ? 1 : PROGRESSION.offerWeights[offer.kind];
+  return offer.kind === 'heal' || offer.kind === 'evolveWeapon'
+    ? 1
+    : PROGRESSION.offerWeights[offer.kind];
 }
 
 /** Up to `count` distinct weighted picks from `pool`; a lone heal when it is empty. */
@@ -120,13 +124,26 @@ function sample(pool: Offer[], rng: Rng, count: number): Offer[] {
   return pool.slice(0, n);
 }
 
-/** Up to `count` distinct random candidates; a lone heal when nothing is left. */
+/** Evolutions whose recipe is complete; they are always shown (level-ups and chests). */
+export function evolutionOffers(player: Readonly<Player>): Offer[] {
+  return readyEvolutions(player).map((weaponId) => ({ kind: 'evolveWeapon', weaponId }));
+}
+
+/** The guaranteed cards first, then a weighted draw from `pool` for the free places. */
+function withGuaranteed(guaranteed: Offer[], pool: Offer[], rng: Rng, count: number): Offer[] {
+  const head = guaranteed.slice(0, count);
+  if (head.length === 0) return sample(pool, rng, count);
+  if (head.length === count || pool.length === 0) return head;
+  return [...head, ...sample(pool, rng, count - head.length)];
+}
+
+/** Ready evolutions plus distinct random candidates; a lone heal when nothing is left. */
 export function rollOffers(
   player: Readonly<Player>,
   rng: Rng,
   count: number = PROGRESSION.offerCount,
 ): Offer[] {
-  return sample(buildCandidates(player), rng, count);
+  return withGuaranteed(evolutionOffers(player), buildCandidates(player), rng, count);
 }
 
 export function applyOffer(player: Player, offer: Readonly<Offer>): void {
@@ -138,6 +155,9 @@ export function applyOffer(player: Player, offer: Readonly<Offer>): void {
       break;
     case 'pistolMod':
       addPistolMod(player.manual, offer.modId);
+      break;
+    case 'evolveWeapon':
+      evolveWeapon(player, offer.weaponId);
       break;
     case 'upgradeWeapon': {
       const w = findOwnedWeapon(player, offer.weaponId);
@@ -164,7 +184,8 @@ export const FIRST_CHEST_WEAPON: WeaponId = 'shotgun';
 
 /**
  * Boss chest: a free level for one of the weapons you own; heal if all are maxed. The first
- * chest of the run also always offers the shotgun (if not owned yet) as one of the options.
+ * chest of the run also always offers the shotgun (if not owned yet), and every chest offers
+ * the ready evolutions, before the upgrades.
  */
 export function rollChestOffers(
   player: Readonly<Player>,
@@ -172,10 +193,11 @@ export function rollChestOffers(
   count: number = PROGRESSION.offerCount,
 ): Offer[] {
   const pool: Offer[] = buildCandidates(player).filter((o) => o.kind === 'upgradeWeapon');
-  const guaranteed = player.chestsOpened === 0 && !findOwnedWeapon(player, FIRST_CHEST_WEAPON);
-  if (!guaranteed) return sample(pool, rng, count);
-  const rest = pool.length > 0 ? sample(pool, rng, count - 1) : [];
-  return [{ kind: 'newWeapon', weaponId: FIRST_CHEST_WEAPON }, ...rest];
+  const guaranteed: Offer[] = [];
+  if (player.chestsOpened === 0 && !findOwnedWeapon(player, FIRST_CHEST_WEAPON))
+    guaranteed.push({ kind: 'newWeapon', weaponId: FIRST_CHEST_WEAPON });
+  guaranteed.push(...evolutionOffers(player));
+  return withGuaranteed(guaranteed, pool, rng, count);
 }
 
 function rollFor(world: World): Offer[] {

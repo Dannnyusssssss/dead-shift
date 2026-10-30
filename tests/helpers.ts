@@ -53,20 +53,22 @@ function nearestItem<T extends { pos: Vec2 }>(
 }
 
 /**
- * Bot preference when picking an upgrade card: weapons first, then passives, then heal.
+ * Bot preference when picking an upgrade card: evolutions, then weapons, then passives, then heal.
  * With `newWeapons` false it takes a new automatic weapon only when nothing else is offered.
  */
 export function botPickOffer(world: World, newWeapons = true): number {
   const rank = (kind: string): number =>
-    kind === 'newWeapon'
-      ? newWeapons
-        ? 0
-        : 5
-      : kind === 'upgradeWeapon'
-        ? 1
-        : kind === 'heal'
-          ? 4
-          : 2;
+    kind === 'evolveWeapon'
+      ? -1
+      : kind === 'newWeapon'
+        ? newWeapons
+          ? 0
+          : 5
+        : kind === 'upgradeWeapon'
+          ? 1
+          : kind === 'heal'
+            ? 4
+            : 2;
   let best = 0;
   world.offers.forEach((o, i) => {
     if (rank(o.kind) < rank(world.offers[best]?.kind ?? 'heal')) best = i;

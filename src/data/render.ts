@@ -102,19 +102,60 @@ export const PROJECTILE_STYLE = {
   labelWidth: 5,
   pelletFill: '#ffd27a',
   pelletStroke: '#7a4a12',
+  /** Laser pistol: a bright streak behind the shot. */
+  laserGlow: 'rgba(255, 60, 60, 0.45)',
+  laserCore: '#ffe4e4',
+  laserLength: 26,
 } as const;
 
-export const ICE_STYLE = {
+export interface BagStyle {
+  fill: string;
+  stroke: string;
+  shine: string;
+}
+
+export const ICE_STYLE: BagStyle = {
   fill: '#d8f1ff',
   stroke: '#5aa6d6',
   shine: 'rgba(255, 255, 255, 0.9)',
-} as const;
+};
 
-export const CLOUD_STYLE = {
+/** Blizzard evolution: whiter, frostier bags. */
+export const BLIZZARD_STYLE: BagStyle = {
+  fill: '#ffffff',
+  stroke: '#9fd8ff',
+  shine: 'rgba(200, 240, 255, 1)',
+};
+
+export interface CloudStyle {
+  color: string;
+  edge: string;
+  /** Puffs drawn along the cone. */
+  puffs: number;
+}
+
+export const CLOUD_STYLE: CloudStyle = {
   color: 'rgba(150, 220, 90, 0.22)',
   edge: 'rgba(170, 240, 110, 0.35)',
-  /** Puffs drawn along the cone. */
   puffs: 7,
+};
+
+/** Flamethrower evolution: the same cone, on fire. */
+export const FIRE_STYLE: CloudStyle = {
+  color: 'rgba(255, 130, 40, 0.28)',
+  edge: 'rgba(255, 200, 70, 0.45)',
+  puffs: 10,
+};
+
+/** Electric broom discharge segments. */
+export const ARC_STYLE = {
+  glow: 'rgba(120, 200, 255, 0.5)',
+  core: '#f2fbff',
+  /** Zigzag points per segment and their sideways jitter, px. */
+  kinks: 5,
+  jitter: 9,
+  /** New zigzag shapes per second while a discharge fades. */
+  flickerRate: 30,
 } as const;
 
 export const MICROWAVE_STYLE = {
@@ -318,6 +359,9 @@ export const LOADOUT_HUD = {
   font: '18px system-ui, "Segoe UI Emoji", "Apple Color Emoji", sans-serif',
   levelFont: '700 10px system-ui, sans-serif',
   slotBg: 'rgba(0, 0, 0, 0.45)',
+  /** Frame and label of an evolved weapon (slot and manual chip). */
+  evolvedBorder: '#e8b830',
+  evolvedLabelColor: '#ffd75a',
 } as const;
 
 export const PARTICLES = {
@@ -353,6 +397,26 @@ export const PARTICLES = {
     sizeMax: 3,
   },
   shelfHitColor: '#ffe9a8',
+  /** Grenade cans: no shake, fewer sparks than the receipts. */
+  canExplosion: {
+    count: 8,
+    speedMin: 50,
+    speedMax: 160,
+    lifeMin: 0.2,
+    lifeMax: 0.4,
+    sizeMin: 2,
+    sizeMax: 4,
+  },
+  zapColor: '#bfe8ff',
+  zap: {
+    count: 4,
+    speedMin: 40,
+    speedMax: 140,
+    lifeMin: 0.08,
+    lifeMax: 0.2,
+    sizeMin: 1.5,
+    sizeMax: 3,
+  },
   explosionColor: '#f29d38',
   explosion: {
     count: 16,

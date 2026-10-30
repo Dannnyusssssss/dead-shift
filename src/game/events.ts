@@ -20,7 +20,9 @@ export type GameEventType =
   | 'bossSpawn'
   | 'bossDeath'
   | 'shockwave'
-  | 'shelfHit';
+  | 'shelfHit'
+  | 'chainZap'
+  | 'canExplosion';
 
 /** Something the presentation layer may want to react to (particles, sounds, shake). */
 export interface GameEvent {

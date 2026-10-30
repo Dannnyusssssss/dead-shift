@@ -682,3 +682,71 @@ jefes: el jefe 2 queda en ×1.45 por escalado (antes ×1.72), además de su ×1.
 - La densidad de oleadas no se tocó: ayudó menos y le saca XP al arranque.
 - `weaponsAll` sigue limpiando la horda (≤ 90 zombis en pantalla), así que con una build completa el juego no queda
   imposible. Falta confirmar con partidas reales que no quede trivial.
+
+### Cierre
+
+Validado con partidas reales: con las tres palancas (curva `4+2N`, pesos con 3 rerolls y escalado al 5 %), el jugador
+llega a las 6 AM. La palanca 3 (pasivos con nivel máximo 3) no hizo falta.
+
+## Hito 10
+
+### Representación: la evolución es el nivel 6
+
+- Cada tabla `levels` de `data/weapons.ts` tiene un elemento más que `PROGRESSION.maxLevel`: los stats evolucionados.
+  Evolucionar es `weapon.level = EVOLVED_LEVEL` (6). Las ofertas normales siguen deteniéndose en 5.
+- **Por qué:** todo lee los stats con `statsAt(def.levels, w.level)`, así que armas, manuales, render, HUD y la caché de
+  mods funcionan sin casts ni código de lookup nuevo. El arma conserva su id: el slot (o su lugar manual), la tecla
+  1/2/3, la munición, los mods de Pistola y las bajas por arma quedan igual. "Reemplaza al arma base en su slot" sale
+  de gratis.
+- **Recetas** en `data/evolutions.ts`: `{ id, weapon, passive, icon, nameKey, descKey }` y
+  `EVOLUTION_RULES.minPassiveLevel = 3`. El nivel 5 del arma sale de `PROGRESSION.maxLevel`. Lógica pura en
+  `game/evolutions.ts` (`recipeStatus`, `readyEvolutions`, `evolveWeapon`, `isEvolved`, `weaponIcon`, `weaponNameKey`).
+- **El pasivo no se consume** al evolucionar. El Chaleco sirve para dos recetas (Escopeta y Microondas).
+
+### Ofertas
+
+- Tipo nuevo `evolveWeapon`. **Una evolución lista aparece siempre**, en la pantalla de nivel y en el cofre: las
+  evoluciones van primero y el resto se completa con el sorteo con pesos. Si hay más de 3 listas, salen 3.
+  - En el primer cofre, la escopeta garantizada va antes que las evoluciones.
+  - Mientras no haya ninguna receta lista, el sorteo es idéntico al de antes (mismo consumo del RNG).
+- La carta de evolución tiene borde dorado y la etiqueta "EVOLUCIÓN".
+- **Receta visible:** las cartas de arma muestran "⚡ Escoba eléctrica: arma Nv 5 (tienes 3) + 🧲 Imán de heladera
+  Nv 3 ✓". Las de pasivo muestran "Evoluciona 🧹 con Nv 3" si completan la receta de un arma que ya tienes.
+- **HUD:** el arma evolucionada muestra el ícono de la evolución con marco dorado y "EVO" en vez del nivel. El panel
+  del arma manual dice "Pistola láser · EVO".
+
+### Las 7 evoluciones (nivel 6 en `data/weapons.ts`)
+
+| Evolución                  | Receta                | Cambios                                                 | Mecánica                                                                                |
+| -------------------------- | --------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Escoba eléctrica ⚡        | Escoba + Imán         | 22 daño, cd 0.55 s, ambos lados                         | Descarga desde el primer zombi golpeado: salta a 4 más a ≤ 120 px, con el 60 % del daño |
+| Pistola láser 🔴           | Pistola + Calculadora | 16 daño, cd 0.09 s, 1100 px/s, cargador 30, recarga 1 s | Perfora 11 (todo lo que una bala puede recordar)                                        |
+| Escopeta antidisturbios 🛡️ | Escopeta + Chaleco    | 9 perdigones de 9 daño                                  | Perfora 3, empuje 650                                                                   |
+| Latas granada 💣           | Latas + Café          | 4 latas de 18 daño, cd 0.8 s                            | Explotan al tocar un zombi o una góndola: radio 60, 12 de daño                          |
+| Lanzallamas casero 🔥      | Aerosol + Termo       | 7 daño cada 0.2 s, 3 s activo, cd 1.5 s, 170 px, 70°    | Quemadura 8/s × 3 s (el veneno de siempre), cono naranja                                |
+| Ventisca 🌨️                | Hielo + Zapatillas    | 6 bolsas, radio 130, 12 daño, 4.5 rad/s                 | `slowFactor 1` = congela 1.2 s (también al jefe)                                        |
+| Microondas industrial 🏭   | Microondas + Chaleco  | 3 unidades, 5 rayos de 14 daño, cd 0.5 s, 280 px, 12 s  | —                                                                                       |
+
+- **Cambios de soporte:**
+  - `COMBAT.maxProjectileHits` pasa de 4 a 12, para que el láser "perfore todo".
+  - `MAX_TURRET_RAYS` pasa de 4 a 5.
+  - Los niveles de proyectil admiten `look`, que pisa el aspecto del arma (el láser).
+- **Descarga eléctrica:** un pool nuevo `world.arcs` (64 segmentos, 0.15 s) solo para el render, que avejenta
+  `arcSystem`. El render dibuja zigzags con un hash (sin `Math.random` ni objetos nuevos).
+- **Explosión de las latas:** un evento propio `canExplosion` (partículas chicas y sonido corto), **sin screen shake**.
+  Con 4 latas cada 0.8 s, el `explosion` de los recibos sacudía la pantalla todo el tiempo. Esto cambia lo que decía el plan.
+- Sonido nuevo `chainZap` para la descarga.
+
+### Debug
+
+`?weapons=evolved`: como `?weapons=all`, pero con las 7 evoluciones (`giveAllWeapons(world, true)`).
+
+### Balance
+
+El bot ahora prioriza las cartas de evolución. Reporte de 12 semillas:
+
+- **Partidas mortales:** muere entre los 258 y los 376 s, antes de poder evolucionar nada (0/12).
+- **Modo dios (`curve`):** evoluciona en 3 de 12 partidas, desde el minuto 8.8. Su cuello de botella es el pasivo en
+  Nv 3: el bot elige armas antes que pasivos y no apunta a una receta. Una persona que busca la receta debería
+  llegar antes.
+- No se ajustaron los números de la receta. Queda por confirmar con partidas reales si llegan demasiado tarde.

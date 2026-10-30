@@ -10,6 +10,7 @@ import {
   WEAPONS,
   isManual,
 } from '../src/data/weapons';
+import { EVOLVED_LEVEL } from '../src/game/evolutions';
 import { addManualWeapon, addPistolMod } from '../src/game/manual';
 import { addPassive, createPlayer, findOwnedWeapon } from '../src/game/player';
 import {
@@ -36,22 +37,24 @@ const targetOf = (o: Offer): string =>
       ? `p:${o.passiveId}`
       : o.kind === 'pistolMod'
         ? `m:${o.modId}`
-        : 'heal';
+        : o.kind === 'evolveWeapon'
+          ? `e:${o.weaponId}`
+          : 'heal';
 
 const AUTO_IDS = WEAPON_IDS.filter((id) => !isManual(WEAPONS[id]));
 /** Manual weapons every run starts with (the shotgun is found later). */
 const MANUAL_IDS = STARTING_MANUAL;
 
+/** Nothing left to offer: full slots, every weapon evolved, every passive and mod taken. */
 function maxedPlayer() {
   const p = createPlayer();
   p.weapons = AUTO_IDS.slice(0, PROGRESSION.maxWeapons).map((id) => {
     const w = createWeapon(id);
-    w.level = PROGRESSION.maxLevel;
+    w.level = EVOLVED_LEVEL;
     return w;
   });
-  for (const e of p.manual.owned) e.weapon.level = PROGRESSION.maxLevel;
   addManualWeapon(p.manual, 'shotgun');
-  for (const e of p.manual.owned) e.weapon.level = PROGRESSION.maxLevel;
+  for (const e of p.manual.owned) e.weapon.level = EVOLVED_LEVEL;
   for (const id of PASSIVE_IDS.slice(0, PROGRESSION.maxPassives)) {
     addPassive(p, id).level = PROGRESSION.maxLevel;
   }

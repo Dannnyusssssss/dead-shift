@@ -5,6 +5,7 @@ import { createSpatialHash, type SpatialHash } from '../core/spatial-hash';
 import { COMBAT } from '../data/combat';
 import { COUPONS, FLOOR_ITEMS, PROGRESSION } from '../data/progression';
 import { AMMO, WEAPON_IDS } from '../data/weapons';
+import { arcSystem, createArcObject, type Arc } from './arcs';
 import { createEnemyObject, enemyBehaviorSystem, enemyMovementSystem, type Enemy } from './enemies';
 import { createEventQueue, createHitQueue, type EventQueue, type HitQueue } from './events';
 import { createHazardObject, hazardSystem, type Hazard } from './hazards';
@@ -77,6 +78,8 @@ export interface World {
   /** Medkits and floor magnets. */
   floorItems: Pool<FloorItem>;
   hazards: Pool<Hazard>;
+  /** Electric discharge segments, for the render (electric broom). */
+  arcs: Pool<Arc>;
   hash: SpatialHash;
   /** Reusable output buffer for spatial queries. */
   queryBuf: Int32Array;
@@ -109,6 +112,7 @@ const SYSTEMS: readonly System[] = [
   turretSystem,
   projectileSystem,
   hazardSystem,
+  arcSystem,
   contactDamageSystem,
   deathSystem,
   pickupSystem,
@@ -143,6 +147,7 @@ export function createWorld(seed: number): World {
     shellBoxes: createPool(AMMO.shellCapacity, createAmmoBoxObject),
     floorItems: createPool(FLOOR_ITEMS.capacity, createFloorItemObject),
     hazards: createPool(COMBAT.hazardCapacity, createHazardObject),
+    arcs: createPool(COMBAT.arcCapacity, createArcObject),
     hash: createSpatialHash(COMBAT.cellSize, COMBAT.maxEnemies),
     queryBuf: new Int32Array(COMBAT.queryBufferSize),
     events: createEventQueue(COMBAT.eventCapacity),

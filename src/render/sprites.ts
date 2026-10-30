@@ -6,6 +6,9 @@ import { BLOCK_H, BLOCK_W, createRect, shelfInBlock, type Rect } from '../game/s
 import {
   ACCESSORY_STYLE,
   AMMO_BOX_STYLE,
+  ARC_STYLE,
+  type BagStyle,
+  type CloudStyle,
   SHELL_BOX_STYLE,
   FLOOR_MAGNET_STYLE,
   MEDKIT_STYLE,
@@ -563,12 +566,13 @@ export function drawIceBag(
   y: number,
   r: number,
   angle: number,
+  style: Readonly<BagStyle> = ICE_STYLE,
 ): void {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(angle);
-  ctx.fillStyle = ICE_STYLE.fill;
-  ctx.strokeStyle = ICE_STYLE.stroke;
+  ctx.fillStyle = style.fill;
+  ctx.strokeStyle = style.stroke;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.roundRect(-r, -r * 0.85, r * 2, r * 1.7, r * 0.5);
@@ -582,7 +586,7 @@ export function drawIceBag(
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = ICE_STYLE.shine;
+  ctx.fillStyle = style.shine;
   ctx.fillRect(-r * 0.55, -r * 0.5, r * 0.4, r * 0.3);
   ctx.restore();
 }
@@ -596,15 +600,16 @@ export function drawCloud(
   halfArc: number,
   range: number,
   time: number,
+  style: Readonly<CloudStyle> = CLOUD_STYLE,
 ): void {
-  ctx.fillStyle = CLOUD_STYLE.color;
+  ctx.fillStyle = style.color;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.arc(x, y, range, angle - halfArc, angle + halfArc);
   ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = CLOUD_STYLE.edge;
-  const n = CLOUD_STYLE.puffs;
+  ctx.fillStyle = style.edge;
+  const n = style.puffs;
   for (let i = 0; i < n; i++) {
     const t = (time * 1.5 + i / n) % 1;
     const a = angle + (((i * 37) % n) / (n - 1) - 0.5) * halfArc * 1.6;
@@ -661,6 +666,67 @@ export function drawBeam(
   ctx.lineWidth = 2.5;
   ctx.stroke();
   ctx.lineCap = 'butt';
+  ctx.globalAlpha = 1;
+}
+
+/** Laser pistol shot: a glowing streak pointing back along its flight. */
+export function drawLaser(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angle: number,
+): void {
+  const s = PROJECTILE_STYLE;
+  const tx = x - Math.cos(angle) * s.laserLength;
+  const ty = y - Math.sin(angle) * s.laserLength;
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = s.laserGlow;
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(tx, ty);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.strokeStyle = s.laserCore;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+/**
+ * Electric discharge between two points: a zigzag whose kinks come from a hash of the
+ * endpoints and the time step (cosmetic, no allocation, flickers as it fades).
+ */
+export function drawArc(
+  ctx: CanvasRenderingContext2D,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  alpha: number,
+  flicker: number,
+): void {
+  const s = ARC_STYLE;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  ctx.globalAlpha = alpha;
+  ctx.lineJoin = 'round';
+  for (let pass = 0; pass < 2; pass++) {
+    ctx.strokeStyle = pass === 0 ? s.glow : s.core;
+    ctx.lineWidth = pass === 0 ? 6 : 1.8;
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    for (let k = 1; k < s.kinks; k++) {
+      const t = k / s.kinks;
+      const j = (hash2(Math.round(x1) + k, Math.round(y2) + flicker, k) - 0.5) * 2 * s.jitter;
+      ctx.lineTo(x1 + dx * t + nx * j, y1 + dy * t + ny * j);
+    }
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.lineJoin = 'miter';
   ctx.globalAlpha = 1;
 }
 

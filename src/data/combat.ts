@@ -29,8 +29,11 @@ export const COMBAT = {
   turretCapacity: 4,
   /** Nearest-enemy targeting ignores anything farther than this, px. */
   maxTargetDistance: 600,
-  /** Max enemies one projectile remembers having hit (pierce + 1 must fit). */
-  maxProjectileHits: 4,
+  /** Max enemies one projectile remembers having hit (pierce + 1 must fit; the laser uses 11). */
+  maxProjectileHits: 12,
+  /** Electric arcs (electric broom) drawn at once, and how long each one shows, s. */
+  arcCapacity: 64,
+  arcLifetime: 0.15,
   /** Enemy hp and damage grow by this fraction per minute of game time. */
   scalingPerMinute: 0.05,
   /** Puddles, receipts and shockwaves alive at once. */

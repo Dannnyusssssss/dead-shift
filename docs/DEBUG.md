@@ -27,18 +27,20 @@ Hay tres formas de mostrarla:
 Se agregan a la dirección, por ejemplo `http://localhost:5173/?god&spawn=200`. Se pueden combinar.
 **Cualquiera de ellos salta el menú principal**, muestra el overlay y publica el dataset (ver abajo).
 
-| Parámetro      | Efecto                                                                                                            |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `?debug`       | Solo el overlay y el dataset                                                                                      |
-| `?god`         | Mati recibe los golpes (parpadea, suena) pero no pierde vida                                                      |
-| `?spawn=N`     | Empieza con una horda de N zombis alrededor (tope 400)                                                            |
-| `?t=S`         | Adelanta el reloj S segundos (máx. 599). Los jefes cuyo momento ya pasó no aparecen                               |
-| `?weapons=all` | Las 4 automáticas y las 3 manuales (escopeta incluida) en nivel 5, con la reserva llena (ignora el tope de slots) |
-| `?ammo=N`      | Cargador vacío y N balas de reserva (`?ammo=0` arranca directo en la Escoba)                                      |
+| Parámetro          | Efecto                                                                                                            |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `?debug`           | Solo el overlay y el dataset                                                                                      |
+| `?god`             | Mati recibe los golpes (parpadea, suena) pero no pierde vida                                                      |
+| `?spawn=N`         | Empieza con una horda de N zombis alrededor (tope 400)                                                            |
+| `?t=S`             | Adelanta el reloj S segundos (máx. 599). Los jefes cuyo momento ya pasó no aparecen                               |
+| `?weapons=all`     | Las 4 automáticas y las 3 manuales (escopeta incluida) en nivel 5, con la reserva llena (ignora el tope de slots) |
+| `?weapons=evolved` | Igual que `?weapons=all`, pero con las 7 armas ya evolucionadas (Hito 10)                                         |
+| `?ammo=N`          | Cargador vacío y N balas de reserva (`?ammo=0` arranca directo en la Escoba)                                      |
 
 Ejemplos útiles:
 
 - `?spawn=300&god`: prueba de rendimiento (meta: 60 FPS con 300 zombis).
+- `?weapons=evolved&spawn=300&god`: la misma prueba con las 7 evoluciones a la vez.
 - `?t=299&god`: llega el primer jefe.
 - `?t=590`: amanecer y pantalla de victoria en 10 s.
 - `?ammo=0&god`: jugar solo con la Escoba.

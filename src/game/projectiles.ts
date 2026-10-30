@@ -29,6 +29,9 @@ export interface Projectile {
   /** Jumps left to the nearest enemy not hit yet, and their max distance. */
   bounces: number;
   bounceRange: number;
+  /** Blast on impact (grenade cans): radius and damage (0 = none). */
+  explosionRadius: number;
+  explosionDamage: number;
   /** Enemies already hit, so a piercing shot never hits the same one twice. */
   hits: (Enemy | null)[];
   hitCount: number;
@@ -50,6 +53,8 @@ export function createProjectileObject(): Projectile {
     burnTime: 0,
     bounces: 0,
     bounceRange: 0,
+    explosionRadius: 0,
+    explosionDamage: 0,
     hits: Array.from({ length: COMBAT.maxProjectileHits }, () => null),
     hitCount: 0,
   };
@@ -80,6 +85,8 @@ export function spawnProjectile(
   p.burnTime = stats.burnTime ?? 0;
   p.bounces = stats.bounces ?? 0;
   p.bounceRange = stats.bounceRange ?? 0;
+  p.explosionRadius = stats.explosionRadius ?? 0;
+  p.explosionDamage = (stats.explosionDamage ?? 0) * world.player.mods.damage;
   p.hitCount = 0;
   p.hits.fill(null);
   return p;
@@ -125,6 +132,26 @@ function bounce(world: World, p: Projectile): boolean {
   return true;
 }
 
+/** Grenade cans: damages and pushes every living zombie within the blast radius. */
+function explode(world: World, p: Projectile): void {
+  if (p.explosionRadius <= 0) return;
+  const { x, y } = p.pos;
+  const buf = world.queryBuf;
+  const n = world.hash.query(x, y, p.explosionRadius + MAX_ENEMY_RADIUS, buf);
+  for (let k = 0; k < n; k++) {
+    const e = world.enemies.items[buf[k] ?? 0] as Enemy;
+    if (e.hp <= 0) continue;
+    const dx = e.pos.x - x;
+    const dy = e.pos.y - y;
+    const d = Math.hypot(dx, dy);
+    if (d > p.explosionRadius + e.radius) continue;
+    const kx = d > 1e-6 ? (dx / d) * p.knockback : 0;
+    const ky = d > 1e-6 ? (dy / d) * p.knockback : 0;
+    hitEnemy(world, e, p.explosionDamage, kx, ky, p.source);
+  }
+  emit(world.events, 'canExplosion', x, y);
+}
+
 /** Returns true if the projectile is used up. */
 function collide(world: World, p: Projectile): boolean {
   const buf = world.queryBuf;
@@ -158,9 +185,13 @@ export function projectileSystem(world: World, dt: number): void {
     p.life -= dt;
     if (circleHitsShelf(p.pos.x, p.pos.y, p.radius, world.seed)) {
       emit(world.events, 'shelfHit', p.pos.x, p.pos.y);
+      explode(world, p);
       pool.releaseAt(i);
       continue;
     }
-    if (p.life <= 0 || collide(world, p)) pool.releaseAt(i);
+    if (collide(world, p)) {
+      explode(world, p);
+      pool.releaseAt(i);
+    } else if (p.life <= 0) pool.releaseAt(i);
   }
 }

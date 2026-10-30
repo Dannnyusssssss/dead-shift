@@ -1,10 +1,16 @@
 import type { Camera } from '../core/camera';
 import type { Input } from '../core/input';
 import { lerp, type Vec2 } from '../core/math';
+import { COMBAT } from '../data/combat';
 import {
   AIM_LINE,
+  ARC_STYLE,
   BACKGROUND_COLOR,
+  BLIZZARD_STYLE,
+  CLOUD_STYLE,
+  FIRE_STYLE,
   HURT_FLASH,
+  ICE_STYLE,
   MAX_DPR,
   MICROWAVE_STYLE,
   PLAYER_BLINK_RATE,
@@ -20,6 +26,8 @@ import type { AmmoBox, Chest, Coupon, FloorItem } from '../game/pickups';
 import { shiftProgress } from '../game/shift';
 import type { Projectile } from '../game/projectiles';
 import type { Turret } from '../game/turrets';
+import type { Arc } from '../game/arcs';
+import { isEvolved } from '../game/evolutions';
 import { orbitBagAngle, statsAt } from '../game/weapons';
 import type { World } from '../game/world';
 import type { Floaters } from './floaters';
@@ -28,6 +36,8 @@ import { createLighting } from './lighting';
 import type { Particles } from './particles';
 import {
   drawAmmoBox,
+  drawArc,
+  drawLaser,
   drawPellet,
   drawShellBox,
   drawFloorMagnet,
@@ -206,6 +216,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       if (!visible(x, y)) continue;
       if (p.look === 'can') drawCan(ctx, x, y, p.radius, p.life * PROJECTILE_STYLE.canSpin);
       else if (p.look === 'pellet') drawPellet(ctx, x, y, p.radius);
+      else if (p.look === 'laser') drawLaser(ctx, x, y, Math.atan2(p.vel.y, p.vel.x));
       else drawLabel(ctx, x, y, Math.atan2(p.vel.y, p.vel.x));
     }
   }
@@ -260,6 +271,17 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
   }
 
+  /** Electric broom discharges, fading over their short life. */
+  function drawArcs(world: Readonly<World>): void {
+    const { items, count } = world.arcs;
+    const flicker = Math.floor(world.time * ARC_STYLE.flickerRate);
+    for (let i = 0; i < count; i++) {
+      const a = items[i] as Arc;
+      const alpha = 1 - a.age / COMBAT.arcLifetime;
+      drawArc(ctx, a.x1, a.y1, a.x2, a.y2, alpha, flicker);
+    }
+  }
+
   /** Effects attached to the player (swing, cloud, orbiting bags). */
   function drawWeaponEffects(world: Readonly<World>, pp: Readonly<Vec2>): void {
     drawBroomSwing(world, pp);
@@ -269,16 +291,19 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         case 'cone': {
           if (w.activeTimer <= 0) break;
           const s = statsAt(def.levels, w.level);
-          drawCloud(ctx, pp.x, pp.y, w.fireAngle, toRad(s.angleDegrees / 2), s.range, world.time);
+          const half = toRad(s.angleDegrees / 2);
+          const style = isEvolved(w) ? FIRE_STYLE : CLOUD_STYLE;
+          drawCloud(ctx, pp.x, pp.y, w.fireAngle, half, s.range, world.time, style);
           break;
         }
         case 'orbit': {
           const s = statsAt(def.levels, w.level);
+          const style = isEvolved(w) ? BLIZZARD_STYLE : ICE_STYLE;
           for (let b = 0; b < s.bags; b++) {
             const a = orbitBagAngle(w, b, s.bags);
             const x = pp.x + Math.cos(a) * s.orbitRadius;
             const y = pp.y + Math.sin(a) * s.orbitRadius;
-            drawIceBag(ctx, x, y, s.bagRadius, a + Math.PI / 2);
+            drawIceBag(ctx, x, y, s.bagRadius, a + Math.PI / 2, style);
           }
           break;
         }
@@ -351,6 +376,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       drawProjectiles(world, frame.alpha);
       drawAirHazards(world, frame.alpha);
       drawWeaponEffects(world, playerPos);
+      drawArcs(world);
       const blinkOff =
         player.invulnTimer > 0 && Math.floor(world.time * PLAYER_BLINK_RATE * 2) % 2 === 1;
       if (!blinkOff) {

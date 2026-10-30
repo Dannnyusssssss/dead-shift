@@ -176,6 +176,31 @@
   line-height: 1.35;
 }
 
+.ds-card-recipe {
+  margin-top: auto;
+  padding-top: 6px;
+  border-top: 1px solid #3b4a36;
+  color: #e8c860;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* Evolution card: gold frame and tag. */
+.ds-card-evo {
+  border-color: #e8b830;
+  background: #2e2a1a;
+  box-shadow: 0 0 14px rgba(232, 184, 48, 0.35);
+}
+
+.ds-card-evo .ds-card-tag {
+  color: #ffd75a;
+}
+
+.ds-card-evo:hover,
+.ds-card-evo:focus-visible {
+  border-color: #ffe08a;
+}
+
 .ds-button-secondary {
   background: transparent;
   color: #dfe8d8;

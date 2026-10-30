@@ -13,6 +13,7 @@ import {
 import { t } from '../data/texts';
 import type { Enemy } from '../game/enemies';
 import { MANUAL_KEYS, PISTOL_MODS } from '../data/weapons';
+import { isEvolved, weaponIcon, weaponNameKey } from '../game/evolutions';
 import { activeEntry, gunStats, isGun, isReloading, isUsable } from '../game/manual';
 import { cooldownFraction } from '../game/weapons';
 import { xpToNext } from '../game/progression';
@@ -72,7 +73,7 @@ export function drawHud(
   for (let i = 0; i < player.weapons.length; i++) {
     const w = player.weapons[i];
     if (!w) continue;
-    drawSlot(ctx, m + i * step, rowY, w.def.icon, w.level);
+    drawSlot(ctx, m + i * step, rowY, weaponIcon(w), w.level, isEvolved(w));
     const frac = cooldownFraction(w, player.mods.cooldown);
     if (frac > 0) {
       const s = LOADOUT_HUD.iconSize;
@@ -140,9 +141,10 @@ function drawManualPanel(
   ctx.textAlign = 'left';
   ctx.font = s.iconFont;
   ctx.fillStyle = HUD.textColor;
-  ctx.fillText(weapon.def.icon, x + 8, y + 22);
+  ctx.fillText(weaponIcon(weapon), x + 8, y + 22);
   ctx.font = s.nameFont;
-  drawText(ctx, `${t(weapon.def.nameKey)} · ${t('level')} ${weapon.level}`, x + 42, y + 14);
+  const levelText = isEvolved(weapon) ? t('evolvedShort') : `${t('level')} ${weapon.level}`;
+  drawText(ctx, `${t(weaponNameKey(weapon))} · ${levelText}`, x + 42, y + 14);
 
   ctx.font = s.ammoFont;
   if (gun) {
@@ -199,14 +201,14 @@ function drawManualRow(
     ctx.globalAlpha = isUsable(e) ? 1 : 0.45;
     ctx.fillStyle = active ? s.chipActiveBg : s.chipBg;
     ctx.fillRect(cx, y, w, h);
-    if (active) {
-      ctx.strokeStyle = s.chipActiveBorder;
+    if (active || isEvolved(e.weapon)) {
+      ctx.strokeStyle = isEvolved(e.weapon) ? LOADOUT_HUD.evolvedBorder : s.chipActiveBorder;
       ctx.lineWidth = 1;
       ctx.strokeRect(cx + 0.5, y + 0.5, w - 1, h - 1);
     }
     ctx.font = s.chipIconFont;
     ctx.fillStyle = HUD.textColor;
-    ctx.fillText(e.weapon.def.icon, cx + s.chipPadding, mid);
+    ctx.fillText(weaponIcon(e.weapon), cx + s.chipPadding, mid);
     ctx.font = s.chipFont;
     drawText(ctx, label, cx + s.chipPadding * 2 + 14, mid);
     ctx.globalAlpha = 1;
@@ -279,10 +281,16 @@ function drawSlot(
   y: number,
   icon: string,
   level: number,
+  evolved = false,
 ): void {
   const s = LOADOUT_HUD.iconSize;
   ctx.fillStyle = LOADOUT_HUD.slotBg;
   ctx.fillRect(x, y, s, s);
+  if (evolved) {
+    ctx.strokeStyle = LOADOUT_HUD.evolvedBorder;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x + 1, y + 1, s - 2, s - 2);
+  }
   ctx.font = LOADOUT_HUD.font;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -291,7 +299,8 @@ function drawSlot(
   ctx.font = LOADOUT_HUD.levelFont;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'alphabetic';
-  drawText(ctx, String(level), x + s + 1, y + s + 1);
+  const label = evolved ? t('evolvedShort') : String(level);
+  drawText(ctx, label, x + s + 1, y + s + 1, evolved ? LOADOUT_HUD.evolvedLabelColor : undefined);
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 }

@@ -47,6 +47,8 @@ interface DebugOptions {
   spawn: number;
   god: boolean;
   allWeapons: boolean;
+  /** `?weapons=evolved`: every weapon already evolved. */
+  evolved: boolean;
   startTime: number;
   /** Starting reserve with an empty magazine, or null to keep the normal start. */
   ammo: number | null;
@@ -58,11 +60,12 @@ function readDebugOptions(search: string): DebugOptions {
   const spawn = Math.floor(num('spawn'));
   const startTime = Math.min(num('t'), SHIFT.durationSeconds - 1);
   const god = params.has('god');
-  const allWeapons = params.get('weapons') === 'all';
+  const evolved = params.get('weapons') === 'evolved';
+  const allWeapons = evolved || params.get('weapons') === 'all';
   const ammo = params.has('ammo') ? Math.floor(num('ammo')) : null;
   const enabled =
     spawn > 0 || god || allWeapons || startTime > 0 || ammo !== null || params.has('debug');
-  return { enabled, spawn, god, allWeapons, startTime, ammo };
+  return { enabled, spawn, god, allWeapons, evolved, startTime, ammo };
 }
 
 /** Sound played for each gameplay event (events without one only drive visuals). */
@@ -87,6 +90,8 @@ const EVENT_SOUNDS: Readonly<Record<GameEventType, SoundId | null>> = {
   bossDeath: 'bossDeath',
   shockwave: 'shockwave',
   shelfHit: null,
+  chainZap: 'chainZap',
+  canExplosion: 'canExplosion',
 };
 
 /** `menu`: title screen over an idle world. `run`: a run is in progress (or just ended). */
@@ -118,7 +123,7 @@ function boot(): void {
   const newWorld = (): World => {
     const w = createWorld(Date.now() >>> 0);
     w.player.invincible = debug.god;
-    if (debug.allWeapons) giveAllWeapons(w);
+    if (debug.allWeapons) giveAllWeapons(w, debug.evolved);
     if (debug.ammo !== null) setPistolAmmo(w, debug.ammo);
     if (debug.startTime > 0) fastForward(w, debug.startTime);
     if (debug.spawn > 0) spawnHorde(w, debug.spawn);
@@ -323,6 +328,12 @@ function boot(): void {
           break;
         case 'shelfHit':
           particles.burst(ev.x, ev.y, PARTICLES.shelfHitColor, PARTICLES.shelfHit);
+          break;
+        case 'canExplosion':
+          particles.burst(ev.x, ev.y, PARTICLES.explosionColor, PARTICLES.canExplosion);
+          break;
+        case 'chainZap':
+          particles.burst(ev.x, ev.y, PARTICLES.zapColor, PARTICLES.zap);
           break;
         default:
           break;

@@ -25,6 +25,12 @@ export interface ArcLevel {
   knockback: number;
   /** Also sweeps behind the player. */
   bothSides: boolean;
+  /** Electric broom: a discharge from the first zombie hit jumps to this many more. */
+  chainJumps?: number;
+  /** Max distance of each jump, px. */
+  chainRange?: number;
+  /** Damage of each jump as a fraction of the sweep's damage. */
+  chainDamageFraction?: number;
 }
 
 /** Shots that fly in a straight line. */
@@ -51,6 +57,11 @@ export interface ProjectileLevel {
   bounces?: number;
   /** Max distance of a bounce, px. */
   bounceRange?: number;
+  /** Overrides the weapon's look (the laser pistol evolution). */
+  look?: ProjectileLook;
+  /** Grenade cans: blast radius on impact (zombie or shelf), px. */
+  explosionRadius?: number;
+  explosionDamage?: number;
 }
 
 /** Manual gun: a projectile weapon with a magazine. `cooldown` is the time between shots. */
@@ -110,6 +121,10 @@ export interface TurretLevel {
   units: number;
 }
 
+/**
+ * Every level table has `PROGRESSION.maxLevel` regular levels plus one more: the evolution
+ * (see data/evolutions.ts). Level-ups stop at the regular max; only an evolution reaches the last.
+ */
 interface WeaponBase {
   id: WeaponId;
   icon: string;
@@ -124,7 +139,7 @@ export interface MeleeWeaponDef extends WeaponBase {
   levels: readonly Readonly<ArcLevel>[];
 }
 
-export type ProjectileLook = 'can' | 'label' | 'pellet';
+export type ProjectileLook = 'can' | 'label' | 'pellet' | 'laser';
 
 export interface AmmoSpec {
   /** Rounds in the reserve at the start of a run (the magazine starts full). */
@@ -284,6 +299,16 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       broomL3,
       broomL4,
       { ...broomL4, bothSides: true },
+      // Evolution: electric broom.
+      {
+        ...broomL4,
+        damage: 22,
+        cooldown: 0.55,
+        bothSides: true,
+        chainJumps: 4,
+        chainRange: 120,
+        chainDamageFraction: 0.6,
+      },
     ],
   },
   cans: {
@@ -299,6 +324,16 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       { ...cansL1, count: 2, damage: 12 },
       cansL4,
       { ...cansL4, damage: 15, pierce: 2 },
+      // Evolution: grenade cans.
+      {
+        ...cansL4,
+        damage: 18,
+        count: 4,
+        cooldown: 0.8,
+        pierce: 0,
+        explosionRadius: 60,
+        explosionDamage: 12,
+      },
     ],
   },
   ice: {
@@ -313,6 +348,16 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       iceL3,
       { ...iceL3, bags: 4, angularSpeed: 4 },
       { ...iceL3, bags: 5, angularSpeed: 4, orbitRadius: 100, damage: 10 },
+      // Evolution: blizzard (slowFactor 1 = frozen in place).
+      {
+        ...iceL3,
+        bags: 6,
+        angularSpeed: 4.5,
+        orbitRadius: 130,
+        damage: 12,
+        slowFactor: 1,
+        slowTime: 1.2,
+      },
     ],
   },
   aerosol: {
@@ -327,6 +372,17 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       aerosolL3,
       { ...aerosolL3, poisonDps: 3, poisonTime: 2 },
       { ...aerosolL3, poisonDps: 3, poisonTime: 2, range: 150, activeTime: 2.5, damage: 5 },
+      // Evolution: homemade flamethrower (the poison becomes a burn).
+      {
+        damage: 7,
+        tickInterval: 0.2,
+        activeTime: 3,
+        cooldown: 1.5,
+        range: 170,
+        angleDegrees: 70,
+        poisonDps: 8,
+        poisonTime: 3,
+      },
     ],
   },
   microwave: {
@@ -341,6 +397,16 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       { ...microwaveL1, rays: 2, duration: 10 },
       microwaveL4,
       { ...microwaveL4, units: 2 },
+      // Evolution: industrial microwave.
+      {
+        ...microwaveL4,
+        units: 3,
+        rays: 5,
+        damage: 14,
+        cooldown: 0.5,
+        range: 280,
+        duration: 12,
+      },
     ],
   },
   labelGun: {
@@ -357,6 +423,19 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       labelL3,
       labelL4,
       { ...labelL4, count: 2, spreadDegrees: 6, damage: 14 },
+      // Evolution: laser pistol (pierces everything a shot can remember).
+      {
+        ...labelL4,
+        count: 1,
+        damage: 16,
+        cooldown: 0.09,
+        pierce: 11,
+        look: 'laser',
+        speed: 1100,
+        lifetime: 0.55,
+        magazine: 30,
+        reloadTime: 1,
+      },
     ],
   },
   shotgun: {
@@ -374,6 +453,8 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       shotgunL3,
       shotgunL4,
       { ...shotgunL4, count: 7, spreadDegrees: 5, damage: 8, pierce: 1 },
+      // Evolution: riot shotgun.
+      { ...shotgunL4, count: 9, spreadDegrees: 4, damage: 9, pierce: 3, knockback: 650 },
     ],
   },
 };

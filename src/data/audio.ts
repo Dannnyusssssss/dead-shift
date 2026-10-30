@@ -119,6 +119,28 @@ const SOUND_TABLE = {
       { wave: 'sine', freqFrom: 130, freqTo: 40, duration: 0.3, gain: 0.25 },
     ],
   },
+  /** Grenade cans: a smaller blast than the cashier's receipts. */
+  canExplosion: {
+    minInterval: 0.1,
+    layers: [
+      { wave: 'noise', filter: 'lowpass', freqFrom: 1100, freqTo: 250, duration: 0.18, gain: 0.18 },
+    ],
+  },
+  /** Electric broom discharge. */
+  chainZap: {
+    minInterval: 0.08,
+    layers: [
+      { wave: 'sawtooth', freqFrom: 1800, freqTo: 600, duration: 0.09, gain: 0.07 },
+      {
+        wave: 'noise',
+        filter: 'highpass',
+        freqFrom: 3000,
+        freqTo: 5000,
+        duration: 0.08,
+        gain: 0.06,
+      },
+    ],
+  },
   playerHurt: {
     minInterval: 0.15,
     layers: [

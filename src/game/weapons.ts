@@ -14,6 +14,7 @@ import {
   type WeaponId,
   type WeaponLevel,
 } from '../data/weapons';
+import { spawnArc } from './arcs';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
 import { emit } from './events';
 import { spawnProjectile } from './projectiles';
@@ -80,7 +81,10 @@ function facingAngle(world: World): number {
   return Math.atan2(world.player.facing.y, world.player.facing.x);
 }
 
-/** Damages (and optionally poisons) every living enemy inside the circular sector. */
+/**
+ * Damages (and optionally poisons) every living enemy inside the circular sector.
+ * Returns the first enemy hit (for the electric broom's discharge), if any.
+ */
 export function hitSector(
   world: World,
   x: number,
@@ -93,7 +97,8 @@ export function hitSector(
   source: number,
   poisonDps = 0,
   poisonTime = 0,
-): void {
+): Enemy | undefined {
+  let first: Enemy | undefined;
   const buf = world.queryBuf;
   const n = world.hash.query(x, y, range + MAX_ENEMY_RADIUS, buf);
   for (let k = 0; k < n; k++) {
@@ -111,11 +116,64 @@ export function hitSector(
     const nx = d > 1e-6 ? dx / d : Math.cos(angle);
     const ny = d > 1e-6 ? dy / d : Math.sin(angle);
     hitEnemy(world, e, damage, nx * knockback, ny * knockback, source);
+    first ??= e;
     if (poisonDps > 0) {
       e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, poisonDps);
       e.poisonTimer = Math.max(e.poisonTimer, poisonTime);
     }
   }
+  return first;
+}
+
+/** Zombies already struck by the current discharge (reused between calls). */
+const chained: Enemy[] = [];
+
+/** Nearest living zombie within `range` of `from` that this discharge hasn't struck. */
+function nextInChain(world: World, from: Readonly<Enemy>, range: number): Enemy | undefined {
+  const buf = world.queryBuf;
+  const n = world.hash.query(from.pos.x, from.pos.y, range + MAX_ENEMY_RADIUS, buf);
+  let best: Enemy | undefined;
+  let bestD2 = range * range;
+  for (let k = 0; k < n; k++) {
+    const e = world.enemies.items[buf[k] ?? 0] as Enemy;
+    if (e.hp <= 0 || chained.includes(e)) continue;
+    const d2 = (e.pos.x - from.pos.x) ** 2 + (e.pos.y - from.pos.y) ** 2;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = e;
+    }
+  }
+  return best;
+}
+
+/**
+ * Electric broom: a discharge from the player to `first` that jumps up to `jumps` times to the
+ * nearest zombie it hasn't struck, within `range` of the previous one. Returns the zombies struck
+ * after `first`.
+ */
+export function chainLightning(
+  world: World,
+  first: Enemy,
+  jumps: number,
+  range: number,
+  damage: number,
+  source: number,
+): number {
+  const p = world.player.pos;
+  spawnArc(world, p.x, p.y, first.pos.x, first.pos.y);
+  chained.length = 0;
+  chained.push(first);
+  let from = first;
+  for (let j = 0; j < jumps; j++) {
+    const next = nextInChain(world, from, range);
+    if (!next) break;
+    spawnArc(world, from.pos.x, from.pos.y, next.pos.x, next.pos.y);
+    hitEnemy(world, next, damage, 0, 0, source);
+    chained.push(next);
+    from = next;
+  }
+  emit(world.events, 'chainZap', first.pos.x, first.pos.y);
+  return chained.length - 1;
 }
 
 /** Melee swing toward `angle` (and behind, if the level says so). */
@@ -130,10 +188,25 @@ export function swingArc(
   w.fireAngle = angle;
   w.lastFireTime = world.time;
   const half = toRad(s.arcDegrees / 2);
-  hitSector(world, p.pos.x, p.pos.y, angle, half, s.range, damage, s.knockback, w.slot);
+  let first = hitSector(world, p.pos.x, p.pos.y, angle, half, s.range, damage, s.knockback, w.slot);
   if (s.bothSides) {
     const back = angle + Math.PI;
-    hitSector(world, p.pos.x, p.pos.y, back, half, s.range, damage, s.knockback, w.slot);
+    const behind = hitSector(
+      world,
+      p.pos.x,
+      p.pos.y,
+      back,
+      half,
+      s.range,
+      damage,
+      s.knockback,
+      w.slot,
+    );
+    first ??= behind;
+  }
+  if (first && s.chainJumps) {
+    const jumpDamage = damage * (s.chainDamageFraction ?? 0);
+    chainLightning(world, first, s.chainJumps, s.chainRange ?? 0, jumpDamage, w.slot);
   }
 }
 
@@ -174,7 +247,7 @@ export function fireVolley(
   const spread = toRad(s.spreadDegrees);
   for (let i = 0; i < s.count; i++) {
     const offset = (i - (s.count - 1) / 2) * spread;
-    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, look, w.slot);
+    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, s.look ?? look, w.slot);
   }
 }
 

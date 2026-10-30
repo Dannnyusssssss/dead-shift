@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PROGRESSION } from '../src/data/progression';
 import { FIXED_STEP } from '../src/core/loop';
 import { setVec } from '../src/core/math';
 import { WEAPON_IDS, type WeaponId } from '../src/data/weapons';
@@ -167,8 +168,9 @@ describe('modifiers', () => {
   });
 });
 
-it('every weapon id has a definition with 5 levels', () => {
-  for (const id of WEAPON_IDS) expect(createWeapon(id).def.levels).toHaveLength(5);
+it('every weapon id has a definition with its regular levels plus the evolution', () => {
+  for (const id of WEAPON_IDS)
+    expect(createWeapon(id).def.levels).toHaveLength(PROGRESSION.maxLevel + 1);
 });
 
 describe('kills by weapon', () => {

@@ -138,6 +138,7 @@ docs/DEBUG.md            # parámetros de URL y teclas de depuración (Hito 7)
 
 Los números definitivos viven en `src/data/weapons.ts` y las decisiones de diseño en `docs/DECISIONS.md`
 (Hitos 3 y 4.5). Si algo difiere de lo escrito aquí, mandan el código y `DECISIONS.md`.
+Desde el Hito 10 cada tabla de niveles tiene un 6.º elemento: la evolución (recetas en `src/data/evolutions.ts`).
 
 **Manuales** (se apuntan; viven en `player.manual`, fuera de los slots):
 
@@ -231,7 +232,7 @@ Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 8. Hitos (implementa UNO a la vez, en orden)
 
-**Estado actual:** Hitos 1 a 9 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 10.
+**Estado actual:** Hitos 1 a 9.5 (incluido el 4.5) completados; 1 a 6 publicados en GitHub Pages. Siguiente: Hito 10.
 Actualiza esta línea al cerrar cada hito.
 
 Al terminar cada hito: corre `npm run lint && npm run test && npm run build`, ejecuta el juego, verifica
