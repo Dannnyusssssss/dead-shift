@@ -39,10 +39,15 @@ export function separationSystem(world: World): void {
         continue;
       }
       const push = ((minDist - d) / d) * strength;
-      a.pos.x -= dx * push;
-      a.pos.y -= dy * push;
-      b.pos.x += dx * push;
-      b.pos.y += dy * push;
+      // A zombie that plows through the horde takes no push and gives both halves.
+      const aPlows = a.def.plowsThrough === true;
+      const bPlows = b.def.plowsThrough === true;
+      const pa = aPlows && !bPlows ? 0 : bPlows && !aPlows ? 2 : 1;
+      const pb = 2 - pa;
+      a.pos.x -= dx * push * pa;
+      a.pos.y -= dy * push * pa;
+      b.pos.x += dx * push * pb;
+      b.pos.y += dy * push * pb;
     }
   }
 }

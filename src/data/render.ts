@@ -58,6 +58,8 @@ export const ENEMY_SPRITE = {
   shadow: 'rgba(0, 0, 0, 0.22)',
   outline: '#1b1b1b',
   eyes: '#e8f0a0',
+  /** Eyes during the 5 AM frenzy. */
+  frenzyEyes: '#ff3b2f',
   flash: '#ffffff',
 } as const;
 
@@ -182,6 +184,9 @@ export const ACCESSORY_STYLE = {
   visor: '#1f6f45',
   tie: '#d63a3a',
   badge: '#f6c445',
+  helmet: '#1c2433',
+  helmetVisor: 'rgba(160, 200, 230, 0.55)',
+  vest: '#3c4b66',
 } as const;
 
 /** Dawn "fainting": enemies tip over, squash and fade. */
@@ -244,6 +249,8 @@ export const CLOCK_HUD = {
   y: 26,
   /** On narrow screens the clock goes top-right, below the pause button. */
   narrowY: 78,
+  /** Clock color during the 5 AM frenzy. */
+  frenzyColor: '#ff5a4a',
 } as const;
 
 export const BOSS_BAR = {
@@ -472,6 +479,8 @@ export const FLOATERS = {
   bigFont: '800 17px system-ui, sans-serif',
   color: '#ffffff',
   bigColor: '#ffd84a',
+  /** Hits reduced by armor (automatic weapons on the guard). */
+  armoredColor: '#8d96a3',
   outline: 'rgba(0, 0, 0, 0.85)',
   outlineWidth: 3,
 } as const;
@@ -486,6 +495,7 @@ export const SHAKE = {
   explosionRange: 260,
   explosion: 0.25,
   bossSpawn: 0.75,
+  frenzy: 0.5,
   shockwave: 0.6,
   bossDeath: 0.9,
 } as const;

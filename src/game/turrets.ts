@@ -6,8 +6,8 @@ import { pushOutOfShelves } from './shelves';
 import { hitEnemy } from './systems/damage';
 import type { World } from './world';
 
-/** Max rays any turret level fires (the industrial microwave: 5); sizes the beam buffers. */
-export const MAX_TURRET_RAYS = 5;
+/** Max rays any turret level fires (the industrial microwave: 4); sizes the beam buffers. */
+export const MAX_TURRET_RAYS = 4;
 
 export interface Turret {
   pos: Vec2;

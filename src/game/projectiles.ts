@@ -4,7 +4,7 @@ import type { ProjectileLevel, ProjectileLook } from '../data/weapons';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
 import { emit } from './events';
 import { circleHitsShelf } from './shelves';
-import { hitEnemy } from './systems/damage';
+import { damageTakenFrom, hitEnemy } from './systems/damage';
 import type { World } from './world';
 
 /** Extra flight time after a bounce, beyond reaching the new target, s. */
@@ -15,6 +15,10 @@ export interface Projectile {
   prevPos: Vec2;
   vel: Vec2;
   damage: number;
+  /** Multiplier on `damage` left after the enemies already pierced (pierceFalloff). */
+  damageScale: number;
+  /** Fraction of the damage lost per enemy hit. */
+  pierceFalloff: number;
   radius: number;
   /** Remaining extra enemies it may pass through; removed when it goes below 0. */
   pierce: number;
@@ -43,6 +47,8 @@ export function createProjectileObject(): Projectile {
     prevPos: vec2(),
     vel: vec2(),
     damage: 0,
+    damageScale: 1,
+    pierceFalloff: 0,
     radius: 0,
     pierce: 0,
     life: 0,
@@ -68,6 +74,8 @@ export function spawnProjectile(
   stats: Readonly<ProjectileLevel>,
   look: ProjectileLook,
   source: number,
+  /** Distance to the target, for lobbed shots (`detonateAtTarget`); Infinity = full flight. */
+  targetDistance = Infinity,
 ): Projectile | undefined {
   const p = world.projectiles.acquire();
   if (!p) return undefined;
@@ -75,9 +83,13 @@ export function spawnProjectile(
   setVec(p.prevPos, x, y);
   setVec(p.vel, Math.cos(angle) * stats.speed, Math.sin(angle) * stats.speed);
   p.damage = stats.damage * world.player.mods.damage;
+  p.damageScale = 1;
+  p.pierceFalloff = stats.pierceFalloff ?? 0;
   p.radius = stats.radius;
   p.pierce = Math.min(stats.pierce, COMBAT.maxProjectileHits - 1);
-  p.life = stats.lifetime;
+  p.life = stats.detonateAtTarget
+    ? Math.min(stats.lifetime, targetDistance / stats.speed)
+    : stats.lifetime;
   p.knockback = stats.knockback;
   p.look = look;
   p.source = source;
@@ -100,7 +112,8 @@ function alreadyHit(p: Projectile, e: Enemy): boolean {
 /** Burn reuses the aerosol's poison: the stronger dps and the longer timer win. */
 function applyBurn(e: Enemy, p: Projectile): void {
   if (p.burnDps <= 0) return;
-  e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, p.burnDps);
+  const dps = p.burnDps * damageTakenFrom(e, p.source);
+  e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, dps);
   e.poisonTimer = Math.max(e.poisonTimer, p.burnTime);
 }
 
@@ -132,24 +145,43 @@ function bounce(world: World, p: Projectile): boolean {
   return true;
 }
 
-/** Grenade cans: damages and pushes every living zombie within the blast radius. */
-function explode(world: World, p: Projectile): void {
-  if (p.explosionRadius <= 0) return;
-  const { x, y } = p.pos;
+/**
+ * Damages and pushes outward every living zombie whose body reaches into the circle.
+ * Returns how many were hit. The query margin covers the biggest enemy and the few px
+ * zombies move between the spatial index and this call (separation, shelves).
+ */
+export function blast(
+  world: World,
+  x: number,
+  y: number,
+  radius: number,
+  damage: number,
+  knockback: number,
+  source: number,
+): number {
   const buf = world.queryBuf;
-  const n = world.hash.query(x, y, p.explosionRadius + MAX_ENEMY_RADIUS, buf);
+  const n = world.hash.query(x, y, radius + MAX_ENEMY_RADIUS, buf);
+  let hit = 0;
   for (let k = 0; k < n; k++) {
     const e = world.enemies.items[buf[k] ?? 0] as Enemy;
     if (e.hp <= 0) continue;
     const dx = e.pos.x - x;
     const dy = e.pos.y - y;
     const d = Math.hypot(dx, dy);
-    if (d > p.explosionRadius + e.radius) continue;
-    const kx = d > 1e-6 ? (dx / d) * p.knockback : 0;
-    const ky = d > 1e-6 ? (dy / d) * p.knockback : 0;
-    hitEnemy(world, e, p.explosionDamage, kx, ky, p.source);
+    if (d > radius + e.radius) continue;
+    const kx = d > 1e-6 ? (dx / d) * knockback : 0;
+    const ky = d > 1e-6 ? (dy / d) * knockback : 0;
+    hitEnemy(world, e, damage, kx, ky, source);
+    hit++;
   }
-  emit(world.events, 'canExplosion', x, y);
+  return hit;
+}
+
+/** Grenade cans: blast where the can is. Called before the projectile is released. */
+function explode(world: World, p: Projectile): void {
+  if (p.explosionRadius <= 0) return;
+  blast(world, p.pos.x, p.pos.y, p.explosionRadius, p.explosionDamage, p.knockback, p.source);
+  emit(world.events, 'canExplosion', p.pos.x, p.pos.y);
 }
 
 /** Returns true if the projectile is used up. */
@@ -165,7 +197,8 @@ function collide(world: World, p: Projectile): boolean {
     const r = e.radius + p.radius;
     if (dx * dx + dy * dy > r * r) continue;
     const kx = (p.vel.x / speed) * p.knockback;
-    hitEnemy(world, e, p.damage, kx, (p.vel.y / speed) * p.knockback, p.source);
+    hitEnemy(world, e, p.damage * p.damageScale, kx, (p.vel.y / speed) * p.knockback, p.source);
+    p.damageScale *= 1 - p.pierceFalloff;
     applyBurn(e, p);
     p.hits[p.hitCount++] = e;
     p.pierce--;
@@ -189,9 +222,10 @@ export function projectileSystem(world: World, dt: number): void {
       pool.releaseAt(i);
       continue;
     }
-    if (collide(world, p)) {
+    // A grenade never vanishes silently: it goes off on a zombie, a shelf or at the end of its flight.
+    if (collide(world, p) || p.life <= 0) {
       explode(world, p);
       pool.releaseAt(i);
-    } else if (p.life <= 0) pool.releaseAt(i);
+    }
   }
 }

@@ -1,6 +1,6 @@
-export type EnemyId = 'client' | 'delivery' | 'frozen' | 'cart' | 'cashier' | 'manager';
+export type EnemyId = 'client' | 'delivery' | 'frozen' | 'cart' | 'cashier' | 'manager' | 'guard';
 
-export type EnemyAccessory = 'none' | 'cap' | 'frost' | 'cart' | 'apron' | 'tie';
+export type EnemyAccessory = 'none' | 'cap' | 'frost' | 'cart' | 'apron' | 'tie' | 'helmet';
 
 export interface EnemyLook {
   shirt: string;
@@ -94,6 +94,10 @@ export interface EnemyDef {
   xp: number;
   /** 0 = full knockback, 1 = immune. */
   knockbackResist: number;
+  /** Armor: multiplier on damage (hits, poison, burn) from automatic weapons. Default 1. */
+  autoDamageTaken?: number;
+  /** Plows through the horde: other zombies never push it, it pushes them. */
+  plowsThrough?: boolean;
   behavior: EnemyBehavior;
   trail?: TrailSpec;
   /** Drops the boss chest on death. */
@@ -195,5 +199,18 @@ export const ENEMIES: Readonly<Record<EnemyId, Readonly<EnemyDef>>> = {
       shockwaveDamage: 15,
     },
     look: { shirt: '#2b2f3a', skin: '#7fae5c', blood: '#3f8a24', accessory: 'tie' },
+  },
+  guard: {
+    id: 'guard',
+    hp: 140,
+    speed: 50,
+    damage: 14,
+    radius: 17,
+    xp: 5,
+    knockbackResist: 1,
+    autoDamageTaken: 0.3,
+    plowsThrough: true,
+    behavior: { kind: 'chase' },
+    look: { shirt: '#2b3a55', skin: '#86b062', blood: '#4f9a2f', accessory: 'helmet' },
   },
 };

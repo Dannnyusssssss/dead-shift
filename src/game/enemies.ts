@@ -11,6 +11,7 @@ import {
 import { SHELF_COLLISION } from '../data/map';
 import { WEAPON_IDS } from '../data/weapons';
 import { spawnPuddle, spawnShockwave, throwReceipt } from './hazards';
+import { enemySpeedScale } from './shift';
 import { createRect, pushOutOfShelves, type Rect } from './shelves';
 import type { World } from './world';
 
@@ -419,7 +420,7 @@ export function enemyMovementSystem(world: World, dt: number): void {
   for (let i = 0; i < count; i++) {
     const e = items[i] as Enemy;
     slideAlongShelf(e, world);
-    const speedScale = e.slowTimer > 0 ? 1 - e.slowFactor : 1;
+    const speedScale = enemySpeedScale(e.slowTimer > 0 ? e.slowFactor : 0, world.frenzy);
     e.prevPos.x = e.pos.x;
     e.prevPos.y = e.pos.y;
     e.pos.x += (e.vel.x * speedScale + e.knockback.x) * dt;

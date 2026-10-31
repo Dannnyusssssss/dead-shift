@@ -6,10 +6,12 @@ import { createWorld, updateWorld, type World } from '../src/game/world';
 import { botPickOffer, botWantsReroll, playerBot } from './helpers';
 
 /**
- * Regression guard (Hito 11): the easy difficulty must play exactly like the game before
- * difficulties existed. The golden values below were captured with the code of Hito 10, before
- * any difficulty code was written. Floats are compared exactly, and `nextRandom` proves the
- * seeded RNG consumed the very same sequence.
+ * Regression guard (Hito 11): the easy difficulty must play exactly like the game without
+ * difficulties. The golden values were captured with the code of Hito 10, before any difficulty
+ * code was written. Hito 12 changed the game on purpose (guards from 7:00, the 5 AM frenzy,
+ * grenade cans that now explode): the seed 1 run was captured again with that code; the seed 2
+ * run dies at 376 s, before any of it, and kept its Hito 10 values. Floats are compared exactly,
+ * and `nextRandom` proves the seeded RNG consumed the very same sequence.
  * To print a new fingerprint: `REGEN=1 npx vitest run tests/regression.test.ts`.
  */
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
@@ -80,18 +82,18 @@ const GOLDEN: Record<string, Fingerprint> = {
     status: 'won',
     tick: 36000,
     time: 600,
-    kills: 2105,
-    level: 54,
-    xp: 26,
+    kills: 1799,
+    level: 43,
+    xp: 89,
     hp: 100,
-    x: 1311.2546384600755,
-    y: 1096.0318865263123,
-    enemies: 92,
-    killsByWeapon: [23, 468, 316, 35, 338, 813, 112],
+    x: -179.79584479928266,
+    y: -1191.3276679962776,
+    enemies: 395,
+    killsByWeapon: [13, 390, 273, 67, 296, 605, 155],
     loadout:
-      'ice:5,cans:6,microwave:5,aerosol:5,magnet:5,coffee:4,soup:2,calculator:4,labelGun:6,shotgun:5,broom:6',
-    ammo: 'labelGun:34/41,shotgun:0/0,broom:0/0',
-    nextRandom: 0.8393627712503076,
+      'ice:5,cans:5,microwave:5,aerosol:6,soup:4,vest:1,coffee:1,shoes:1,labelGun:5,shotgun:5,broom:5',
+    ammo: 'labelGun:17/62,shotgun:0/0,broom:0/0',
+    nextRandom: 0.27863926254212856,
   },
   'seed 2, mortal': {
     status: 'dead',

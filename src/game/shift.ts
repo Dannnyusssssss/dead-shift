@@ -1,4 +1,5 @@
-import { SHIFT } from '../data/shift';
+import { FRENZY, SHIFT } from '../data/shift';
+import { emit } from './events';
 import type { World } from './world';
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -16,6 +17,32 @@ export function shiftClock(time: number): string {
 /** 0 at 10 PM, 1 at 6 AM. */
 export function shiftProgress(time: number): number {
   return Math.min(1, Math.max(0, time / SHIFT.durationSeconds));
+}
+
+/** Game time at which the shift clock shows `hour` (0-23) o'clock, s. */
+export function timeAtHour(hour: number): number {
+  const hoursIn = (hour - SHIFT.startHour + 24) % 24;
+  return (hoursIn / SHIFT.hours) * SHIFT.durationSeconds;
+}
+
+/** Game time when the 5 AM frenzy starts, s. */
+export const FRENZY_START = timeAtHour(FRENZY.startHour);
+
+export function isFrenzy(time: number): boolean {
+  return time >= FRENZY_START;
+}
+
+/** Enemy speed multiplier given its slow (fraction removed, 0 = none) and the frenzy. */
+export function enemySpeedScale(slow: number, frenzy: boolean): number {
+  if (!frenzy) return 1 - slow;
+  return (1 - slow * (1 - FRENZY.slowResist)) * FRENZY.speedMultiplier;
+}
+
+/** Turns the frenzy on once (and tells the presentation layer). */
+export function frenzySystem(world: World): void {
+  if (world.frenzy || !isFrenzy(world.time)) return;
+  world.frenzy = true;
+  emit(world.events, 'frenzyStart', world.player.pos.x, world.player.pos.y);
 }
 
 /** Steps of 1/60 s don't add up to exactly 600; anything this close counts as dawn. */

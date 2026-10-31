@@ -717,19 +717,19 @@ llega a las 6 AM. La palanca 3 (pasivos con nivel máximo 3) no hizo falta.
 
 ### Las 7 evoluciones (nivel 6 en `data/weapons.ts`)
 
-| Evolución                  | Receta                | Cambios                                                 | Mecánica                                                                                |
-| -------------------------- | --------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| Escoba eléctrica ⚡        | Escoba + Imán         | 22 daño, cd 0.55 s, ambos lados                         | Descarga desde el primer zombi golpeado: salta a 4 más a ≤ 120 px, con el 60 % del daño |
-| Pistola láser 🔴           | Pistola + Calculadora | 16 daño, cd 0.09 s, 1100 px/s, cargador 30, recarga 1 s | Perfora 11 (todo lo que una bala puede recordar)                                        |
-| Escopeta antidisturbios 🛡️ | Escopeta + Chaleco    | 9 perdigones de 9 daño                                  | Perfora 3, empuje 650                                                                   |
-| Latas granada 💣           | Latas + Café          | 4 latas de 18 daño, cd 0.8 s                            | Explotan al tocar un zombi o una góndola: radio 60, 12 de daño                          |
-| Lanzallamas casero 🔥      | Aerosol + Termo       | 7 daño cada 0.2 s, 3 s activo, cd 1.5 s, 170 px, 70°    | Quemadura 8/s × 3 s (el veneno de siempre), cono naranja                                |
-| Ventisca 🌨️                | Hielo + Zapatillas    | 6 bolsas, radio 130, 12 daño, 4.5 rad/s                 | `slowFactor 1` = congela 1.2 s (también al jefe)                                        |
-| Microondas industrial 🏭   | Microondas + Chaleco  | 3 unidades, 5 rayos de 14 daño, cd 0.5 s, 280 px, 12 s  | —                                                                                       |
+| Evolución                  | Receta                | Cambios                                                                                     | Mecánica                                                                                                                                         |
+| -------------------------- | --------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Escoba eléctrica ⚡        | Escoba + Imán         | 22 daño, cd 0.55 s, ambos lados                                                             | Descarga desde el primer zombi golpeado: salta a 4 más a ≤ 120 px, con el 60 % del daño                                                          |
+| Pistola láser 🔴           | Pistola + Calculadora | 16 daño, cd 0.09 s, 1100 px/s, cargador 30, recarga 1 s                                     | Perfora 11 (todo lo que una bala puede recordar). **Hito 12:** −12 % de daño por perforado                                                       |
+| Escopeta antidisturbios 🛡️ | Escopeta + Chaleco    | 9 perdigones de 9 daño                                                                      | Perfora 3, empuje 650                                                                                                                            |
+| Latas granada 💣           | Latas + Café          | 4 latas de 18 daño, cd 0.8 s                                                                | ~~Explotan al tocar un zombi o una góndola~~ **Hito 12:** también al final del vuelo, que termina donde estaba el objetivo. Radio 60, 12 de daño |
+| Lanzallamas casero 🔥      | Aerosol + Termo       | 7 daño cada 0.2 s, 3 s activo, cd 1.5 s, 170 px, 70°                                        | Quemadura 8/s × 3 s (el veneno de siempre), cono naranja                                                                                         |
+| Ventisca 🌨️                | Hielo + Zapatillas    | 6 bolsas, radio 130, 12 daño, 4.5 rad/s                                                     | `slowFactor 1` = congela 1.2 s (también al jefe)                                                                                                 |
+| Microondas industrial 🏭   | Microondas + Chaleco  | ~~3 unidades, 5 rayos~~ **Hito 12:** 2 unidades, 4 rayos de 14 daño, cd 0.5 s, 280 px, 12 s | —                                                                                                                                                |
 
 - **Cambios de soporte:**
   - `COMBAT.maxProjectileHits` pasa de 4 a 12, para que el láser "perfore todo".
-  - `MAX_TURRET_RAYS` pasa de 4 a 5.
+  - ~~`MAX_TURRET_RAYS` pasa de 4 a 5.~~ **Reemplazada en Hito 12:** vuelve a 4 (el Microondas industrial dispara 4).
   - Los niveles de proyectil admiten `look`, que pisa el aspecto del arma (el láser).
 - **Descarga eléctrica:** un pool nuevo `world.arcs` (64 segmentos, 0.15 s) solo para el render, que avejenta
   `arcSystem`. El render dibuja zigzags con un hash (sin `Math.random` ni objetos nuevos).
@@ -862,3 +862,146 @@ Chrome headless sobre `dist/` (tope de ~57 FPS por el vsync headless):
 - `?difficulty=hard&spawn=300&god&t=540`: 56-57 FPS, ~1.0-1.2 ms de CPU por frame con 330-393 zombis.
 - `?difficulty=hard&weapons=evolved&spawn=300&god`: 56-57 FPS, ~1.0-1.1 ms.
 - Sin errores en consola en ninguna de las tres dificultades.
+
+## Hito 12
+
+### Latas granada: diagnóstico
+
+Antes de tocar el código se escribieron los tests de `tests/grenade.test.ts` contra el código del Hito 11. Resultado:
+
+| Hipótesis                                                                           | Test                                    | Hito 11    |
+| ----------------------------------------------------------------------------------- | --------------------------------------- | ---------- |
+| **A.** Una lata que no toca nada se libera al acabarse su vida **sin explotar**     | Lata al vacío                           | **0 de 1** |
+| **B.** Ráfaga de 4 latas con 10° entre sí: con un número par ninguna va recta       | Ráfaga contra un zombi a 250 px         | **1 de 4** |
+| **B.** (a 300 px, ±5° ya son 26 px de desvío contra 19 px de radios sumados)        | Ráfaga contra un zombi a 300 px         | **0 de 4** |
+| **C.** Apuntan a zombis de hasta 600 px pero vuelan 360 × 1.6 = 576 px              | (cubierto por A)                        | —          |
+| D. La rejilla se arma antes de que la separación y las góndolas muevan a los zombis | Zombi movido 20 px tras indexar         | Bien       |
+| E. El búfer de consulta (512) se llena                                              | 400 zombis apilados vs. fuerza bruta    | Bien       |
+| Orden: la explosión se aplica antes de liberar el proyectil                         | Daño en borde, góndola, baja acreditada | Bien       |
+
+`explode` en sí era correcta (consulta la rejilla y daña antes de `releaseAt`). El problema era **cuándo** se llamaba:
+solo al tocar un zombi o una góndola, y casi ninguna lata tocaba nada.
+
+### Latas granada: corrección
+
+- **Una granada nunca desaparece sin explotar:** al tocar un zombi, al tocar una góndola o al acabarse su vuelo.
+  Un proyectil sin `explosionRadius` sigue igual que antes.
+- **Lanzamiento en parábola** (`detonateAtTarget: true` en el nivel 6 de `data/weapons.ts`): el vuelo de cada lata dura
+  `min(lifetime, distancia al objetivo / velocidad)`, como los recibos del Cajero. Las 4 latas caen en abanico alrededor
+  del zombi apuntado (a 300 px, a ≤ 78 px de él) en lugar de pasar de largo.
+- **`blast()` exportada** en `game/projectiles.ts`: la consulta a la rejilla más el filtro por distancia, con tests
+  propios. La explosión daña también al zombi impactado (18 + 12), como antes.
+- Valores sin cambios: radio 60, 12 de daño (× Calculadora). La armadura del Guardia se aplica también a la explosión.
+
+### Zombi Guardia
+
+Decisiones del usuario: "rompe-muros" = rompe el muro de la horda y de balas (no atraviesa góndolas), y aparece en
+todas las dificultades.
+
+- **Datos** (`data/enemies.ts`): 140 de vida, 50 px/s, 14 de daño, radio 17, xp 5 (élite: caja de munición al 50 %,
+  botiquín al 4 %), `knockbackResist: 1`, comportamiento `chase` (no hizo falta uno nuevo). Dos campos opcionales nuevos,
+  reutilizables por cualquier enemigo:
+  - `autoDamageTaken: 0.3`: armadura. Las armas automáticas le hacen el 30 %.
+  - `plowsThrough: true`: en la separación no lo empujan; él empuja (se lleva la otra mitad del empuje). Dos Guardias
+    entre sí se reparten el empuje como cualquier par.
+- **Manual o automática:** tabla `MANUAL_SOURCE` precalculada desde `WEAPON_IDS` con `isManual` (`gun`/`melee`).
+  `damageTakenFrom(enemy, source)` se aplica en `hitEnemy` (golpes, explosión de las latas, rayos del microondas, bolsas)
+  y al aplicar el veneno del aerosol / lanzallamas y la quemadura de la incendiaria. La descarga de la Escoba eléctrica
+  viene de la Escoba (manual): daño completo. Una fuente desconocida (`-1`) hace daño completo.
+- **Números grises:** los golpes reducidos por armadura salen en gris (`FLOATERS.armoredColor`), para que se entienda
+  que hay que cambiar de arma. `HitEvent` suma `armored`.
+- **Oleadas:** 0.15/s desde las 7:00 (3:36 AM), 0.25/s en el minuto 8 y 0.3/s en el 9, de a uno. En Difícil el
+  adelanto del 20 % lo trae a las 5:36 (2:29 AM) sin código nuevo.
+- **Góndolas:** usa el deslizamiento y la reubicación del Hito 8 sin cambios. La inmunidad al empuje no afecta a la
+  expulsión de los estantes, que es por posición. Tests: Mati detrás de una góndola larga en 5 semillas (la rodea y lo
+  alcanza sin reubicarse), una fila de Clientes entre el Guardia y la góndola, y un turno completo sin Guardias atascados.
+- **Aspecto:** casco oscuro con visera clara y chaleco azul (`accessory: 'helmet'`).
+
+### Frenesí de las 5 AM
+
+- **Empieza a las 5:00 AM del reloj** (segundo 525, minuto 8:45), no en el minuto 8. El hito decía "minuto 8 de partida
+  (5:00 AM)", pero con 10 minutos para 8 horas el minuto 8 son las 4:24 AM. Se eligió la hora del reloj porque es lo que
+  ve el jugador y da nombre a la mecánica. Se guarda como hora (`FRENZY.startHour: 5` en `data/shift.ts`) y el segundo se
+  deriva con `timeAtHour`. Cae 15 s antes del segundo jefe (5:12 AM).
+- **Efecto** (`enemySpeedScale`): velocidad ×1.2 y resistencia a las ralentizaciones del 50 % (una ralentización de 40 %
+  queda en 20 %; la congelación de la Ventisca, en 50 %). Afecta a todos los zombis vivos y al jefe. Una comparación por
+  paso, sin estado por zombi.
+- `world.frenzy` lo enciende `frenzySystem` (primer sistema del orden), que emite `frenzyStart` una sola vez:
+  rugido sintetizado, sacudida 0.5, reloj en rojo con "· ¡FRENESÍ!" y ojos rojos en los zombis. El dataset suma `frenzy`.
+
+### Huella de regresión
+
+La huella de `tests/regression.test.ts` se capturó con el Hito 10 para probar que Fácil = juego anterior. Este hito
+cambia Fácil a propósito (Guardias, Frenesí, latas que ahora explotan), así que se **recapturó con el código del
+Hito 12**. La semilla 2 mortal (muere a los 376 s) no cambió: confirma que antes de las 7:00 lo único distinto son las
+latas granada, que esa partida no llega a evolucionar.
+
+### Balance de evoluciones
+
+**Medir primero.** `BALANCE=evolved` (nuevo en el bot): todas las armas evolucionadas desde el inicio, 12 semillas por
+dificultad. En la base (código del Hito 11, con el bot nuevo) la evolución dominante **no era la Pistola láser sino el
+Microondas industrial**:
+
+| Dificultad | Microondas | Latas | Láser | Resto |
+| ---------- | ---------- | ----- | ----- | ----- |
+| Fácil      | 74 %       | 13 %  | 6 %   | 7 %   |
+| Medio      | 77 %       | 10 %  | 4 %   | 9 %   |
+| Difícil    | 73 %       | 11 %  | 3 %   | 13 %  |
+
+Al evolucionar, el Microondas pasaba de ~77 a ~420 de DPS (2 → 3 unidades, 3 → 5 rayos, 9 → 14 de daño, cd 0.7 → 0.5):
+×5.4, contra ×1.5-2 del resto de las evoluciones.
+
+- **Pistola láser:** se aplicó lo que pide el hito, con un campo genérico `pierceFalloff` en `ProjectileLevel`: cada zombi
+  perforado multiplica el daño restante por 0.88 (el 11.º perforado recibe el 25 %). Es un factor que se acumula en el
+  proyectil, sin `pow` por impacto. En el bot no es dominante (2-7 % de las bajas), pero el bot apunta al zombi más
+  cercano y no busca filas para perforar, así que subestima al láser. Queda por confirmar jugando si 0.12 alcanza.
+- **Microondas industrial:** barrido en Difícil, modo dios, 8 semillas, build evolucionada completa:
+
+| Variante                       | Zombis en pantalla desde las 7:00 | En el Frenesí | Microondas |
+| ------------------------------ | --------------------------------- | ------------- | ---------- |
+| Base: 3 u, 5 rayos, 14, cd 0.5 | 107                               | 131           | 65 %       |
+| 2 unidades                     | 129                               | 155           | 57 %       |
+| **2 u, 4 rayos (elegida)**     | **147**                           | **174**       | **48 %**   |
+| 3 u, 4 rayos, 11 daño, cd 0.6  | 135                               | 160           | 52 %       |
+| 2 u, 4 rayos, 12 daño, cd 0.6  | 138                               | 165           | 46 %       |
+
+Las bajas totales casi no cambian (~3000 en todas): la build sigue matando todo lo que aparece, pero ya no vacía la pantalla
+sola. **Elegido:** 2 unidades y 4 rayos, con el mismo daño y cadencia (~224 de DPS, ×2.9 sobre el nivel 5: sigue siendo la
+evolución más fuerte). `MAX_TURRET_RAYS` vuelve a 4.
+
+**Antes / después** (`BALANCE=evolved`, 12 semillas, modo dios; el "después" incluye Guardias, Frenesí y latas arregladas):
+
+| Dificultad | Microondas antes → después | Zombis en el Frenesí | Zombis al min 10 antes → después | Ventisca después |
+| ---------- | -------------------------- | -------------------- | -------------------------------- | ---------------- |
+| Fácil      | 74 % → 65 %                | 79                   | 55 → 73                          | 10 %             |
+| Medio      | 77 % → 61 %                | 117                  | 79 → 108                         | 12 %             |
+| Difícil    | 73 % → 50 %                | 170                  | 99 → 159                         | 21 %             |
+
+- Las latas granada, ya arregladas, rondan el 9-10 % de las bajas con la build completa (antes 10-13 %, casi todo de
+  impactos directos); con el microondas más débil, las bajas se reparten entre Ventisca, aerosol y latas.
+- **Las partidas mortales del bot no sirven para juzgar la build evolucionada:** con todo evolucionado el bot muere igual
+  (0/12 en Difícil, 304-324 s) y el 80-98 % del daño es `ranged` (recibos y onda del jefe) que el bot no esquiva. Es la
+  misma limitación de antes (Hito 11: 0/12, 312-322 s).
+- **Juego normal (`BALANCE=difficulty`):** las partidas mortales dan exactamente lo mismo que en el Hito 11 (316 / 277 /
+  170 s), porque el bot muere antes de las 7:00. En modo dios sube más (Fácil: nivel 30.3 → 35.9 al minuto 10; evoluciona
+  en 6 de 12 partidas, antes 3): el Guardia da 5 de XP y el Frenesí trae a la horda más rápido.
+- Falta validarlo jugando: que el final se sienta como un pico y no como un muro, y que el Guardia se lea como "cambia a
+  la pistola".
+
+### Rendimiento
+
+Chrome headless sobre `dist/`, comparado A/B con el build del Hito 11 en la misma máquina:
+
+| Escena                                                   | Hito 11            | Hito 12            |
+| -------------------------------------------------------- | ------------------ | ------------------ |
+| `?difficulty=hard&weapons=evolved&spawn=400&god&t=515`   | 55.7 FPS, ≤ 2.2 ms | 55.7 FPS, ≤ 2.2 ms |
+| `?difficulty=hard&spawn=400&god&t=528&ammo=0` (tope 400) | 42.3 FPS, ≤ 2.7 ms | 42.3 FPS, ≤ 2.5 ms |
+
+- La lógica del Frenesí con 400 zombis cuesta lo mismo que antes (~2.5 ms por frame). Las bajadas de FPS con 400 zombis
+  apilados sobre Mati vienen de dibujarlos con el render por software del headless (la CPU queda en 2.5 ms), y son
+  idénticas en el Hito 11. Un navegador con GPU no tiene ese límite; queda por confirmar en un laptop real.
+- Un perfil de CPU del momento más cargado (latas explotando sobre 400 zombis) da 85 % de tiempo ocioso: la explosión
+  y el Guardia no aparecen entre las funciones caras.
+- Una primera medición dio 13-22 FPS y resultó ser carga de la máquina: seguía en 19 FPS con el juego en pausa en la
+  pantalla de mejora. Repetida, coincide con el Hito 11.
+- Sin errores en consola.

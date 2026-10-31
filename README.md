@@ -35,6 +35,11 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
   - Pasivos: zapatillas, café, imán, chaleco, termo con sopa y calculadora.
 - **El Gerente Zombi** (jefe) llega a las 2:00 AM y vuelve, más fuerte, a las 5:12 AM. Al vencerlo suelta un cofre
   con una mejora de arma gratis.
+- **El Zombi Guardia** aparece desde las 3:36 AM: lleva casco y chaleco, no retrocede con los golpes y aparta a la
+  horda a su paso. Las armas automáticas apenas le hacen daño (números grises): hay que apuntarle con la pistola, la
+  escopeta o la escoba.
+- **Frenesí de las 5 AM:** desde las 5:00 AM la horda corre más rápido y el hielo la frena la mitad. El reloj se
+  pone rojo y los zombis tienen los ojos rojos.
 - **Las góndolas son sólidas:** frenan a Mati, a los zombis y a las balas (la escoba barre por encima). Úsalas para
   cortar el paso a la horda.
 - **Ganas** si llegas a las 6:00 AM con vida: amanece y los zombis se desmayan. Tu mejor hora y tus bajas totales

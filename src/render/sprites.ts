@@ -269,6 +269,17 @@ function drawAccessory(ctx: CanvasRenderingContext2D, r: number, look: Readonly<
       ctx.fillStyle = a.badge;
       ctx.fillRect(-r * 0.2, -r * 0.62, r * 0.22, r * 0.16);
       break;
+    case 'helmet':
+      // Dark vest across the shoulders, riot helmet with a pale visor towards facing.
+      ctx.fillStyle = a.vest;
+      ctx.fillRect(-r * 0.45, -r * 0.85, r * 0.6, r * 1.7);
+      ctx.fillStyle = a.helmet;
+      ctx.beginPath();
+      ctx.arc(r * 0.1, 0, r * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = a.helmetVisor;
+      ctx.fillRect(r * 0.38, -r * 0.4, r * 0.24, r * 0.8);
+      break;
     case 'none':
       break;
   }
@@ -287,6 +298,7 @@ export function drawEnemy(
   look: Readonly<EnemyLook>,
   flash: boolean,
   faint = 0,
+  frenzy = false,
 ): void {
   const skin = flash ? ENEMY_SPRITE.flash : look.skin;
   const shirt = flash ? ENEMY_SPRITE.flash : look.shirt;
@@ -327,7 +339,7 @@ export function drawEnemy(
 
   if (!flash) {
     drawAccessory(ctx, radius, look);
-    ctx.fillStyle = ENEMY_SPRITE.eyes;
+    ctx.fillStyle = frenzy ? ENEMY_SPRITE.frenzyEyes : ENEMY_SPRITE.eyes;
     ctx.fillRect(radius * 0.4, -radius * 0.25, radius * 0.16, radius * 0.16);
     ctx.fillRect(radius * 0.4, radius * 0.09, radius * 0.16, radius * 0.16);
   }

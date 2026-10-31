@@ -91,7 +91,16 @@ export function drawHud(
   ctx.font = CLOCK_HUD.font;
   ctx.textAlign = wide ? 'center' : 'right';
   const clockY = wide ? CLOCK_HUD.y : CLOCK_HUD.narrowY;
-  drawText(ctx, shiftClock(world.time), wide ? viewW / 2 : viewW - m, clockY);
+  const clock = shiftClock(world.time);
+  if (world.frenzy) {
+    drawText(
+      ctx,
+      `${clock} · ${t('frenzy')}`,
+      wide ? viewW / 2 : viewW - m,
+      clockY,
+      CLOCK_HUD.frenzyColor,
+    );
+  } else drawText(ctx, clock, wide ? viewW / 2 : viewW - m, clockY);
 
   drawBossBar(ctx, viewW, world, wide);
   drawManualPanel(ctx, viewH, world, options.touch);

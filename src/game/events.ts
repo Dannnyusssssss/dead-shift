@@ -22,7 +22,8 @@ export type GameEventType =
   | 'shockwave'
   | 'shelfHit'
   | 'chainZap'
-  | 'canExplosion';
+  | 'canExplosion'
+  | 'frenzyStart';
 
 /** Something the presentation layer may want to react to (particles, sounds, shake). */
 export interface GameEvent {
@@ -60,18 +61,27 @@ export interface HitEvent {
   x: number;
   y: number;
   amount: number;
+  /** Reduced by armor (shown differently, so the player knows to switch weapons). */
+  armored: boolean;
 }
 
 export type HitQueue = Pool<HitEvent>;
 
 export function createHitQueue(capacity: number): HitQueue {
-  return createPool<HitEvent>(capacity, () => ({ x: 0, y: 0, amount: 0 }));
+  return createPool<HitEvent>(capacity, () => ({ x: 0, y: 0, amount: 0, armored: false }));
 }
 
-export function emitHit(queue: HitQueue, x: number, y: number, amount: number): void {
+export function emitHit(
+  queue: HitQueue,
+  x: number,
+  y: number,
+  amount: number,
+  armored = false,
+): void {
   const h = queue.acquire();
   if (!h) return;
   h.x = x;
   h.y = y;
   h.amount = amount;
+  h.armored = armored;
 }

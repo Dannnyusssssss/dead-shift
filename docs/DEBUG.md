@@ -46,6 +46,9 @@ Ejemplos útiles:
 - `?t=590`: amanecer y pantalla de victoria en 10 s.
 - `?ammo=0&god`: jugar solo con la Escoba.
 - `?difficulty=hard&spawn=300&god&t=540`: rendimiento en Difícil con la arena llena.
+- `?t=420&god`: llegan los primeros Zombis Guardia (Hito 12).
+- `?t=520&god`: el Frenesí de las 5 AM empieza a los 5 s (segundo 525).
+- `?difficulty=hard&weapons=evolved&spawn=400&god&t=530`: Frenesí, Guardias, latas granada y el tope de 400 zombis.
 
 ## Teclas
 
@@ -78,6 +81,7 @@ headless (`document.body.dataset.fps`, etc.):
 | `trauma`                                      | Pico de screen shake desde la publicación anterior                                                                    |
 | `stuck`, `stuckRelocations`                   | Zombis contando tiempo de atasco contra una góndola y reubicados en la partida                                        |
 | `difficulty`                                  | Dificultad de la partida (`easy`, `normal` o `hard`)                                                                  |
+| `frenzy`                                      | `true` desde el Frenesí de las 5 AM (Hito 12)                                                                         |
 | `muted`, `showDebug`                          | Ajustes guardados                                                                                                     |
 
 ## Reporte de balance
@@ -102,3 +106,8 @@ Al final agrega una sección por dificultad (Hito 11): `mixed` mortal (tiempo me
 `curve` en modo dios (nivel por minuto) en Fácil, Medio y Difícil. Para correr solo esa parte:
 `BALANCE=difficulty npx vitest run tests/balance.test.ts --silent=false` (`--silent=false` porque Vitest oculta la
 consola de los tests que pasan).
+
+`BALANCE=evolved npx vitest run tests/balance.test.ts --silent=false` (Hito 12): todas las armas evolucionadas desde el
+inicio (`?weapons=evolved`) en cada dificultad. En modo dios reporta el reparto de bajas por arma (qué evolución domina),
+los zombis en pantalla durante el Frenesí y la tabla por minuto; en partidas mortales, el tiempo medio, las victorias
+y de dónde viene el daño recibido.

@@ -59,9 +59,13 @@ export interface ProjectileLevel {
   bounceRange?: number;
   /** Overrides the weapon's look (the laser pistol evolution). */
   look?: ProjectileLook;
-  /** Grenade cans: blast radius on impact (zombie or shelf), px. */
+  /** Grenade cans: blast radius on impact (zombie or shelf) or at the end of the flight, px. */
   explosionRadius?: number;
   explosionDamage?: number;
+  /** Each enemy pierced multiplies the damage left by (1 - this). 0 = no falloff. */
+  pierceFalloff?: number;
+  /** Lobbed: the flight ends where the target was when thrown (thrown weapons only). */
+  detonateAtTarget?: boolean;
 }
 
 /** Manual gun: a projectile weapon with a magazine. `cooldown` is the time between shots. */
@@ -333,6 +337,7 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
         pierce: 0,
         explosionRadius: 60,
         explosionDamage: 12,
+        detonateAtTarget: true,
       },
     ],
   },
@@ -400,8 +405,8 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
       // Evolution: industrial microwave.
       {
         ...microwaveL4,
-        units: 3,
-        rays: 5,
+        units: 2,
+        rays: 4,
         damage: 14,
         cooldown: 0.5,
         range: 280,
@@ -430,6 +435,7 @@ export const WEAPONS: Readonly<Record<WeaponId, Readonly<WeaponDef>>> = {
         damage: 16,
         cooldown: 0.09,
         pierce: 11,
+        pierceFalloff: 0.12,
         look: 'laser',
         speed: 1100,
         lifetime: 0.55,

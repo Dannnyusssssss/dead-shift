@@ -60,17 +60,21 @@ export const WAVES: readonly Readonly<WaveEntry>[] = [
   w(7, 'frozen', 0.3),
   w(7, 'cart', 0.35),
   w(7, 'cashier', 0.25),
+  // 7-10: armored guards, so the end of the shift needs the manual weapons
+  w(7, 'guard', 0.15),
   w(8, 'client', 2.8),
   w(8, 'delivery', 1 / 5, 6),
   w(8, 'frozen', 0.3),
   w(8, 'cart', 0.4),
   w(8, 'cashier', 0.3),
+  w(8, 'guard', 0.25),
   // 9-10: second boss and the final swarm from 9:30
   w(9, 'client', 3.0),
   w(9, 'delivery', 1 / 5, 8),
   w(9, 'frozen', 0.35),
   w(9, 'cart', 0.4),
   w(9, 'cashier', 0.35),
+  w(9, 'guard', 0.3),
   w(9, 'client', 1 / 4, 12, 30),
 ];
 

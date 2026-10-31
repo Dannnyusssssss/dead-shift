@@ -181,10 +181,13 @@ afecta a todas las armas, manuales y automáticas.
 | **Zombi Carrito** | Embestida | 45 | 50 | 15 | Se detiene 0.6 s (telegrafiado con línea roja) y embiste en línea recta | 4:30 |
 | **Zombi Cajero** | A distancia | 30 | 45 | 8 | Mantiene distancia y lanza recibos explosivos | 6:00 |
 | **Gerente Zombi** (jefe) | Jefe | 1500 | 60 | 20 | Persigue, invoca 6 zombis cliente cada 10 s, onda expansiva cada 6 s | 5:00 y 9:00 (más fuerte) |
+| **Zombi Guardia** (Hito 12) | Rompe-muros | 140 | 50 | 14 | Persigue; inmune al empuje, aparta a la horda, armadura: las armas automáticas le hacen 30 % | 7:00 |
 
 - La vida y el daño de los enemigos escalan un 5% por minuto (8% hasta el Hito 9.5).
 - Al derrotar al jefe suelta un cofre: da una mejora gratis de nivel de arma.
 - Límite duro de **400 enemigos** simultáneos (el spawner se frena al llegar).
+- **Frenesí de las 5 AM** (Hito 12): desde las 5:00 AM del reloj (segundo 525) toda la horda va ×1.2 más rápido y
+  resiste el 50 % de las ralentizaciones. Valores en `FRENZY` (`src/data/shift.ts`).
 
 ### 5.7 Oleadas (`src/data/waves.ts`)
 
@@ -196,6 +199,7 @@ Ejemplo orientativo (ajustar al probar):
 - Min 3-5: + Congelado 0.2/s
 - Min 5: Gerente Zombi (jefe 1)
 - Min 5-8: + Carrito 0.3/s, más densidad
+- Min 7-10: + Guardia (Hito 12)
 - Min 8-10: todo lo anterior, jefe 2 al minuto 9, enjambre final (el Cajero entra desde las 6:00, ver 5.6)
 
 Los enemigos aparecen en un anillo fuera de la pantalla alrededor del jugador.
@@ -233,7 +237,7 @@ Debe tolerar datos corruptos o ausentes (try/catch y valores por defecto).
 
 ## 8. Hitos (implementa UNO a la vez, en orden)
 
-**Estado actual:** Hitos 1 a 11 (incluidos el 4.5 y el 9.5) completados; 1 a 6 publicados en GitHub Pages.
+**Estado actual:** Hitos 1 a 12 (incluidos el 4.5 y el 9.5) completados; 1 a 6 publicados en GitHub Pages.
 Actualiza esta línea al cerrar cada hito.
 
 Al terminar cada hito: corre `npm run lint && npm run test && npm run build`, ejecuta el juego, verifica
@@ -347,12 +351,12 @@ El workflow de despliegue corre lint, tests y build antes de publicar, así que 
   (con solo 2 cofres por partida, si no, casi nunca se vería).
 - Recetas como datos en `src/data/evolutions.ts` (con 7 armas y 6 pasivos, el Chaleco se comparte):
   - Escoba + Imán de heladera → **Escoba eléctrica** (descarga que salta entre zombis)
-  - Pistola + Calculadora del jefe → **Pistola láser** (perfora todo, cadencia alta)
+  - Pistola + Calculadora del jefe → **Pistola láser** (perfora todo, cadencia alta; desde el Hito 12 pierde 12 % de daño por perforado)
   - Escopeta + Chaleco reflectante → **Escopeta antidisturbios** (empuje masivo, perdigones perforantes)
-  - Latas + Café de máquina → **Latas granada** (explotan al impactar)
+  - Latas + Café de máquina → **Latas granada** (explotan al impactar o al caer donde estaba el objetivo, Hito 12)
   - Aerosol + Termo con sopa → **Lanzallamas casero**
   - Bolsas de hielo + Zapatillas → **Ventisca** (más radio, congela)
-  - Microondas + Chaleco reflectante → **Microondas industrial**
+  - Microondas + Chaleco reflectante → **Microondas industrial** (2 unidades y 4 rayos desde el Hito 12)
 - La pantalla de mejora muestra la receta y qué falta para cumplirla. HUD con ícono distinto para el arma evolucionada.
 - **Listo cuando:** las 7 evoluciones funcionan, hay tests de condiciones de evolución y de slots, y una partida con
   evolución se mantiene a 60 FPS.
@@ -377,6 +381,14 @@ El workflow de despliegue corre lint, tests y build antes de publicar, así que 
 - El bot de balance (BALANCE=1) reporta cada dificultad por separado.
 - Objetivo orientativo: en Fácil un jugador normal gana; en Medio gana con una buena build; en Difícil solo con build casi óptima y evoluciones. Validarlo jugando, no solo con el bot.
 - Listo cuando: Fácil produce exactamente los mismos resultados que antes (test de regresión con semilla fija), Medio y Difícil son claramente más duros en el bot, el récord antiguo se conserva en Fácil, hay tests de aplicación de multiplicadores, migración de guardado y selección en el menú, y Difícil mantiene 60 FPS con la arena llena.
+
+### Hito 12 — Frenesí final y auditoría de evoluciones
+
+* **Corrección de Latas Granada:** Revisar las colisiones y el evento `canExplosion`. Garantizar que la explosión (radio 60 px, 12 de daño) aplique a todos los enemigos en el área y que el proyectil no se destruya antes de hacer la consulta a la rejilla espacial.
+* **Nuevo enemigo (Zombi Guardia):** Implementar un zombi "rompe-muros" que aparezca en los últimos minutos, diseñado con un 100% de resistencia al empuje y armadura contra armas automáticas, obligando al jugador a apuntar y usar activamente las armas manuales.
+* **Frenesí de las 5 AM:** Aplicar un estado alterado a la horda a partir del minuto 8 de partida (5:00 AM) que otorgue un bono de velocidad y resistencia a ralentizaciones (como la mecánica de la Ventisca) para atravesar muros de balas.
+* **Balance de Evoluciones:** Ajustar los parámetros de las evoluciones excesivamente dominantes (ej. la Pistola láser reduce su daño proporcionalmente tras cada una de las 11 perforaciones posibles) para preservar el reto en la dificultad Difícil.
+* **Listo cuando:** Un test puro en Vitest certifique el daño radial de las Latas granada, el Zombi Guardia funcione sin atascarse en las góndolas, y el pico de dificultad del amanecer sea fluido a 60 FPS incluso con el límite de 400 enemigos en pantalla.
 
 ### Ideas de expansión (NO implementar hasta que se pida)
 - Más personajes con stats distintos (Guardia de seguridad, Pastelera).

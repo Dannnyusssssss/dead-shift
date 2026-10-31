@@ -32,7 +32,7 @@ import {
 import { createPlayer, type Player } from './player';
 import { progressionSystem, type Offer } from './progression';
 import { createProjectileObject, projectileSystem, type Projectile } from './projectiles';
-import { checkDawn } from './shift';
+import { checkDawn, frenzySystem } from './shift';
 import { createSpawnerState, spawnSystem, type SpawnerState } from './spawner';
 import { contactDamageSystem, separationSystem, spatialIndexSystem } from './systems/collision';
 import { timersSystem } from './systems/damage';
@@ -63,6 +63,8 @@ export interface World {
   kills: number;
   /** Enemies moved back to the spawn ring after getting stuck against a shelf (debug stats). */
   stuckRelocations: number;
+  /** The 5 AM frenzy is on (faster horde that resists slows). */
+  frenzy: boolean;
   /** Kills per weapon, indexed like WEAPON_IDS (debug stats and balance reports). */
   killsByWeapon: Int32Array;
   player: Player;
@@ -111,6 +113,7 @@ export type System = (world: World, dt: number) => void;
 
 /** The one place that declares system execution order. */
 const SYSTEMS: readonly System[] = [
+  frenzySystem,
   movementSystem,
   spawnSystem,
   enemyBehaviorSystem,
@@ -145,6 +148,7 @@ export function createWorld(seed: number, difficultyId: DifficultyId = DEFAULT_D
     tick: 0,
     kills: 0,
     stuckRelocations: 0,
+    frenzy: false,
     killsByWeapon: new Int32Array(WEAPON_IDS.length),
     player: createPlayer(),
     moveInput: vec2(0, 0),

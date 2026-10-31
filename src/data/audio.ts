@@ -169,6 +169,15 @@ const SOUND_TABLE = {
       { wave: 'sawtooth', freqFrom: 75, freqTo: 50, duration: 0.8, gain: 0.18, delay: 1.1 },
     ],
   },
+  /** 5 AM frenzy: a rising growl. */
+  frenzy: {
+    minInterval: 2,
+    layers: [
+      { wave: 'sawtooth', freqFrom: 60, freqTo: 140, duration: 1.2, gain: 0.2 },
+      { wave: 'noise', filter: 'lowpass', freqFrom: 300, freqTo: 900, duration: 1.2, gain: 0.15 },
+      { wave: 'square', freqFrom: 90, freqTo: 180, duration: 0.8, gain: 0.06, delay: 0.4 },
+    ],
+  },
   shockwave: {
     minInterval: 0.3,
     layers: [

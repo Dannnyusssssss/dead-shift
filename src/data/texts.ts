@@ -11,6 +11,7 @@ const es = {
   victoryTitle: '¡Llegaste a las 6:00 AM!',
   victorySubtitle: 'Amanece y los zombis se desmayan. Turno cumplido.',
   bossName: 'Gerente Zombi',
+  frenzy: '¡FRENESÍ!',
   chestTitle: '¡Cofre del gerente!',
   chestHint: 'Mejora gratis para una de tus armas',
   statTime: 'Tiempo sobrevivido',

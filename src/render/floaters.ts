@@ -8,12 +8,18 @@ interface Floater {
   vx: number;
   life: number;
   text: string;
-  big: boolean;
+  /** Draw pass: normal, big or armored. */
+  style: number;
 }
+
+const STYLE_NORMAL = 0;
+const STYLE_BIG = 1;
+const STYLE_ARMORED = 2;
+const STYLE_COUNT = 3;
 
 /** Floating damage numbers. Render-side state only. */
 export interface Floaters {
-  spawn(x: number, y: number, amount: number): void;
+  spawn(x: number, y: number, amount: number, armored?: boolean): void;
   update(dt: number): void;
   draw(ctx: CanvasRenderingContext2D): void;
   clear(): void;
@@ -31,7 +37,7 @@ export function createFloaters(capacity: number = FLOATERS.capacity): Floaters {
     vx: 0,
     life: 0,
     text: '',
-    big: false,
+    style: STYLE_NORMAL,
   }));
   // Strings are built once per value, not per hit.
   const texts: string[] = [];
@@ -47,7 +53,7 @@ export function createFloaters(capacity: number = FLOATERS.capacity): Floaters {
   const rng = createRng(0x51f15e);
 
   return {
-    spawn(x, y, amount) {
+    spawn(x, y, amount, armored = false) {
       const f = pool.acquire();
       if (!f) return;
       const value = displayDamage(amount);
@@ -56,7 +62,7 @@ export function createFloaters(capacity: number = FLOATERS.capacity): Floaters {
       f.vx = rng.range(-FLOATERS.drift, FLOATERS.drift);
       f.life = FLOATERS.life;
       f.text = textFor(value);
-      f.big = value >= FLOATERS.bigThreshold;
+      f.style = armored ? STYLE_ARMORED : value >= FLOATERS.bigThreshold ? STYLE_BIG : STYLE_NORMAL;
     },
     update(dt) {
       for (let i = pool.count - 1; i >= 0; i--) {
@@ -77,14 +83,18 @@ export function createFloaters(capacity: number = FLOATERS.capacity): Floaters {
       ctx.lineWidth = FLOATERS.outlineWidth;
       ctx.strokeStyle = FLOATERS.outline;
       ctx.lineJoin = 'round';
-      for (let pass = 0; pass < 2; pass++) {
-        // Two passes so the font and color change twice per frame, not per number.
-        const big = pass === 1;
-        ctx.font = big ? FLOATERS.bigFont : FLOATERS.font;
-        ctx.fillStyle = big ? FLOATERS.bigColor : FLOATERS.color;
+      for (let style = 0; style < STYLE_COUNT; style++) {
+        // One pass per style so the font and color change a few times per frame, not per number.
+        ctx.font = style === STYLE_BIG ? FLOATERS.bigFont : FLOATERS.font;
+        ctx.fillStyle =
+          style === STYLE_BIG
+            ? FLOATERS.bigColor
+            : style === STYLE_ARMORED
+              ? FLOATERS.armoredColor
+              : FLOATERS.color;
         for (let i = 0; i < pool.count; i++) {
           const f = pool.items[i] as Floater;
-          if (f.big !== big) continue;
+          if (f.style !== style) continue;
           ctx.globalAlpha = Math.min(1, f.life / FLOATERS.fadeTime);
           ctx.strokeText(f.text, f.x, f.y);
           ctx.fillText(f.text, f.x, f.y);

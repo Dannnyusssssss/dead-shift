@@ -33,6 +33,10 @@ import { botPickOffer, botWantsReroll, emptyWorld, playerBot } from './helpers';
  *
  * Then each difficulty (Hito 11): `mixed` mortal and `curve` (god mode) on easy, normal and hard.
  * `BALANCE=difficulty` runs only that part.
+ *
+ * `BALANCE=evolved` (Hito 12): every weapon evolved from the start (`?weapons=evolved`) on each
+ * difficulty, in god mode (kill share per weapon: which evolution dominates) and mortal (does the
+ * run still have teeth with a complete build, through the 5 AM frenzy and the guards).
  */
 const env = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env;
 
@@ -87,12 +91,18 @@ interface RunResult {
   hurtBy: Map<string, number>;
   /** Evolved weapons at the end of the run, with the game time each one evolved. */
   evolutions: { id: string; time: number }[];
+  /** Kills per weapon, indexed like WEAPON_IDS. */
+  killsByWeapon: number[];
+  /** Mean zombies alive during the frenzy (from 5:00 AM), 0 if the run ended before. */
+  frenzyOnScreen: number;
 }
 
 interface RunOptions {
   newWeapons?: boolean;
   god?: boolean;
   allWeapons?: boolean;
+  /** With `allWeapons`: the evolutions instead of level 5 (`?weapons=evolved`). */
+  evolved?: boolean;
   difficulty?: DifficultyId;
 }
 
@@ -198,12 +208,18 @@ function hurtSource(world: World): string {
 }
 
 function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunResult {
-  const { newWeapons = true, god = false, allWeapons = false, difficulty = 'easy' } = opts;
+  const {
+    newWeapons = true,
+    god = false,
+    allWeapons = false,
+    evolved = false,
+    difficulty = 'easy',
+  } = opts;
   const world = emptyWorld(seed, difficulty);
   const m = world.player.manual;
   const pistol = pistolOf(world);
   world.player.invincible = god;
-  if (allWeapons) giveAllWeapons(world);
+  if (allWeapons) giveAllWeapons(world, evolved);
   if (scenario === 'broomOnly') {
     pistol.mag = pistol.reserve = 0;
     selectManual(m, 'broom');
@@ -220,6 +236,8 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
   let steps = 0;
   let meleeSteps = 0;
   let dryShots = 0;
+  let frenzySteps = 0;
+  let frenzyCrowd = 0;
   // Bounded by game time, not loop turns: chained level-ups take turns without advancing it.
   const limit = SHIFT.durationSeconds + 1;
   while (world.status !== 'won' && world.status !== 'dead' && world.time < limit) {
@@ -230,6 +248,10 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     playerBot(world, scenario !== 'gunOnly');
     const hpBefore = world.player.hp;
     updateWorld(world, FIXED_STEP);
+    if (world.frenzy) {
+      frenzySteps++;
+      frenzyCrowd += world.enemies.count;
+    }
     if (world.player.hp < hpBefore) {
       const src = hurtSource(world);
       hurtBy.set(src, (hurtBy.get(src) ?? 0) + hpBefore - world.player.hp);
@@ -288,6 +310,8 @@ function playRun(scenario: Scenario, seed: number, opts: RunOptions = {}): RunRe
     xpAt,
     hurtBy,
     evolutions,
+    killsByWeapon: Array.from(world.killsByWeapon),
+    frenzyOnScreen: frenzySteps > 0 ? frenzyCrowd / frenzySteps : 0,
   };
 }
 
@@ -407,6 +431,48 @@ function difficultyReport(): string[] {
   return [...lines, ...tables];
 }
 
+/** Share of the kills of every run by weapon, highest first. */
+function killShare(runs: readonly RunResult[]): string {
+  const total = WEAPON_IDS.map((_, i) => runs.reduce((a, r) => a + (r.killsByWeapon[i] ?? 0), 0));
+  const sum = total.reduce((a, b) => a + b, 0) || 1;
+  return WEAPON_IDS.map((id, i) => [id, (total[i] ?? 0) / sum] as const)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id, f]) => `${id} ${(f * 100).toFixed(0)}%`)
+    .join('  ');
+}
+
+/** Every weapon evolved from the start, god mode and mortal, on every difficulty. */
+function evolvedReport(): string[] {
+  const lines = ['', '=== evolved build (?weapons=evolved), 12 seeds ==='];
+  for (const id of DIFFICULTY_IDS) {
+    const god = SEEDS.map((seed) =>
+      playRun('mixed', seed, { god: true, allWeapons: true, evolved: true, difficulty: id }),
+    );
+    const mortal = SEEDS.map((seed) =>
+      playRun('mixed', seed, { allWeapons: true, evolved: true, difficulty: id }),
+    );
+    const deaths = mortal.filter((r) => !r.won).map((r) => r.time);
+    lines.push(
+      '',
+      `${id} god:    kills ${avg(god.map((r) => r.kills)).toFixed(0)}  frenzy on screen ${avg(god.map((r) => r.frenzyOnScreen)).toFixed(0)}`,
+      `  kill share: ${killShare(god)}`,
+      ...minuteTable(`${id} evolved (god mode)`, god),
+      `${id} mortal: avg t ${avg(mortal.map((r) => r.time)).toFixed(0)}s  wins ${mortal.filter((r) => r.won).length}/${mortal.length}` +
+        `  first death ${deaths.length > 0 ? Math.min(...deaths).toFixed(0) : '-'}s`,
+      hurtTable(`${id} evolved (mortal)`, mortal),
+    );
+  }
+  return lines;
+}
+
+describe.skipIf(env?.BALANCE !== 'evolved')('evolved build report', () => {
+  it('every evolution, god mode and mortal, on every difficulty', () => {
+    const lines = evolvedReport();
+    console.log('\n' + lines.join('\n'));
+    expect(lines.length).toBeGreaterThan(DIFFICULTY_IDS.length);
+  }, 1_800_000);
+});
+
 describe.skipIf(env?.BALANCE !== 'difficulty')('difficulty report', () => {
   it('mixed and curve on every difficulty', () => {
     const lines = difficultyReport();
@@ -415,37 +481,40 @@ describe.skipIf(env?.BALANCE !== 'difficulty')('difficulty report', () => {
   }, 1_800_000);
 });
 
-describe.skipIf(!env?.BALANCE || env.BALANCE === 'difficulty')('balance report', () => {
-  it('bot runs without god mode, then the power curve per minute', () => {
-    const lines: string[] = [];
-    let mixedRuns: RunResult[] = [];
-    for (const newWeapons of [true, false])
-      for (const scenario of SCENARIOS) {
-        const runs = SEEDS.map((seed) => playRun(scenario, seed, { newWeapons }));
-        if (scenario === 'mixed' && newWeapons) mixedRuns = runs;
-        lines.push(
-          `${scenario} (${newWeapons ? 'autos' : 'manual only'}): avg t=${avg(runs.map((r) => r.time)).toFixed(0)}s` +
-            `  kpm=${avg(runs.map((r) => r.kills / (r.time / 60))).toFixed(0)}` +
-            `  kills=${avg(runs.map((r) => r.kills)).toFixed(0)}` +
-            `  broom/manual=${(avg(runs.map((r) => r.broomShare)) * 100).toFixed(0)}%`,
-          ...runs.map((r) => r.row),
-        );
-      }
-    const curveRuns = SEEDS.map((seed) => playRun('mixed', seed, { god: true }));
-    const allRuns = SEEDS.map((seed) => playRun('mixed', seed, { god: true, allWeapons: true }));
-    lines.push(
-      '',
-      '=== power curve (poison and burn are not counted in dps) ===',
-      hurtTable('mixed (autos, mortal)', mixedRuns),
-      ...minuteTable('mixed (autos, mortal)', mixedRuns),
-      ...minuteTable('curve (mixed, god mode)', curveRuns),
-      ...minuteTable('weaponsAll (god mode)', allRuns),
-      ...curveProjection(curveRuns),
-      evolutionLine('mixed (autos, mortal)', mixedRuns),
-      evolutionLine('curve (god mode)', curveRuns),
-      ...difficultyReport(),
-    );
-    console.log('\n' + lines.join('\n'));
-    expect(lines.length).toBeGreaterThan(SCENARIOS.length);
-  }, 1_800_000);
-});
+describe.skipIf(!env?.BALANCE || env.BALANCE === 'difficulty' || env.BALANCE === 'evolved')(
+  'balance report',
+  () => {
+    it('bot runs without god mode, then the power curve per minute', () => {
+      const lines: string[] = [];
+      let mixedRuns: RunResult[] = [];
+      for (const newWeapons of [true, false])
+        for (const scenario of SCENARIOS) {
+          const runs = SEEDS.map((seed) => playRun(scenario, seed, { newWeapons }));
+          if (scenario === 'mixed' && newWeapons) mixedRuns = runs;
+          lines.push(
+            `${scenario} (${newWeapons ? 'autos' : 'manual only'}): avg t=${avg(runs.map((r) => r.time)).toFixed(0)}s` +
+              `  kpm=${avg(runs.map((r) => r.kills / (r.time / 60))).toFixed(0)}` +
+              `  kills=${avg(runs.map((r) => r.kills)).toFixed(0)}` +
+              `  broom/manual=${(avg(runs.map((r) => r.broomShare)) * 100).toFixed(0)}%`,
+            ...runs.map((r) => r.row),
+          );
+        }
+      const curveRuns = SEEDS.map((seed) => playRun('mixed', seed, { god: true }));
+      const allRuns = SEEDS.map((seed) => playRun('mixed', seed, { god: true, allWeapons: true }));
+      lines.push(
+        '',
+        '=== power curve (poison and burn are not counted in dps) ===',
+        hurtTable('mixed (autos, mortal)', mixedRuns),
+        ...minuteTable('mixed (autos, mortal)', mixedRuns),
+        ...minuteTable('curve (mixed, god mode)', curveRuns),
+        ...minuteTable('weaponsAll (god mode)', allRuns),
+        ...curveProjection(curveRuns),
+        evolutionLine('mixed (autos, mortal)', mixedRuns),
+        evolutionLine('curve (god mode)', curveRuns),
+        ...difficultyReport(),
+      );
+      console.log('\n' + lines.join('\n'));
+      expect(lines.length).toBeGreaterThan(SCENARIOS.length);
+    }, 1_800_000);
+  },
+);

@@ -1,8 +1,21 @@
 import { COMBAT } from '../../data/combat';
+import { WEAPON_IDS, WEAPONS, isManual } from '../../data/weapons';
 import type { Enemy } from '../enemies';
 import { emitHit } from '../events';
 import type { Player } from '../player';
 import type { World } from '../world';
+
+/** 1 for the manual weapons, indexed like WEAPON_IDS. */
+const MANUAL_SOURCE = Uint8Array.from(WEAPON_IDS, (id) => (isManual(WEAPONS[id]) ? 1 : 0));
+
+/**
+ * Multiplier on what `source` (index in WEAPON_IDS, -1 = unknown) does to the enemy: its armor
+ * against automatic weapons. Manual weapons and unknown sources always do full damage.
+ */
+export function damageTakenFrom(enemy: Readonly<Enemy>, source: number): number {
+  if (source < 0 || MANUAL_SOURCE[source] === 1) return 1;
+  return enemy.def.autoDamageTaken ?? 1;
+}
 
 /** Applies damage and sets knockback (reduced by resistance). Returns true if lethal. */
 export function damageEnemy(enemy: Enemy, amount: number, kx: number, ky: number): boolean {
@@ -26,9 +39,11 @@ export function hitEnemy(
   ky: number,
   source = -1,
 ): boolean {
-  emitHit(world.hits, enemy.pos.x, enemy.pos.y - enemy.radius, amount);
+  const taken = damageTakenFrom(enemy, source);
+  const dealt = amount * taken;
+  emitHit(world.hits, enemy.pos.x, enemy.pos.y - enemy.radius, dealt, taken < 1);
   if (source >= 0) enemy.lastHitBy = source;
-  return damageEnemy(enemy, amount, kx, ky);
+  return damageEnemy(enemy, dealt, kx, ky);
 }
 
 /** Applies a hit (reduced by armor, min 1) unless invulnerable. Returns true if it landed. */

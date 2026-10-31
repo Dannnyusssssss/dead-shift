@@ -18,7 +18,7 @@ import { spawnArc } from './arcs';
 import { MAX_ENEMY_RADIUS, type Enemy } from './enemies';
 import { emit } from './events';
 import { spawnProjectile } from './projectiles';
-import { hitEnemy } from './systems/damage';
+import { damageTakenFrom, hitEnemy } from './systems/damage';
 import { placeTurret } from './turrets';
 import type { World } from './world';
 
@@ -118,7 +118,8 @@ export function hitSector(
     hitEnemy(world, e, damage, nx * knockback, ny * knockback, source);
     first ??= e;
     if (poisonDps > 0) {
-      e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, poisonDps);
+      const dps = poisonDps * damageTakenFrom(e, source);
+      e.poisonDps = Math.max(e.poisonTimer > 0 ? e.poisonDps : 0, dps);
       e.poisonTimer = Math.max(e.poisonTimer, poisonTime);
     }
   }
@@ -240,6 +241,7 @@ export function fireVolley(
   look: ProjectileLook,
   world: World,
   angle: number,
+  targetDistance = Infinity,
 ): void {
   const p = world.player;
   w.fireAngle = angle;
@@ -247,7 +249,16 @@ export function fireVolley(
   const spread = toRad(s.spreadDegrees);
   for (let i = 0; i < s.count; i++) {
     const offset = (i - (s.count - 1) / 2) * spread;
-    spawnProjectile(world, p.pos.x, p.pos.y, angle + offset, s, s.look ?? look, w.slot);
+    spawnProjectile(
+      world,
+      p.pos.x,
+      p.pos.y,
+      angle + offset,
+      s,
+      s.look ?? look,
+      w.slot,
+      targetDistance,
+    );
   }
 }
 
@@ -260,8 +271,16 @@ function fireAtNearest(
   const p = world.player;
   const target = findNearestEnemy(world, p.pos.x, p.pos.y, COMBAT.maxTargetDistance);
   if (!target) return false;
-  const angle = Math.atan2(target.pos.y - p.pos.y, target.pos.x - p.pos.x);
-  fireVolley(w, statsAt(def.levels, w.level), def.look, world, angle);
+  const dx = target.pos.x - p.pos.x;
+  const dy = target.pos.y - p.pos.y;
+  fireVolley(
+    w,
+    statsAt(def.levels, w.level),
+    def.look,
+    world,
+    Math.atan2(dy, dx),
+    Math.hypot(dx, dy),
+  );
   emit(world.events, 'canThrow', p.pos.x, p.pos.y);
   return true;
 }

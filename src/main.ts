@@ -104,6 +104,7 @@ const EVENT_SOUNDS: Readonly<Record<GameEventType, SoundId | null>> = {
   shelfHit: null,
   chainZap: 'chainZap',
   canExplosion: 'canExplosion',
+  frenzyStart: 'frenzy',
 };
 
 /** `menu`: title screen over an idle world. `run`: a run is in progress (or just ended). */
@@ -356,6 +357,9 @@ function boot(): void {
         case 'bossSpawn':
           addShake(camera, SHAKE.bossSpawn);
           break;
+        case 'frenzyStart':
+          addShake(camera, SHAKE.frenzy);
+          break;
         case 'shockwave':
           addShake(camera, SHAKE.shockwave);
           break;
@@ -381,7 +385,7 @@ function boot(): void {
     if (hits.count > 0) sfx.play('enemyHit');
     for (let i = 0; i < hits.count; i++) {
       const h = hits.items[i];
-      if (h) floaters.spawn(h.x, h.y, h.amount);
+      if (h) floaters.spawn(h.x, h.y, h.amount, h.armored);
     }
     hits.clear();
   };
@@ -518,6 +522,7 @@ function boot(): void {
         ds.trauma = peakTrauma.toFixed(2);
         peakTrauma = 0;
         ds.difficulty = world.difficulty.id;
+        ds.frenzy = String(world.frenzy);
         ds.muted = String(save.muted);
         ds.showDebug = String(save.showDebug);
         const weaponKills: Record<string, number> = {};

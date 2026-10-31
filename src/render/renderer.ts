@@ -200,7 +200,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         b.kind === 'charge' && e.aiState !== CHARGE_STATE.approach
           ? Math.atan2(e.aiDir.y, e.aiDir.x)
           : Math.atan2(e.vel.y, e.vel.x);
-      drawEnemy(ctx, x, y, facing, e.radius, e.def.look, e.hitTimer > 0, faint);
+      drawEnemy(ctx, x, y, facing, e.radius, e.def.look, e.hitTimer > 0, faint, world.frenzy);
       if (faint > 0) continue;
       if (e.poisonTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.poison);
       else if (e.slowTimer > 0) drawStatusTint(ctx, x, y, e.radius, STATUS_TINT.slow);
