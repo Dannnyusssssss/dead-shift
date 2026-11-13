@@ -119,8 +119,7 @@ tests/      tests de lógica pura
 ```
 
 Todo el contenido vive en `src/data/`: agregar un arma o un enemigo con un comportamiento existente es tocar un solo
-archivo. Las reglas del proyecto están en [`CLAUDE.md`](CLAUDE.md) y las decisiones de diseño en
-[`docs/DECISIONS.md`](docs/DECISIONS.md).
+archivo.
 
 ## Despliegue
 

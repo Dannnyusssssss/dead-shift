@@ -100,7 +100,7 @@ y tres escenarios, cada uno con y sin armas automáticas:
 - `gunOnly`: la Pistola con reserva infinita y nunca la Escoba (poder puro de la Pistola).
 
 Imprime por escenario el tiempo sobrevivido, las bajas por minuto (`kpm`), la parte de las bajas manuales que hizo la
-Escoba y, por semilla, las reubicaciones por atasco contra góndolas (`stuck=`) y las bajas por arma. Los resultados del Hito 7 están en `DECISIONS.md`.
+Escoba y, por semilla, las reubicaciones por atasco contra góndolas (`stuck=`) y las bajas por arma.
 
 Al final agrega una sección por dificultad (Hito 11): `mixed` mortal (tiempo medio, victorias, primera muerte, `kpm`) y
 `curve` en modo dios (nivel por minuto) en Fácil, Medio y Difícil. Para correr solo esa parte:
