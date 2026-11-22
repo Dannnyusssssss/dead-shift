@@ -2,3 +2,12 @@ node_modules/
 dist/
 *.log
 .vite/
+
+# Test coverage
+coverage/
+
+# Local environment files and keys (never commit)
+.env*
+!.env.example
+*.pem
+*.key
