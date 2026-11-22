@@ -63,8 +63,27 @@ export const ENEMY_SPRITE = {
   flash: '#ffffff',
 } as const;
 
-/** Player blinks at this rate (Hz) while invulnerable. */
-export const PLAYER_BLINK_RATE = 12;
+/** Photosensitivity ceiling: no blink or pulse in the game repeats faster than this (Hz). */
+export const MAX_FLASH_HZ = 3;
+
+/**
+ * Soft warning pulses: the alpha fades between a minimum and full, never a full on/off cut.
+ * Every rate stays at or below `MAX_FLASH_HZ`. With «Reducir movimiento» they hold `steadyAlpha`.
+ */
+export const PULSE = {
+  /** Player while invulnerable after a hit. */
+  playerHz: 2,
+  playerMinAlpha: 0.35,
+  /** Boss shockwave wind-up disc (its color already has a low alpha). */
+  shockWarnHz: 2,
+  shockWarnMinAlpha: 0,
+  /** Microwave about to expire. */
+  microwaveHz: 2,
+  microwaveMinAlpha: 0.35,
+  /** Microwave window glow while it works. */
+  glowHz: 1.25,
+  steadyAlpha: 0.6,
+} as const;
 
 export const SWEEP = {
   /** How long the broom swing stays visible, s. */

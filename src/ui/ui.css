@@ -17,6 +17,8 @@
 
 .ds-panel {
   width: min(360px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
   padding: 28px 24px 24px;
   border-radius: 12px;
   background: #1d221d;
@@ -206,7 +208,7 @@
   color: #dfe8d8;
   border: 2px solid #3b4a36;
   font-size: 15px;
-  min-height: 42px;
+  min-height: 44px;
 }
 
 /* Checkbox row in the pause panel, with a touch-sized hit area. */
@@ -404,4 +406,36 @@
   color: #8f9a8a;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.ds-button-danger {
+  border-color: #8a3a32;
+  color: #ffb3a8;
+}
+
+.ds-legal {
+  text-align: left;
+}
+
+.ds-legal .ds-title {
+  text-align: center;
+}
+
+.ds-legal-heading {
+  margin: 18px 0 4px;
+  font-size: 17px;
+  color: #c8f03c;
+}
+
+.ds-legal-text {
+  margin: 0;
+  color: #dfe6da;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.ds-legal-updated {
+  margin: 18px 0 14px;
+  color: #b8c2b2;
+  font-size: 13px;
 }

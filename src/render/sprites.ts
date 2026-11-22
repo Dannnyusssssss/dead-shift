@@ -1,4 +1,4 @@
-import type { Vec2 } from '../core/math';
+import { pulse, type Vec2 } from '../core/math';
 import { hash2 } from '../core/rng';
 import type { EnemyLook } from '../data/enemies';
 import type { WeaponId } from '../data/weapons';
@@ -28,6 +28,7 @@ import {
   SHELVES,
   SWEEP,
   TELEGRAPH,
+  PULSE,
 } from '../data/render';
 
 /** Draws the supermarket floor covering the world-space rect [left, left+w] x [top, top+h]. */
@@ -424,10 +425,13 @@ export function drawShockwave(
   maxRadius: number,
   warning: boolean,
   time: number,
+  reducedMotion: boolean,
 ): void {
   if (warning) {
     ctx.fillStyle = HAZARD_STYLE.shockWarn;
-    ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 30);
+    ctx.globalAlpha = reducedMotion
+      ? PULSE.steadyAlpha
+      : pulse(time, PULSE.shockWarnHz, PULSE.shockWarnMinAlpha);
     ctx.beginPath();
     ctx.arc(x, y, maxRadius, 0, Math.PI * 2);
     ctx.fill();
@@ -638,9 +642,17 @@ export function drawMicrowave(
   y: number,
   lifeLeft: number,
   time: number,
+  reducedMotion: boolean,
 ): void {
   const s = MICROWAVE_STYLE;
-  if (lifeLeft < s.blinkWhenLeft && Math.floor(time * 10) % 2 === 0) return;
+  // About to expire: fades softly (or holds a lower alpha with «Reducir movimiento»).
+  let base = 1;
+  if (lifeLeft < s.blinkWhenLeft) {
+    base = reducedMotion
+      ? PULSE.steadyAlpha
+      : pulse(time, PULSE.microwaveHz, PULSE.microwaveMinAlpha);
+  }
+  ctx.globalAlpha = base;
   const w = s.width;
   const h = s.height;
   ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
@@ -653,7 +665,7 @@ export function drawMicrowave(
   ctx.fillStyle = s.window;
   ctx.fillRect(x - w / 2 + 3, y - h / 2 + 3, w * 0.62, h - 6);
   ctx.fillStyle = s.glow;
-  ctx.globalAlpha = 0.5 + 0.5 * Math.sin(time * 8);
+  ctx.globalAlpha = base * (reducedMotion ? PULSE.steadyAlpha : pulse(time, PULSE.glowHz, 0));
   ctx.fillRect(x - w / 2 + 5, y - h / 2 + 5, w * 0.62 - 4, h - 10);
   ctx.globalAlpha = 1;
 }

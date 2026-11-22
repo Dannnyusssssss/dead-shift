@@ -3,6 +3,8 @@ import { DIFFICULTY_IDS } from '../src/data/difficulty';
 import { SHIFT } from '../src/data/shift';
 import {
   DEFAULT_SAVE,
+  MAX_SAVED_COUNT,
+  MAX_SAVE_LENGTH,
   SAVE_KEY,
   createSaveStore,
   parseSave,
@@ -22,6 +24,9 @@ function memoryBackend(initial: Record<string, string> = {}): StorageBackend & {
     setItem: (k, v) => {
       data[k] = v;
     },
+    removeItem: (k) => {
+      delete data[k];
+    },
   };
 }
 
@@ -32,6 +37,9 @@ const throwing: StorageBackend = {
   setItem: () => {
     throw new Error('QuotaExceededError');
   },
+  removeItem: () => {
+    throw new Error('SecurityError');
+  },
 };
 
 /** A save with some records, for round trips. */
@@ -41,6 +49,7 @@ function sampleSave(): SaveData {
     muted: true,
     showDebug: true,
     difficulty: 'hard',
+    reducedMotion: true,
     records: {
       easy: { bestTime: 600, wins: 3 },
       normal: { bestTime: 321.5, wins: 0 },
@@ -114,6 +123,7 @@ describe('migration of saves from before the difficulties', () => {
       muted: true,
       showDebug: true,
       difficulty: 'easy',
+      reducedMotion: null,
       records: {
         easy: { bestTime: 321.5, wins: 0 },
         normal: { bestTime: 0, wins: 0 },
@@ -214,6 +224,61 @@ describe('createSaveStore', () => {
       const store = createSaveStore(backend);
       expect(store.load()).toEqual(DEFAULT_SAVE);
       expect(() => store.save(DEFAULT_SAVE)).not.toThrow();
+      expect(() => store.clear()).not.toThrow();
     }
+  });
+
+  it('clear removes only this game key, and the next load is a fresh save', () => {
+    const backend = memoryBackend({ other: 'keep' });
+    const store = createSaveStore(backend);
+    store.save(sampleSave());
+    store.clear();
+    expect(backend.data).toEqual({ other: 'keep' });
+    expect(store.load()).toEqual(DEFAULT_SAVE);
+  });
+});
+
+describe('hostile saves', () => {
+  it('rejects an oversized save before parsing it', () => {
+    const big = JSON.stringify({ ...sampleSave(), pad: 'x'.repeat(MAX_SAVE_LENGTH) });
+    expect(parseSave(big)).toEqual(DEFAULT_SAVE);
+  });
+
+  it('caps huge counters and drops overflowing numbers', () => {
+    const save = parseSave(
+      '{"totalKills":1e300,"records":{"easy":{"bestTime":1e999,"wins":5e20}}}',
+    );
+    expect(save.totalKills).toBe(MAX_SAVED_COUNT);
+    expect(save.records.easy).toEqual({ bestTime: 0, wins: MAX_SAVED_COUNT });
+  });
+
+  it('ignores __proto__ and constructor keys without polluting objects', () => {
+    const raw =
+      '{"__proto__":{"polluted":true},"constructor":{"x":1},' +
+      '"records":{"__proto__":{"bestTime":600},"easy":{"__proto__":{"wins":9}}}}';
+    const save = parseSave(raw);
+    expect(save).toEqual(DEFAULT_SAVE);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.getPrototypeOf(save)).toBe(Object.prototype);
+  });
+
+  it('a counter at the cap stays at the cap after another run', () => {
+    const save = { ...sampleSave(), totalKills: MAX_SAVED_COUNT };
+    expect(recordRun(save, 'easy', 10, 50, false).save.totalKills).toBe(MAX_SAVED_COUNT);
+  });
+});
+
+describe('reducedMotion', () => {
+  it('defaults to null (follow the system) and keeps an explicit choice', () => {
+    expect(DEFAULT_SAVE.reducedMotion).toBeNull();
+    expect(parseSave('{"reducedMotion":true}').reducedMotion).toBe(true);
+    expect(parseSave('{"reducedMotion":false}').reducedMotion).toBe(false);
+  });
+
+  it('falls back to null when missing or invalid', () => {
+    for (const v of ['"yes"', '1', 'null', '{}']) {
+      expect(parseSave(`{"reducedMotion":${v}}`).reducedMotion).toBeNull();
+    }
+    expect(parseSave('{"muted":true}').reducedMotion).toBeNull();
   });
 });

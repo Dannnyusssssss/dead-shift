@@ -4,6 +4,12 @@ import { parseDifficulty } from '../game/difficulty';
 
 export const SAVE_KEY = 'deadshift:v1';
 
+/** Ceiling for lifetime counters (kills, wins): far above any real play, far below float limits. */
+export const MAX_SAVED_COUNT = 1_000_000_000;
+
+/** A real save is a few hundred characters; anything far longer is rejected before parsing. */
+export const MAX_SAVE_LENGTH = 10_000;
+
 /** Best run and wins on one difficulty. */
 export interface DifficultyRecord {
   /** Longest run, seconds of game time (600 = reached 6 AM). */
@@ -20,6 +26,8 @@ export interface SaveData {
   showDebug: boolean;
   /** Last difficulty chosen in the main menu. */
   difficulty: DifficultyId;
+  /** «Reducir movimiento» chosen in the menu, or null to follow `prefers-reduced-motion`. */
+  reducedMotion: boolean | null;
   records: Record<DifficultyId, DifficultyRecord>;
 }
 
@@ -34,6 +42,7 @@ export const DEFAULT_SAVE: Readonly<SaveData> = {
   muted: false,
   showDebug: false,
   difficulty: DEFAULT_DIFFICULTY,
+  reducedMotion: null,
   records: emptyRecords(),
 };
 
@@ -52,16 +61,23 @@ function isFiniteNonNegative(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0;
 }
 
-function finiteNonNegative(v: unknown, fallback: number, max = Number.MAX_SAFE_INTEGER): number {
+function finiteNonNegative(v: unknown, fallback: number, max: number): number {
   return isFiniteNonNegative(v) ? Math.min(v, max) : fallback;
 }
+
+/** A lifetime counter: whole, non-negative and capped at `MAX_SAVED_COUNT`. */
+function count(v: unknown, fallback: number): number {
+  return Math.floor(finiteNonNegative(v, fallback, MAX_SAVED_COUNT));
+}
+
+const boolOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
 
 /** One difficulty's record, field by field; `fallback` fills what is missing or invalid. */
 function parseRecord(v: unknown, fallback: Readonly<DifficultyRecord>): DifficultyRecord {
   const r = isRecord(v) ? v : {};
   return {
     bestTime: finiteNonNegative(r.bestTime, fallback.bestTime, SHIFT.durationSeconds),
-    wins: Math.floor(finiteNonNegative(r.wins, fallback.wins)),
+    wins: count(r.wins, fallback.wins),
   };
 }
 
@@ -86,7 +102,7 @@ function parseRecords(data: Record<string, unknown>): Record<DifficultyId, Diffi
 
 /** Reads a stored save; anything missing or invalid falls back to its default, field by field. */
 export function parseSave(raw: string | null): SaveData {
-  if (raw === null) return defaultSave();
+  if (raw === null || raw.length > MAX_SAVE_LENGTH) return defaultSave();
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -95,10 +111,11 @@ export function parseSave(raw: string | null): SaveData {
   }
   if (!isRecord(data)) return defaultSave();
   return {
-    totalKills: Math.floor(finiteNonNegative(data.totalKills, DEFAULT_SAVE.totalKills)),
+    totalKills: count(data.totalKills, DEFAULT_SAVE.totalKills),
     muted: boolOr(data.muted, DEFAULT_SAVE.muted),
     showDebug: boolOr(data.showDebug, DEFAULT_SAVE.showDebug),
     difficulty: parseDifficulty(data.difficulty) ?? DEFAULT_SAVE.difficulty,
+    reducedMotion: boolOrNull(data.reducedMotion),
     records: parseRecords(data),
   };
 }
@@ -127,12 +144,12 @@ export function recordRun(
   return {
     save: {
       ...save,
-      totalKills: save.totalKills + Math.floor(finiteNonNegative(kills, 0)),
+      totalKills: Math.min(save.totalKills + count(kills, 0), MAX_SAVED_COUNT),
       records: {
         ...save.records,
         [difficulty]: {
           bestTime: newRecord ? time : prev.bestTime,
-          wins: prev.wins + (won ? 1 : 0),
+          wins: Math.min(prev.wins + (won ? 1 : 0), MAX_SAVED_COUNT),
         },
       },
     },
@@ -141,11 +158,13 @@ export function recordRun(
 }
 
 /** The part of `Storage` we use, so tests can pass a fake. */
-export type StorageBackend = Pick<Storage, 'getItem' | 'setItem'>;
+export type StorageBackend = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export interface SaveStore {
   load(): SaveData;
   save(data: Readonly<SaveData>): void;
+  /** «Borrar datos guardados»: removes only this game's key from this browser. */
+  clear(): void;
 }
 
 /** Wraps a backend that may be missing or throw (private mode, quota, disabled storage). */
@@ -163,6 +182,13 @@ export function createSaveStore(backend: StorageBackend | null): SaveStore {
         backend?.setItem(SAVE_KEY, serializeSave(data));
       } catch {
         // Not saving is acceptable; the game keeps working with the in-memory copy.
+      }
+    },
+    clear() {
+      try {
+        backend?.removeItem(SAVE_KEY);
+      } catch {
+        // Storage blocked: there is nothing this page can remove.
       }
     },
   };

@@ -6,7 +6,6 @@ import { createFixedLoop, createFrameStats } from './core/loop';
 import { setVec, vec2 } from './core/math';
 import type { SoundId } from './data/audio';
 import type { DifficultyId } from './data/difficulty';
-import { SHIFT } from './data/shift';
 import {
   CAMERA_FOLLOW_RATE,
   FAINT,
@@ -20,7 +19,8 @@ import { t } from './data/texts';
 import { WEAPON_IDS } from './data/weapons';
 import type { GameEventType } from './game/events';
 import { giveAllWeapons, setPistolAmmo } from './game/debug';
-import { initialDifficulty, parseDifficulty } from './game/difficulty';
+import { parseDebugOptions } from './game/debug-options';
+import { initialDifficulty } from './game/difficulty';
 import { isGun } from './game/manual';
 import { interpolatedPlayerPos } from './game/player';
 import { chooseOffer, levelBeingChosen, rerollOffers } from './game/progression';
@@ -30,55 +30,11 @@ import { createWorld, updateWorld, type World } from './game/world';
 import { createFloaters } from './render/floaters';
 import { createParticles } from './render/particles';
 import { createRenderer, type RenderFrame } from './render/renderer';
-import { browserStorage, createSaveStore, recordRun } from './save/storage';
+import { browserStorage, createSaveStore, recordRun, type SaveData } from './save/storage';
 import { describeOffer } from './ui/describe';
 import { createLevelUpScreen } from './ui/levelup';
 import { createEndScreen, createMainMenu, createPauseMenu, type RunStats } from './ui/menu';
 import { createTouchControls } from './ui/touch';
-
-/**
- * Debug switches from the URL: `?spawn=300` starts with a horde, `?god` disables death,
- * `?weapons=all` starts with every weapon at max level (ignores the slot limit),
- * `?t=540` starts the shift clock at that many seconds,
- * `?ammo=N` starts with an empty magazine and N rounds in reserve (0 = straight to the broom),
- * `?difficulty=easy|normal|hard` plays on that difficulty (an invalid value is ignored).
- * Any of them (or `?debug`) skips the main menu, shows the performance line for this session
- * (without saving it) and publishes stats to `document.body.dataset`. See docs/DEBUG.md.
- */
-interface DebugOptions {
-  enabled: boolean;
-  spawn: number;
-  god: boolean;
-  allWeapons: boolean;
-  /** `?weapons=evolved`: every weapon already evolved. */
-  evolved: boolean;
-  startTime: number;
-  /** Starting reserve with an empty magazine, or null to keep the normal start. */
-  ammo: number | null;
-  /** Raw `?difficulty=` value (validated by `initialDifficulty`). */
-  difficulty: string | null;
-}
-
-function readDebugOptions(search: string): DebugOptions {
-  const params = new URLSearchParams(search);
-  const num = (key: string): number => Math.max(0, Number(params.get(key) ?? 0) || 0);
-  const spawn = Math.floor(num('spawn'));
-  const startTime = Math.min(num('t'), SHIFT.durationSeconds - 1);
-  const god = params.has('god');
-  const evolved = params.get('weapons') === 'evolved';
-  const allWeapons = evolved || params.get('weapons') === 'all';
-  const ammo = params.has('ammo') ? Math.floor(num('ammo')) : null;
-  const difficulty = params.get('difficulty');
-  const enabled =
-    spawn > 0 ||
-    god ||
-    allWeapons ||
-    startTime > 0 ||
-    ammo !== null ||
-    parseDifficulty(difficulty) !== undefined ||
-    params.has('debug');
-  return { enabled, spawn, god, allWeapons, evolved, startTime, ammo, difficulty };
-}
 
 /** Sound played for each gameplay event (events without one only drive visuals). */
 const EVENT_SOUNDS: Readonly<Record<GameEventType, SoundId | null>> = {
@@ -115,9 +71,12 @@ function boot(): void {
   if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Falta el <canvas id="game">');
   document.title = t('gameTitle');
 
-  const debug = readDebugOptions(window.location.search);
+  const debug = parseDebugOptions(window.location.search);
   const store = createSaveStore(browserStorage());
   let save = store.load();
+  /** The saved «Reducir movimiento» choice, or the system preference when there is none. */
+  const reducedMotionOf = (data: Readonly<SaveData>): boolean =>
+    data.reducedMotion ?? window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
   /** Difficulty of the next run: the URL parameter, else the last one chosen in the menu. */
   let difficulty = initialDifficulty(debug.difficulty, save.difficulty);
   const sfx = createSfx(save.muted);
@@ -166,6 +125,11 @@ function boot(): void {
     hud: { debug: { visible: false, fps: 0, cpuMs: 0 }, touch: false },
     hurtFlash: 0,
     faint: 0,
+    reducedMotion: reducedMotionOf(save),
+  };
+  /** Camera shake, skipped entirely with «Reducir movimiento». */
+  const shake = (amount: number): void => {
+    if (!frame.reducedMotion) addShake(camera, amount);
   };
 
   const resetRun = (): void => {
@@ -191,6 +155,7 @@ function boot(): void {
     wins: save.records[difficulty].wins,
     totalKills: save.totalKills,
     muted: save.muted,
+    reducedMotion: frame.reducedMotion,
     touch: input.touchMode,
   });
 
@@ -221,6 +186,27 @@ function boot(): void {
     pauseMenu.setMuted(save.muted);
   };
 
+  const toggleReducedMotion = (): void => {
+    const reduced = !frame.reducedMotion;
+    save = { ...save, reducedMotion: reduced };
+    store.save(save);
+    frame.reducedMotion = reduced;
+    if (reduced) camera.trauma = 0;
+    mainMenu.setReducedMotion(reduced);
+    pauseMenu.setReducedMotion(reduced);
+  };
+
+  /** «Borrar datos guardados»: removes the save and goes back to the defaults. */
+  const clearData = (): void => {
+    store.clear();
+    save = store.load();
+    difficulty = initialDifficulty(debug.difficulty, save.difficulty);
+    sfx.setMuted(save.muted);
+    frame.reducedMotion = reducedMotionOf(save);
+    syncDebugOverlay();
+    mainMenu.show(menuInfo());
+  };
+
   const selectDifficulty = (id: DifficultyId): void => {
     difficulty = id;
     save = { ...save, difficulty: id };
@@ -249,7 +235,7 @@ function boot(): void {
   const pause = (): void => {
     if (phase !== 'run' || paused || world.status !== 'playing') return;
     paused = true;
-    pauseMenu.show(save.muted, frame.hud.debug.visible, world.difficulty.id);
+    pauseMenu.show(save.muted, frame.hud.debug.visible, world.difficulty.id, frame.reducedMotion);
   };
 
   const resume = (): void => {
@@ -261,11 +247,14 @@ function boot(): void {
   const mainMenu = createMainMenu(document.body, {
     onPlay: startRun,
     onToggleMute: toggleMute,
+    onToggleReducedMotion: toggleReducedMotion,
+    onClearData: clearData,
     onSelectDifficulty: selectDifficulty,
   });
   const pauseMenu = createPauseMenu(document.body, {
     onResume: resume,
     onToggleMute: toggleMute,
+    onToggleReducedMotion: toggleReducedMotion,
     onToggleDebug: toggleDebugOverlay,
     onQuit: goToMenu,
   });
@@ -306,25 +295,32 @@ function boot(): void {
     );
   };
 
-  /** Saves the finished run once and remembers its stats for the end screen. */
+  /**
+   * Saves the finished run once and remembers its stats for the end screen. A run with debug
+   * assists (`debug.assisted`) never touches the save: no records, wins or kills.
+   */
   const finishRun = (): RunStats => {
     if (lastRun) return lastRun;
-    const result = recordRun(
-      save,
-      world.difficulty.id,
-      world.time,
-      world.kills,
-      world.status === 'won',
-    );
-    save = result.save;
-    store.save(save);
+    let newRecord = false;
+    if (!debug.assisted) {
+      const result = recordRun(
+        save,
+        world.difficulty.id,
+        world.time,
+        world.kills,
+        world.status === 'won',
+      );
+      save = result.save;
+      newRecord = result.newRecord;
+      store.save(save);
+    }
     runRecorded = true;
     lastRun = {
       timeSurvived: world.time,
       kills: world.kills,
       level: world.player.level,
       clock: shiftClock(world.time),
-      newRecord: result.newRecord,
+      newRecord,
       difficulty: world.difficulty.id,
     };
     return lastRun;
@@ -345,26 +341,26 @@ function boot(): void {
           break;
         case 'playerHit':
           particles.burst(ev.x, ev.y, PARTICLES.hitColor, PARTICLES.hit);
-          addShake(camera, SHAKE.playerHit);
+          shake(SHAKE.playerHit);
           hurtTimer = HURT_FLASH.duration;
           break;
         case 'explosion': {
           particles.burst(ev.x, ev.y, PARTICLES.explosionColor, PARTICLES.explosion);
           const near = Math.hypot(ev.x - p.x, ev.y - p.y) <= SHAKE.explosionRange;
-          if (near) addShake(camera, SHAKE.explosion);
+          if (near) shake(SHAKE.explosion);
           break;
         }
         case 'bossSpawn':
-          addShake(camera, SHAKE.bossSpawn);
+          shake(SHAKE.bossSpawn);
           break;
         case 'frenzyStart':
-          addShake(camera, SHAKE.frenzy);
+          shake(SHAKE.frenzy);
           break;
         case 'shockwave':
-          addShake(camera, SHAKE.shockwave);
+          shake(SHAKE.shockwave);
           break;
         case 'bossDeath':
-          addShake(camera, SHAKE.bossDeath);
+          shake(SHAKE.bossDeath);
           break;
         case 'shelfHit':
           particles.burst(ev.x, ev.y, PARTICLES.shelfHitColor, PARTICLES.shelfHit);
@@ -495,7 +491,7 @@ function boot(): void {
           const e = world.enemies.items[i];
           const id = e?.def.id ?? '?';
           kinds[id] = (kinds[id] ?? 0) + 1;
-          if (e?.def.behavior.kind === 'charge' && e.aiState === 1) {
+          if (e?.def.behavior.kind === 'charge' && e.behaviorState === 1) {
             kinds.aiming = (kinds.aiming ?? 0) + 1;
           }
         }
@@ -555,11 +551,28 @@ function boot(): void {
   document.getElementById('boot')?.remove();
 }
 
+/**
+ * Shows a generic message over the game (no error details: those stay in the console). Used when
+ * booting fails and when an error stops the loop mid-run, instead of a silent frozen screen.
+ */
+function showFatalError(key: 'bootError' | 'runtimeError'): void {
+  let msg = document.getElementById('boot');
+  if (!msg) {
+    msg = document.createElement('div');
+    msg.id = 'boot';
+    msg.className = 'boot-msg';
+    document.body.append(msg);
+  }
+  msg.setAttribute('role', 'alert');
+  if (!msg.textContent || key === 'bootError') msg.textContent = t(key);
+}
+
+window.addEventListener('error', () => showFatalError('runtimeError'));
+window.addEventListener('unhandledrejection', () => showFatalError('runtimeError'));
+
 try {
   boot();
 } catch (err) {
-  // Leave a readable message instead of a black screen stuck on "Cargando".
-  const msg = document.getElementById('boot');
-  if (msg) msg.textContent = t('bootError');
+  showFatalError('bootError');
   throw err;
 }

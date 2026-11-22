@@ -228,7 +228,7 @@ describe('spawns never land inside a shelf', () => {
     const cy = s.y + s.h / 2;
     const boss = spawnEnemy(world, ENEMIES.manager, cx, s.y - 60);
     if (!boss || boss.def.behavior.kind !== 'boss') throw new Error('no boss');
-    boss.aiTimer = 0;
+    boss.behaviorTimer = 0;
     enemyBehaviorSystem(world, FIXED_STEP);
     expect(world.enemies.count).toBe(1 + boss.def.behavior.summonCount);
     for (let k = 0; k < world.enemies.count; k++) {
@@ -303,12 +303,12 @@ describe('zombies get around shelves', () => {
     world.player.pos.y = s.y + s.h + 60;
     const cart = spawnEnemy(world, ENEMIES.cart, s.x + s.w / 2, s.y - 120);
     if (!cart) throw new Error('no cart');
-    cart.aiState = CHARGE_STATE.charging;
-    cart.aiTimer = 10;
-    cart.aiDir.x = 0;
-    cart.aiDir.y = 1;
-    for (let i = 0; i < 60 && cart.aiState === CHARGE_STATE.charging; i++) stepCrowd(world);
-    expect(cart.aiState).toBe(CHARGE_STATE.recover);
+    cart.behaviorState = CHARGE_STATE.charging;
+    cart.behaviorTimer = 10;
+    cart.behaviorDir.x = 0;
+    cart.behaviorDir.y = 1;
+    for (let i = 0; i < 60 && cart.behaviorState === CHARGE_STATE.charging; i++) stepCrowd(world);
+    expect(cart.behaviorState).toBe(CHARGE_STATE.recover);
     expect(cart.pos.y).toBeLessThanOrEqual(s.y - cart.radius + EPS);
   });
 });

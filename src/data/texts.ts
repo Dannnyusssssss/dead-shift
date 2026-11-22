@@ -1,6 +1,8 @@
 const es = {
   gameTitle: 'Dead Shift',
-  bootError: 'No se pudo iniciar el juego: este navegador no soporta Canvas 2D.',
+  bootError:
+    'No se pudo iniciar el juego. Recarga la página o prueba con un navegador actualizado.',
+  runtimeError: 'Ocurrió un error y el juego se detuvo. Recarga la página para seguir jugando.',
   hp: 'Vida',
   fps: 'FPS',
   kills: 'Bajas',
@@ -113,6 +115,37 @@ const es = {
   difficultyLabel: 'Dificultad: {name}',
   statDifficulty: 'Dificultad',
   statWins: 'Victorias',
+  reducedMotionOn: 'Reducir movimiento: sí',
+  reducedMotionOff: 'Reducir movimiento: no',
+  contentNote: 'Edad orientativa 12+: violencia de fantasía contra zombis, sin sangre realista.',
+  clearData: 'Borrar datos guardados',
+  clearDataConfirm: '¿Seguro? Pulsa otra vez para borrar',
+  clearDataDone: 'Datos borrados de este navegador.',
+  back: 'Volver',
+
+  legalTitle: 'Privacidad y créditos',
+  legalPrivacyTitle: 'Privacidad',
+  legalPrivacyBody:
+    'Responsable: Danny Sivinta (Quito, Ecuador), cuartojuegos.contacto@gmail.com. Dead Shift no recolecta datos personales: no hay cuentas, formularios, cookies, analítica ni publicidad, y el juego no envía información a ningún servidor.',
+  legalStorageTitle: 'Qué se guarda en tu navegador',
+  legalStorageBody:
+    'Para recordar tus ajustes y récords, el juego guarda en este navegador (almacenamiento local, clave deadshift:v1): bajas totales, sonido, métricas visibles, dificultad elegida, «Reducir movimiento» y, por dificultad, tu mejor hora y tus victorias. Esa información no sale de tu dispositivo y se conserva hasta que la borres con el botón «Borrar datos guardados» del menú o desde la configuración de tu navegador.',
+  legalThirdTitle: 'Alojamiento',
+  legalThirdBody:
+    'El juego se sirve desde un servicio de alojamiento web (GitHub Pages, o el sitio donde lo juegues). Como en cualquier sitio web, ese servicio puede registrar datos técnicos de la conexión, como la dirección IP, según su propia política de privacidad. El juego no carga fuentes, scripts ni contenido de otros sitios.',
+  legalRightsTitle: 'Tus derechos',
+  legalRightsBody:
+    'Como el responsable no recibe ni guarda datos tuyos, todo lo guardado está en tu propio navegador y puedes borrarlo cuando quieras. Para cualquier consulta sobre tus datos personales, escribe al correo de contacto. También puedes presentar un reclamo ante la Superintendencia de Protección de Datos Personales del Ecuador.',
+  legalMinorsTitle: 'Menores de edad',
+  legalMinorsBody:
+    'El juego puede ser usado por menores de edad. No pide ni recolecta datos de ninguna persona, tampoco de niñas, niños o adolescentes.',
+  legalContentTitle: 'Contenido',
+  legalContentBody:
+    'Edad orientativa 12+ (orientación propia, no una clasificación oficial): violencia de fantasía contra zombis dibujados con formas simples, sin sangre realista.',
+  legalCreditsTitle: 'Créditos y licencia',
+  legalCreditsBody:
+    'Creado por Danny Sivinta. No usa recursos de terceros: los gráficos se dibujan y los sonidos se sintetizan en el navegador; los emojis se muestran con las fuentes de tu sistema. © 2026 Danny Sivinta. Todos los derechos reservados.',
+  legalUpdated: 'Última actualización: 21 de noviembre de 2026.',
 
   passiveShoes: 'Zapatillas antideslizantes',
   passiveShoesDesc: '+8% velocidad de movimiento',

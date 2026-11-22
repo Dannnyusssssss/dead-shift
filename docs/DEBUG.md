@@ -27,6 +27,10 @@ Hay tres formas de mostrarla:
 Se agregan a la dirección, por ejemplo `http://localhost:5173/?god&spawn=200`. Se pueden combinar.
 **Cualquiera de ellos salta el menú principal**, muestra el overlay y publica el dataset (ver abajo).
 
+**Una partida con ayudas no guarda nada:** con `?god`, `?spawn`, `?t`, `?weapons` o `?ammo`, al terminar no se
+actualizan el mejor tiempo, las victorias ni las bajas totales. `?debug` y `?difficulty` no son ayudas: esas partidas
+se guardan como cualquier otra. Un valor inválido (negativo, texto, infinito) se toma como 0.
+
 | Parámetro          | Efecto                                                                                                            |
 | ------------------ | ----------------------------------------------------------------------------------------------------------------- |
 | `?debug`           | Solo el overlay y el dataset                                                                                      |

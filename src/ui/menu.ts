@@ -64,6 +64,55 @@ function dialog(root: HTMLElement): { overlay: HTMLElement; panel: HTMLElement }
 
 const soundLabel = (muted: boolean): string => (muted ? t('soundOff') : t('soundOn'));
 
+const motionLabel = (reduced: boolean): string =>
+  reduced ? t('reducedMotionOn') : t('reducedMotionOff');
+
+/** Texts of the privacy and credits panel, in order: [heading, paragraph] pairs. */
+const LEGAL_SECTIONS = [
+  ['legalPrivacyTitle', 'legalPrivacyBody'],
+  ['legalStorageTitle', 'legalStorageBody'],
+  ['legalThirdTitle', 'legalThirdBody'],
+  ['legalRightsTitle', 'legalRightsBody'],
+  ['legalMinorsTitle', 'legalMinorsBody'],
+  ['legalContentTitle', 'legalContentBody'],
+  ['legalCreditsTitle', 'legalCreditsBody'],
+] as const;
+
+/** «Privacidad y créditos»: the privacy policy, content note, credits and license. */
+function createLegalPanel(root: HTMLElement): { show(onClose: () => void): void } {
+  const { overlay, panel } = dialog(root);
+  panel.classList.add('ds-panel-wide', 'ds-legal');
+  panel.setAttribute('aria-label', t('legalTitle'));
+  panel.append(el('h1', 'ds-title', t('legalTitle')));
+  for (const [heading, body] of LEGAL_SECTIONS) {
+    panel.append(el('h2', 'ds-legal-heading', t(heading)), el('p', 'ds-legal-text', t(body)));
+  }
+  panel.append(el('p', 'ds-legal-updated', t('legalUpdated')));
+  const back = button('ds-button', t('back'));
+  panel.append(back);
+  let onClose: (() => void) | undefined;
+  const close = (): void => {
+    overlay.hidden = true;
+    onClose?.();
+    onClose = undefined;
+  };
+  back.addEventListener('click', close);
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      close();
+    }
+  });
+  return {
+    show(closeHandler) {
+      onClose = closeHandler;
+      overlay.hidden = false;
+      panel.scrollTop = 0;
+      back.focus();
+    },
+  };
+}
+
 const difficultyName = (id: DifficultyId): string => t(DIFFICULTIES[id].nameKey);
 
 /** Victory / defeat screen with run stats, retry and back-to-menu buttons. */
@@ -135,6 +184,7 @@ export interface MainMenuInfo {
   wins: number;
   totalKills: number;
   muted: boolean;
+  reducedMotion: boolean;
   /** Show the touch controls summary instead of the keyboard one. */
   touch: boolean;
 }
@@ -144,18 +194,23 @@ export interface MainMenu {
   show(info: Readonly<MainMenuInfo>): void;
   hide(): void;
   setMuted(muted: boolean): void;
+  setReducedMotion(reduced: boolean): void;
 }
 
 export interface MainMenuHandlers {
   onPlay(): void;
   onToggleMute(): void;
+  onToggleReducedMotion(): void;
+  /** Second press of «Borrar datos guardados»: the host clears the save and shows the menu again. */
+  onClearData(): void;
   /** A difficulty button was pressed; the host saves it and shows the menu again. */
   onSelectDifficulty(id: DifficultyId): void;
 }
 
 /**
  * Title screen: difficulty, play, best clock and wins on that difficulty, lifetime kills, sound
- * toggle and a controls summary.
+ * and reduced-motion toggles, a controls summary, the content note, the privacy and credits
+ * panel and «Borrar datos guardados» (asks for a second press before clearing).
  */
 export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): MainMenu {
   const { overlay, panel } = dialog(root);
@@ -177,7 +232,14 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
   const wins = statRow(t('statWins'));
   const kills = statRow(t('totalKills'));
   const sound = button('ds-button ds-button-secondary', '');
+  const motion = button('ds-button ds-button-secondary', '');
   const controls = el('p', 'ds-controls');
+  const contentNote = el('p', 'ds-controls', t('contentNote'));
+  const legalButton = button('ds-button ds-button-secondary', t('legalTitle'));
+  const clearButton = button('ds-button ds-button-secondary ds-button-danger', t('clearData'));
+  const clearStatus = el('p', 'ds-controls');
+  clearStatus.setAttribute('role', 'status');
+  const legal = createLegalPanel(root);
   panel.append(
     title,
     tagline,
@@ -189,11 +251,44 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
     wins.row,
     kills.row,
     sound,
+    motion,
     controls,
+    contentNote,
+    legalButton,
+    clearButton,
+    clearStatus,
   );
+
+  /** The first press of «Borrar datos guardados» only arms it; the second one clears. */
+  let clearArmed = false;
+  const disarmClear = (): void => {
+    clearArmed = false;
+    clearButton.textContent = t('clearData');
+  };
 
   play.addEventListener('click', handlers.onPlay);
   sound.addEventListener('click', handlers.onToggleMute);
+  motion.addEventListener('click', handlers.onToggleReducedMotion);
+  legalButton.addEventListener('click', () => {
+    disarmClear();
+    overlay.hidden = true;
+    legal.show(() => {
+      overlay.hidden = false;
+      legalButton.focus();
+    });
+  });
+  clearButton.addEventListener('click', () => {
+    if (!clearArmed) {
+      clearArmed = true;
+      clearButton.textContent = t('clearDataConfirm');
+      clearStatus.textContent = '';
+      return;
+    }
+    disarmClear();
+    handlers.onClearData();
+    clearStatus.textContent = t('clearDataDone');
+  });
+  clearButton.addEventListener('blur', disarmClear);
 
   return {
     get visible() {
@@ -207,6 +302,7 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
       wins.value.textContent = String(info.wins);
       kills.value.textContent = String(info.totalKills);
       sound.textContent = soundLabel(info.muted);
+      motion.textContent = motionLabel(info.reducedMotion);
       controls.textContent = info.touch ? t('controlsTouch') : t('controlsDesktop');
       // Shown again after picking a difficulty: the focus stays on that button.
       if (!overlay.hidden) return;
@@ -215,25 +311,32 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
     },
     hide() {
       play.blur();
+      disarmClear();
+      clearStatus.textContent = '';
       overlay.hidden = true;
     },
     setMuted(muted) {
       sound.textContent = soundLabel(muted);
+    },
+    setReducedMotion(reduced) {
+      motion.textContent = motionLabel(reduced);
     },
   };
 }
 
 export interface PauseMenu {
   readonly visible: boolean;
-  show(muted: boolean, showDebug: boolean, difficulty: DifficultyId): void;
+  show(muted: boolean, showDebug: boolean, difficulty: DifficultyId, reducedMotion: boolean): void;
   hide(): void;
   setMuted(muted: boolean): void;
   setShowDebug(showDebug: boolean): void;
+  setReducedMotion(reduced: boolean): void;
 }
 
 export interface PauseHandlers {
   onResume(): void;
   onToggleMute(): void;
+  onToggleReducedMotion(): void;
   /** The metrics checkbox changed; the host decides the new state and calls `setShowDebug`. */
   onToggleDebug(): void;
   onQuit(): void;
@@ -245,15 +348,17 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
   const difficulty = el('p', 'ds-subtitle');
   const resume = button('ds-button', t('resume'));
   const sound = button('ds-button ds-button-secondary', '');
+  const motion = button('ds-button ds-button-secondary', '');
   const debugRow = el('label', 'ds-check');
   const debugBox = el('input', 'ds-check-box');
   debugBox.type = 'checkbox';
   debugRow.append(debugBox, el('span', '', t('showDebug')));
   const quit = button('ds-button ds-button-secondary', t('quitToMenu'));
-  panel.append(title, difficulty, resume, sound, debugRow, quit);
+  panel.append(title, difficulty, resume, sound, motion, debugRow, quit);
 
   resume.addEventListener('click', handlers.onResume);
   sound.addEventListener('click', handlers.onToggleMute);
+  motion.addEventListener('click', handlers.onToggleReducedMotion);
   debugBox.addEventListener('change', handlers.onToggleDebug);
   quit.addEventListener('click', handlers.onQuit);
 
@@ -261,9 +366,10 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
     get visible() {
       return !overlay.hidden;
     },
-    show(muted, showDebug, difficultyId) {
+    show(muted, showDebug, difficultyId, reducedMotion) {
       difficulty.textContent = t('difficultyLabel', { name: difficultyName(difficultyId) });
       sound.textContent = soundLabel(muted);
+      motion.textContent = motionLabel(reducedMotion);
       debugBox.checked = showDebug;
       overlay.hidden = false;
       resume.focus();
@@ -277,6 +383,9 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
     },
     setShowDebug(showDebug) {
       debugBox.checked = showDebug;
+    },
+    setReducedMotion(reduced) {
+      motion.textContent = motionLabel(reduced);
     },
   };
 }

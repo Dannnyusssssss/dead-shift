@@ -57,8 +57,8 @@ describe('Carrito (charge)', () => {
     const world = emptyWorld();
     const e = add(world, 'cart', 200, 0);
     run(world, FIXED_STEP);
-    expect(e.aiState).toBe(CHARGE_STATE.windup);
-    const aimed = { x: e.aiDir.x, y: e.aiDir.y };
+    expect(e.behaviorState).toBe(CHARGE_STATE.windup);
+    const aimed = { x: e.behaviorDir.x, y: e.behaviorDir.y };
     const held = { x: e.pos.x, y: e.pos.y };
     // During the 0.6 s wind-up it does not move, even if the player does.
     world.player.pos.y = 150;
@@ -66,9 +66,9 @@ describe('Carrito (charge)', () => {
     expect(e.pos.x).toBeCloseTo(held.x);
     expect(e.pos.y).toBeCloseTo(held.y);
     run(world, 0.2);
-    expect(e.aiState).toBe(CHARGE_STATE.charging);
+    expect(e.behaviorState).toBe(CHARGE_STATE.charging);
     // The direction stays the one chosen before the player moved.
-    expect(e.aiDir).toEqual(aimed);
+    expect(e.behaviorDir).toEqual(aimed);
     const before = e.pos.x;
     run(world, 0.3);
     expect(before - e.pos.x).toBeGreaterThan(300 * 0.3 * 0.9);
@@ -79,7 +79,7 @@ describe('Carrito (charge)', () => {
     const world = emptyWorld();
     const e = add(world, 'cart', 200, 0);
     run(world, 0.6 + 0.8 + 0.1);
-    expect(e.aiState).toBe(CHARGE_STATE.recover);
+    expect(e.behaviorState).toBe(CHARGE_STATE.recover);
   });
 });
 

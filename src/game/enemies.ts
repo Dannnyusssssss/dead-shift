@@ -15,7 +15,7 @@ import { enemySpeedScale } from './shift';
 import { createRect, pushOutOfShelves, type Rect } from './shelves';
 import type { World } from './world';
 
-/** States of the `charge` behavior (stored in `aiState`). */
+/** States of the `charge` behavior (stored in `behaviorState`). */
 export const CHARGE_STATE = { approach: 0, windup: 1, charging: 2, recover: 3 } as const;
 
 export interface Enemy {
@@ -45,12 +45,12 @@ export interface Enemy {
   /** Per weapon (WEAPON_IDS order): time until that weapon may hit this enemy again. */
   weaponHitTimers: Float32Array;
   /** Behavior scratch state; meaning depends on `def.behavior.kind`. */
-  aiState: number;
-  aiTimer: number;
-  aiTimer2: number;
-  aiPhase: number;
+  behaviorState: number;
+  behaviorTimer: number;
+  behaviorTimer2: number;
+  behaviorPhase: number;
   /** Locked direction (charge) or strafe side (ranged). */
-  aiDir: Vec2;
+  behaviorDir: Vec2;
   /** Time until the next trail puddle. */
   trailTimer: number;
   /** Shelf contact: remaining memory of the last touch, s (0 = not touching). */
@@ -92,11 +92,11 @@ export function createEnemyObject(): Enemy {
     poisonTimer: 0,
     lastHitBy: -1,
     weaponHitTimers: new Float32Array(WEAPON_IDS.length),
-    aiState: 0,
-    aiTimer: 0,
-    aiTimer2: 0,
-    aiPhase: 0,
-    aiDir: vec2(),
+    behaviorState: 0,
+    behaviorTimer: 0,
+    behaviorTimer2: 0,
+    behaviorPhase: 0,
+    behaviorDir: vec2(),
     trailTimer: 0,
     contactTimer: 0,
     contactNormal: vec2(),
@@ -114,20 +114,20 @@ export function scaleAt(time: number): number {
 }
 
 function initBehavior(e: Enemy, world: World): void {
-  e.aiState = 0;
-  e.aiTimer = 0;
-  e.aiTimer2 = 0;
-  e.aiPhase = world.rng.range(0, Math.PI * 2);
-  setVec(e.aiDir, 1, 0);
+  e.behaviorState = 0;
+  e.behaviorTimer = 0;
+  e.behaviorTimer2 = 0;
+  e.behaviorPhase = world.rng.range(0, Math.PI * 2);
+  setVec(e.behaviorDir, 1, 0);
   const b = e.def.behavior;
   switch (b.kind) {
     case 'ranged':
-      e.aiTimer = b.fireInterval * 0.5;
-      e.aiDir.x = world.rng.next() < 0.5 ? -1 : 1;
+      e.behaviorTimer = b.fireInterval * 0.5;
+      e.behaviorDir.x = world.rng.next() < 0.5 ? -1 : 1;
       break;
     case 'boss':
-      e.aiTimer = b.summonInterval;
-      e.aiTimer2 = b.shockwaveInterval;
+      e.behaviorTimer = b.summonInterval;
+      e.behaviorTimer2 = b.shockwaveInterval;
       break;
     default:
       break;
@@ -187,9 +187,9 @@ export function clearShelfContact(e: Enemy): void {
 /** A charging enemy that hits a shelf stops there instead of ramming it for the whole charge. */
 export function stopChargeAgainstShelf(e: Enemy): void {
   const b = e.def.behavior;
-  if (b.kind !== 'charge' || e.aiState !== CHARGE_STATE.charging) return;
-  e.aiState = CHARGE_STATE.recover;
-  e.aiTimer = b.recover;
+  if (b.kind !== 'charge' || e.behaviorState !== CHARGE_STATE.charging) return;
+  e.behaviorState = CHARGE_STATE.recover;
+  e.behaviorTimer = b.recover;
 }
 
 /** Unit vector and distance from the enemy to the player, written into `out`. */
@@ -212,8 +212,8 @@ function chase(e: Enemy, world: World, speedScale = 1): number {
 
 function zigzag(e: Enemy, b: Readonly<ZigzagBehavior>, world: World, dt: number): void {
   towardPlayer(e, world, dir);
-  e.aiPhase += dt * b.frequency * Math.PI * 2;
-  const side = Math.sin(e.aiPhase) * b.weave;
+  e.behaviorPhase += dt * b.frequency * Math.PI * 2;
+  const side = Math.sin(e.behaviorPhase) * b.weave;
   // Forward plus a sideways component (perpendicular = (-y, x)), renormalized.
   const vx = dir.x - dir.y * side;
   const vy = dir.y + dir.x * side;
@@ -222,37 +222,37 @@ function zigzag(e: Enemy, b: Readonly<ZigzagBehavior>, world: World, dt: number)
 }
 
 function charge(e: Enemy, b: Readonly<ChargeBehavior>, world: World, dt: number): void {
-  e.aiTimer -= dt;
-  switch (e.aiState) {
+  e.behaviorTimer -= dt;
+  switch (e.behaviorState) {
     case CHARGE_STATE.approach: {
       const d = chase(e, world);
-      if (d <= b.triggerRange && e.aiTimer <= 0) {
-        e.aiState = CHARGE_STATE.windup;
-        e.aiTimer = b.windup;
-        towardPlayer(e, world, e.aiDir);
+      if (d <= b.triggerRange && e.behaviorTimer <= 0) {
+        e.behaviorState = CHARGE_STATE.windup;
+        e.behaviorTimer = b.windup;
+        towardPlayer(e, world, e.behaviorDir);
         setVec(e.vel, 0, 0);
       }
       break;
     }
     case CHARGE_STATE.windup:
       setVec(e.vel, 0, 0);
-      if (e.aiTimer <= 0) {
-        e.aiState = CHARGE_STATE.charging;
-        e.aiTimer = b.chargeTime;
+      if (e.behaviorTimer <= 0) {
+        e.behaviorState = CHARGE_STATE.charging;
+        e.behaviorTimer = b.chargeTime;
       }
       break;
     case CHARGE_STATE.charging:
-      setVec(e.vel, e.aiDir.x * b.chargeSpeed, e.aiDir.y * b.chargeSpeed);
-      if (e.aiTimer <= 0) {
-        e.aiState = CHARGE_STATE.recover;
-        e.aiTimer = b.recover;
+      setVec(e.vel, e.behaviorDir.x * b.chargeSpeed, e.behaviorDir.y * b.chargeSpeed);
+      if (e.behaviorTimer <= 0) {
+        e.behaviorState = CHARGE_STATE.recover;
+        e.behaviorTimer = b.recover;
       }
       break;
     default:
       chase(e, world, 0.5);
-      if (e.aiTimer <= 0) {
-        e.aiState = CHARGE_STATE.approach;
-        e.aiTimer = 0;
+      if (e.behaviorTimer <= 0) {
+        e.behaviorState = CHARGE_STATE.approach;
+        e.behaviorTimer = 0;
       }
       break;
   }
@@ -265,13 +265,13 @@ function ranged(e: Enemy, b: Readonly<RangedBehavior>, world: World, dt: number)
   } else if (d < b.preferredDistance - b.band) {
     setVec(e.vel, -dir.x * e.speed, -dir.y * e.speed);
   } else {
-    // Strafe around the player; aiDir.x holds the side (+1 / -1).
-    const s = e.aiDir.x * e.speed * 0.6;
+    // Strafe around the player; behaviorDir.x holds the side (+1 / -1).
+    const s = e.behaviorDir.x * e.speed * 0.6;
     setVec(e.vel, -dir.y * s, dir.x * s);
   }
-  e.aiTimer -= dt;
-  if (e.aiTimer <= 0 && d <= b.preferredDistance + b.band * 3) {
-    e.aiTimer = b.fireInterval;
+  e.behaviorTimer -= dt;
+  if (e.behaviorTimer <= 0 && d <= b.preferredDistance + b.band * 3) {
+    e.behaviorTimer = b.fireInterval;
     const p = world.player.pos;
     throwReceipt(
       world,
@@ -288,9 +288,9 @@ function ranged(e: Enemy, b: Readonly<RangedBehavior>, world: World, dt: number)
 
 function boss(e: Enemy, b: Readonly<BossBehavior>, world: World, dt: number): void {
   chase(e, world);
-  e.aiTimer -= dt;
-  if (e.aiTimer <= 0) {
-    e.aiTimer += b.summonInterval;
+  e.behaviorTimer -= dt;
+  if (e.behaviorTimer <= 0) {
+    e.behaviorTimer += b.summonInterval;
     const minion = ENEMIES[b.summonId];
     for (let k = 0; k < b.summonCount; k++) {
       const a = (k / b.summonCount) * Math.PI * 2;
@@ -298,9 +298,9 @@ function boss(e: Enemy, b: Readonly<BossBehavior>, world: World, dt: number): vo
       spawnEnemy(world, minion, e.pos.x + Math.cos(a) * r, e.pos.y + Math.sin(a) * r);
     }
   }
-  e.aiTimer2 -= dt;
-  if (e.aiTimer2 <= 0) {
-    e.aiTimer2 += b.shockwaveInterval;
+  e.behaviorTimer2 -= dt;
+  if (e.behaviorTimer2 <= 0) {
+    e.behaviorTimer2 += b.shockwaveInterval;
     spawnShockwave(
       world,
       e.pos.x,

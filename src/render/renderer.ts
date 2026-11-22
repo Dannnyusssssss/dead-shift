@@ -1,6 +1,6 @@
 import type { Camera } from '../core/camera';
 import type { Input } from '../core/input';
-import { lerp, type Vec2 } from '../core/math';
+import { lerp, pulse, type Vec2 } from '../core/math';
 import { COMBAT } from '../data/combat';
 import {
   AIM_LINE,
@@ -13,7 +13,7 @@ import {
   ICE_STYLE,
   MAX_DPR,
   MICROWAVE_STYLE,
-  PLAYER_BLINK_RATE,
+  PULSE,
   PROJECTILE_STYLE,
   STATUS_TINT,
   SWEEP,
@@ -77,6 +77,8 @@ export interface RenderFrame {
   hurtFlash: number;
   /** 0..1 progress of the dawn "fainting" animation (0 while the night goes on). */
   faint: number;
+  /** «Reducir movimiento»: warning pulses hold a steady alpha (the host also skips the shake). */
+  reducedMotion: boolean;
 }
 
 export interface Renderer {
@@ -123,6 +125,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   let dpr = 1;
   let left = 0;
   let top = 0;
+  /** Copied from the frame at the start of each render, for the drawing helpers below. */
+  let reducedMotion = false;
   const lighting = createLighting();
 
   /** Cheap per-frame check; handles window resize, rotation and DPR changes (zoom). */
@@ -161,7 +165,16 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
         drawReceipt(ctx, x, y, h.target.x, h.target.y, h.radius, h.age);
       } else if (h.kind === 'shockwave') {
         const warning = h.age < h.windup;
-        drawShockwave(ctx, h.pos.x, h.pos.y, shockwaveRadius(h), h.radius, warning, world.time);
+        drawShockwave(
+          ctx,
+          h.pos.x,
+          h.pos.y,
+          shockwaveRadius(h),
+          h.radius,
+          warning,
+          world.time,
+          reducedMotion,
+        );
       }
     }
   }
@@ -191,14 +204,22 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       // Accessories (the cart) reach ~2.5 radii ahead.
       if (!visible(x, y, CULL_PAD + e.radius * 2.5)) continue;
       const b = e.def.behavior;
-      if (b.kind === 'charge' && e.aiState === CHARGE_STATE.windup && faint === 0) {
+      if (b.kind === 'charge' && e.behaviorState === CHARGE_STATE.windup && faint === 0) {
         const length = b.chargeSpeed * b.chargeTime;
-        drawTelegraph(ctx, x, y, e.aiDir.x, e.aiDir.y, length, 1 - e.aiTimer / b.windup);
+        drawTelegraph(
+          ctx,
+          x,
+          y,
+          e.behaviorDir.x,
+          e.behaviorDir.y,
+          length,
+          1 - e.behaviorTimer / b.windup,
+        );
       }
       // A cart winding up faces where it will charge, not where it last walked.
       const facing =
-        b.kind === 'charge' && e.aiState !== CHARGE_STATE.approach
-          ? Math.atan2(e.aiDir.y, e.aiDir.x)
+        b.kind === 'charge' && e.behaviorState !== CHARGE_STATE.approach
+          ? Math.atan2(e.behaviorDir.y, e.behaviorDir.x)
           : Math.atan2(e.vel.y, e.vel.x);
       drawEnemy(ctx, x, y, facing, e.radius, e.def.look, e.hitTimer > 0, faint, world.frenzy);
       if (faint > 0) continue;
@@ -225,7 +246,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     const { items, count } = world.turrets;
     for (let i = 0; i < count; i++) {
       const t = items[i] as Turret;
-      drawMicrowave(ctx, t.pos.x, t.pos.y, t.life, world.time);
+      drawMicrowave(ctx, t.pos.x, t.pos.y, t.life, world.time, reducedMotion);
       const since = world.time - t.lastFireTime;
       if (since >= MICROWAVE_STYLE.beamTime) continue;
       const a = 1 - since / MICROWAVE_STYLE.beamTime;
@@ -348,6 +369,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       return viewH;
     },
     render(frame) {
+      reducedMotion = frame.reducedMotion;
       syncSize();
       const { world, camera, playerPos } = frame;
       const player = world.player;
@@ -377,12 +399,14 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       drawAirHazards(world, frame.alpha);
       drawWeaponEffects(world, playerPos);
       drawArcs(world);
-      const blinkOff =
-        player.invulnTimer > 0 && Math.floor(world.time * PLAYER_BLINK_RATE * 2) % 2 === 1;
-      if (!blinkOff) {
-        const held = player.manual.active;
-        drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius, held);
+      // Invulnerable after a hit: a soft fade, never a full on/off blink.
+      if (player.invulnTimer > 0) {
+        ctx.globalAlpha = frame.reducedMotion
+          ? PULSE.steadyAlpha
+          : pulse(world.time, PULSE.playerHz, PULSE.playerMinAlpha);
       }
+      drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius, player.manual.active);
+      ctx.globalAlpha = 1;
       if (frame.input.aimStick.active && world.status === 'playing') {
         drawAimLine(ctx, playerPos.x, playerPos.y, player.facing.x, player.facing.y);
       }

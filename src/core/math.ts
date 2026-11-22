@@ -23,6 +23,14 @@ export function clamp(value: number, min: number, max: number): number {
   return value < min ? min : value > max ? max : value;
 }
 
+/**
+ * Smooth pulse between `min` and 1 at `hz` cycles per second (1 at time 0). Used for warnings
+ * that fade instead of switching fully on and off.
+ */
+export function pulse(time: number, hz: number, min: number): number {
+  return min + (1 - min) * (0.5 + 0.5 * Math.cos(2 * Math.PI * hz * time));
+}
+
 export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
