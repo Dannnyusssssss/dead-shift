@@ -2,6 +2,8 @@
 
 Survivor-like de zombis en un supermercado 24 h, para jugar en el navegador (PC y celular).
 
+Jugar: <https://dannnyusssssss.github.io/dead-shift/> · Código: <https://github.com/Dannnyusssssss/dead-shift>
+
 Eres Mati, el repositor del turno de noche. A las 10 PM se corta la luz y los clientes se levantan… distintos.
 Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 
@@ -44,6 +46,8 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
   cortar el paso a la horda.
 - **Ganas** si llegas a las 6:00 AM con vida: amanece y los zombis se desmayan. Tu mejor hora y tus bajas totales
   quedan guardadas en el navegador (la mejor hora y las victorias, por dificultad).
+- **Opciones del menú:** sonido, «Reducir movimiento» (quita el temblor de cámara y deja fijos los avisos que
+  parpadean; también está en la pausa), «Privacidad y créditos» y «Borrar datos guardados».
 
 ## Controles
 
@@ -119,7 +123,7 @@ tests/      tests de lógica pura
 ```
 
 Todo el contenido vive en `src/data/`: agregar un arma o un enemigo con un comportamiento existente es tocar un solo
-archivo.
+archivo. Más detalle de las capas, el bucle y cómo se prueba en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Despliegue
 
@@ -160,3 +164,25 @@ También se puede lanzar a mano desde **Actions → Deploy to GitHub Pages → R
 ### Vercel
 
 Importa el repo. Vercel detecta Vite solo: build command `npm run build`, output directory `dist`.
+
+## Privacidad
+
+El juego no recolecta ningún dato: sin cuentas, analítica, anuncios ni cookies, y sin peticiones de red propias. Solo
+guarda en tu navegador (`localStorage`, clave `deadshift:v1`) tus ajustes y récords, y puedes borrarlos con el botón
+«Borrar datos guardados» del menú. El hosting puede registrar direcciones IP como cualquier servidor web. Detalle en
+[docs/PRIVACY-INVENTORY.md](docs/PRIVACY-INVENTORY.md).
+
+## Contenido
+
+Edad orientativa **12+** (orientación propia, no una clasificación oficial): violencia de fantasía contra zombis
+dibujados con formas simples, sin sangre realista (las bajas dejan manchas verdes).
+
+## Licencia
+
+Todos los derechos reservados. Titular: Danny Sivinta, 2026. El código se publica para consulta; no se concede licencia
+de uso, copia, modificación ni distribución sin permiso escrito. Ver [LICENSE](LICENSE). El juego no incluye recursos
+de terceros; las herramientas de desarrollo y sus licencias están en [docs/LICENSES.md](docs/LICENSES.md).
+
+## Contacto
+
+Danny Sivinta, Quito, Ecuador · cuartojuegos.contacto@gmail.com
