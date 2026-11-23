@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Dead Shift · portada</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0 0 16px;
+        background: #111111;
+        color: #e8e8e8;
+        font:
+          16px system-ui,
+          sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      /* Flush with the top-left corner, so a 1280x720 screenshot is exactly the cover. */
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 1280px;
+        height: auto;
+      }
+      button {
+        margin-left: 16px;
+      }
+      button {
+        font: inherit;
+        padding: 8px 20px;
+        background: #c8f03c;
+        color: #111111;
+        border: 0;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="cover" width="1280" height="720"></canvas>
+    <button id="download" type="button"></button>
+    <script type="module" src="./cover.ts"></script>
+  </body>
+</html>

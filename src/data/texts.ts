@@ -1,5 +1,7 @@
 const es = {
   gameTitle: 'Dead Shift',
+  coverTagline: 'Supermercado 24 h · Hordas de zombis · Aguanta hasta las 6 AM',
+  coverDownload: 'Descargar PNG',
   bootError:
     'No se pudo iniciar el juego. Recarga la página o prueba con un navegador actualizado.',
   runtimeError: 'Ocurrió un error y el juego se detuvo. Recarga la página para seguir jugando.',
