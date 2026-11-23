@@ -24,8 +24,9 @@ src/
   audio/         efectos sintetizados con WebAudio
   save/          lectura y escritura validada de localStorage
 tests/           tests de la lógica pura (Vitest)
+tools/           página de desarrollo que genera la portada (1280×720) con los sprites del juego; no entra en el build
 public/          favicon
-docs/            documentación pública
+docs/            documentación pública y la portada (`cover.png`, generada con `tools/`)
 ```
 
 ## Capas

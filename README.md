@@ -1,5 +1,7 @@
 # Dead Shift
 
+![Portada de Dead Shift: Mati alumbra con su linterna un pasillo del supermercado mientras una horda de zombis avanza desde la oscuridad](docs/cover.png)
+
 Survivor-like de zombis en un supermercado 24 h, para jugar en el navegador (PC y celular).
 
 Jugar: <https://dannnyusssssss.github.io/dead-shift/> · Código: <https://github.com/Dannnyusssssss/dead-shift>
