@@ -9,7 +9,10 @@ export function darknessAt(progress: number): number {
 }
 
 export interface Lighting {
-  /** Draws the darkness with a flashlight hole centered on (sx, sy) in screen space. */
+  /**
+   * Draws the darkness with a flashlight hole centered on (sx, sy) in screen space. `scale` is
+   * screen px per world px, so the light covers the same part of the store at any field of view.
+   */
   draw(
     ctx: CanvasRenderingContext2D,
     sx: number,
@@ -17,6 +20,7 @@ export interface Lighting {
     viewW: number,
     viewH: number,
     progress: number,
+    scale?: number,
   ): void;
 }
 
@@ -26,7 +30,7 @@ export function createLighting(): Lighting {
   let cachedCtx: CanvasRenderingContext2D | undefined;
 
   return {
-    draw(ctx, sx, sy, viewW, viewH, progress) {
+    draw(ctx, sx, sy, viewW, viewH, progress, scale = 1) {
       const darkness = darknessAt(progress);
       const step = Math.round(darkness * LIGHTING.steps);
       if (step > 0) {
@@ -45,8 +49,9 @@ export function createLighting(): Lighting {
         }
         ctx.save();
         ctx.translate(sx, sy);
+        ctx.scale(scale, scale);
         ctx.fillStyle = cached;
-        ctx.fillRect(-sx, -sy, viewW, viewH);
+        ctx.fillRect(-sx / scale, -sy / scale, viewW / scale, viewH / scale);
         ctx.restore();
       }
       if (progress > LIGHTING.dawnTintFrom) {

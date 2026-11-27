@@ -74,6 +74,13 @@ export interface World {
   aim: Vec2;
   /** A mouse or aim stick is steering the aim (keyboard-only play leaves this false). */
   aimActive: boolean;
+  /**
+   * «Apuntado asistido» this step: guns aim at the nearest zombie in reach, over the mouse. The
+   * host clears it while a touch or gamepad stick aims, so a stick always wins.
+   */
+  aimAssist: boolean;
+  /** The assist aimed at least once this run (shown on the end screen). */
+  aimAssistUsed: boolean;
   /** Fire / swing button held this step. */
   triggerHeld: boolean;
   /** One-shot requests from the host, consumed by the manual weapon system. */
@@ -154,6 +161,8 @@ export function createWorld(seed: number, difficultyId: DifficultyId = DEFAULT_D
     moveInput: vec2(0, 0),
     aim: vec2(1, 0),
     aimActive: false,
+    aimAssist: false,
+    aimAssistUsed: false,
     triggerHeld: false,
     swapRequested: false,
     reloadRequested: false,

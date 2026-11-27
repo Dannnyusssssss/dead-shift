@@ -79,6 +79,8 @@ export interface RenderFrame {
   faint: number;
   /** «Reducir movimiento»: warning pulses hold a steady alpha (the host also skips the shake). */
   reducedMotion: boolean;
+  /** «Campo de visión»: world px shown per CSS px (1 = default; the HUD is never scaled). */
+  viewFactor: number;
 }
 
 export interface Renderer {
@@ -125,6 +127,9 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   let dpr = 1;
   let left = 0;
   let top = 0;
+  /** Part of the world on screen this frame, world px (view size × field of view). */
+  let worldW = 0;
+  let worldH = 0;
   /** Copied from the frame at the start of each render, for the drawing helpers below. */
   let reducedMotion = false;
   const lighting = createLighting();
@@ -143,7 +148,7 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   }
 
   const visible = (x: number, y: number, pad = CULL_PAD): boolean =>
-    x >= left - pad && x <= left + viewW + pad && y >= top - pad && y <= top + viewH + pad;
+    x >= left - pad && x <= left + worldW + pad && y >= top - pad && y <= top + worldH + pad;
 
   function drawGroundHazards(world: Readonly<World>): void {
     const { items, count } = world.hazards;
@@ -378,15 +383,21 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       ctx.fillStyle = BACKGROUND_COLOR;
       ctx.fillRect(0, 0, viewW, viewH);
 
+      const factor = frame.viewFactor;
+      const zoom = 1 / factor;
+      worldW = viewW * factor;
+      worldH = viewH * factor;
       // Snap the camera (plus shake) to device pixels to avoid shimmering tile lines.
-      const camX = Math.round((camera.x + camera.offsetX) * dpr) / dpr;
-      const camY = Math.round((camera.y + camera.offsetY) * dpr) / dpr;
-      left = camX - viewW / 2;
-      top = camY - viewH / 2;
+      const px = dpr * zoom;
+      const camX = Math.round((camera.x + camera.offsetX) * px) / px;
+      const camY = Math.round((camera.y + camera.offsetY) * px) / px;
+      left = camX - worldW / 2;
+      top = camY - worldH / 2;
 
       ctx.save();
+      ctx.scale(zoom, zoom);
       ctx.translate(-left, -top);
-      drawFloor(ctx, left, top, viewW, viewH, world.seed);
+      drawFloor(ctx, left, top, worldW, worldH, world.seed);
       drawGroundHazards(world);
       frame.particles.draw(ctx);
       drawCoupons(world);
@@ -407,21 +418,23 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       }
       drawPlayer(ctx, playerPos.x, playerPos.y, player.facing, player.radius, player.manual.active);
       ctx.globalAlpha = 1;
-      if (frame.input.aimStick.active && world.status === 'playing') {
+      if ((frame.input.aimStick.active || frame.input.padAiming) && world.status === 'playing') {
         drawAimLine(ctx, playerPos.x, playerPos.y, player.facing.x, player.facing.y);
       }
       ctx.restore();
 
       lighting.draw(
         ctx,
-        playerPos.x - left,
-        playerPos.y - top,
+        (playerPos.x - left) * zoom,
+        (playerPos.y - top) * zoom,
         viewW,
         viewH,
         shiftProgress(world.time),
+        zoom,
       );
       // Damage numbers go above the darkness so they stay readable at night.
       ctx.save();
+      ctx.scale(zoom, zoom);
       ctx.translate(-left, -top);
       frame.floaters.draw(ctx);
       ctx.restore();

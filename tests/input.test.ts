@@ -6,7 +6,9 @@ import {
   digitKey,
   keyAction,
   keysToAxis,
+  moveKey,
   readAim,
+  toggleLatch,
   touchRole,
   type AimResult,
   type JoystickConfig,
@@ -14,7 +16,9 @@ import {
   type KeyState,
   type MouseState,
 } from '../src/core/input';
+import { assignKey, keyLookup } from '../src/core/bindings';
 import { length, vec2 } from '../src/core/math';
+import { DEFAULT_KEY_BINDINGS } from '../src/data/controls';
 
 const cfg: JoystickConfig = { radius: 60, deadZone: 0.15 };
 const noKeys = (): KeyState => ({ up: false, down: false, left: false, right: false });
@@ -118,12 +122,11 @@ describe('readAim', () => {
   });
   const idle = joy(0, 0, false);
 
-  it('mouse aims; the button or Space fires', () => {
+  it('mouse aims; the fire flag (button, key or pad after the fire mode) fires', () => {
     const r = readAim(idle, mouse(), false, 100, 100, cfg, out());
     expect(r.active).toBe(true);
     expect(r.dir).toEqual({ x: 1, y: 0 });
     expect(r.trigger).toBe(false);
-    expect(readAim(idle, mouse({ down: true }), false, 100, 100, cfg, out()).trigger).toBe(true);
     expect(readAim(idle, mouse(), true, 100, 100, cfg, out()).trigger).toBe(true);
   });
 
@@ -145,6 +148,43 @@ describe('readAim', () => {
     const r = readAim(idle, mouse({ seen: false }), true, 100, 100, cfg, out());
     expect(r.active).toBe(false);
     expect(r.trigger).toBe(true);
+  });
+});
+
+describe('custom bindings', () => {
+  const custom = assignKey(DEFAULT_KEY_BINDINGS, 'pause', 'KeyO')?.bindings;
+  const swapped = assignKey(DEFAULT_KEY_BINDINGS, 'up', 'KeyI')?.bindings;
+  if (!custom || !swapped) throw new Error('assignment failed');
+
+  it('moves with the assigned keys and always with the arrows', () => {
+    const lookup = keyLookup(swapped);
+    expect(moveKey('KeyI', lookup)).toBe('up');
+    expect(moveKey('KeyW', lookup)).toBeUndefined();
+    expect(moveKey('ArrowUp', lookup)).toBe('up');
+    expect(moveKey('ArrowLeft', lookup)).toBe('left');
+  });
+
+  it('pauses with the assigned key and always with Esc; F3 never moves', () => {
+    const lookup = keyLookup(custom);
+    expect(keyAction('KeyO', lookup)).toBe('pause');
+    expect(keyAction('KeyP', lookup)).toBeUndefined();
+    expect(keyAction('Escape', lookup)).toBe('pause');
+    expect(keyAction('F3', lookup)).toBe('debug');
+  });
+
+  it('never reads inherited names as keys', () => {
+    expect(moveKey('constructor')).toBeUndefined();
+    expect(moveKey('__proto__')).toBeUndefined();
+    expect(keyAction('toString')).toBeUndefined();
+  });
+});
+
+describe('toggleLatch', () => {
+  it('flips on each press and holds otherwise', () => {
+    expect(toggleLatch(false, true)).toBe(true);
+    expect(toggleLatch(true, true)).toBe(false);
+    expect(toggleLatch(true, false)).toBe(true);
+    expect(toggleLatch(false, false)).toBe(false);
   });
 });
 

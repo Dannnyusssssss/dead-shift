@@ -1,5 +1,6 @@
 import { t } from '../data/texts';
 import type { OfferView } from './describe';
+import { keyLabel } from './key-labels';
 
 export interface LevelUpView {
   /** A level-up or the boss chest (free weapon upgrade). */
@@ -34,7 +35,8 @@ function el<K extends keyof HTMLElementTagNameMap>(
   return node;
 }
 
-export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
+/** `rerollKey` gives the key that rerolls (the one assigned to «Recargar»). */
+export function createLevelUpScreen(root: HTMLElement, rerollKey: () => string): LevelUpScreen {
   const overlay = el('div', 'ds-overlay');
   overlay.hidden = true;
   const panel = el('div', 'ds-panel ds-panel-wide');
@@ -67,7 +69,7 @@ export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
         e.preventDefault();
         handlers.onChoose(index);
       }
-    } else if (e.code === 'KeyR' && !reroll.disabled) {
+    } else if (e.code === rerollKey() && !reroll.disabled) {
       e.preventDefault();
       handlers.onReroll();
     }
@@ -105,7 +107,8 @@ export function createLevelUpScreen(root: HTMLElement): LevelUpScreen {
       title.className = `ds-title ${chest ? 'ds-title-chest' : 'ds-title-level'}`;
       hint.textContent = chest ? t('chestHint') : t('levelUpHint');
       renderCards(view);
-      reroll.textContent = `${t('reroll')} (R) ${t('rerollsLeft', { n: view.rerollsLeft })}`;
+      const key = keyLabel(rerollKey());
+      reroll.textContent = `${t('reroll')} (${key}) ${t('rerollsLeft', { n: view.rerollsLeft })}`;
       reroll.disabled = view.rerollsLeft <= 0;
       overlay.hidden = false;
       if (wasHidden) shownAt = performance.now();

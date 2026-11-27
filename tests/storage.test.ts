@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_KEY_BINDINGS, DEFAULT_PAD_BINDINGS, PAD_BUTTON } from '../src/data/controls';
 import { DIFFICULTY_IDS } from '../src/data/difficulty';
 import { SHIFT } from '../src/data/shift';
 import {
@@ -55,6 +56,13 @@ function sampleSave(): SaveData {
       normal: { bestTime: 321.5, wins: 0 },
       hard: { bestTime: 90, wins: 0 },
     },
+    keyBindings: { ...DEFAULT_KEY_BINDINGS, fire: 'KeyF', up: 'KeyI' },
+    padBindings: { ...DEFAULT_PAD_BINDINGS, fire: PAD_BUTTON.bottom },
+    viewScale: 115,
+    touchSensitivity: 5,
+    padSensitivity: 1,
+    aimAssist: true,
+    fireMode: 'toggle',
   };
 }
 
@@ -119,6 +127,7 @@ describe('migration of saves from before the difficulties', () => {
   it('moves the old best time to easy and keeps the other settings', () => {
     const old = JSON.stringify({ bestTime: 321.5, totalKills: 999, muted: true, showDebug: true });
     expect(parseSave(old)).toEqual({
+      ...DEFAULT_SAVE,
       totalKills: 999,
       muted: true,
       showDebug: true,
@@ -280,5 +289,75 @@ describe('reducedMotion', () => {
       expect(parseSave(`{"reducedMotion":${v}}`).reducedMotion).toBeNull();
     }
     expect(parseSave('{"muted":true}').reducedMotion).toBeNull();
+  });
+});
+
+describe('control settings', () => {
+  it('a save from before the controls menu loads with the usual controls', () => {
+    const save = parseSave('{"totalKills":5,"muted":true}');
+    expect(save.keyBindings).toEqual(DEFAULT_KEY_BINDINGS);
+    expect(save.padBindings).toEqual(DEFAULT_PAD_BINDINGS);
+    expect(save.viewScale).toBe(100);
+    expect(save.touchSensitivity).toBe(3);
+    expect(save.padSensitivity).toBe(3);
+    expect(save.aimAssist).toBe(false);
+    expect(save.fireMode).toBe('hold');
+  });
+
+  it('keeps only the listed values, without coercion', () => {
+    const bad = [
+      ['viewScale', ['"100"', '101', '1e999', '-80', 'null', '[]', '{}', 'true']],
+      ['touchSensitivity', ['"3"', '0', '6', '2.5', 'null']],
+      ['padSensitivity', ['"5"', '-1', '99', 'false']],
+      ['aimAssist', ['"true"', '1', 'null']],
+      ['fireMode', ['"HOLD"', '"auto"', '1', 'null', '["toggle"]']],
+    ] as const;
+    for (const [field, values] of bad) {
+      for (const v of values) {
+        expect(parseSave(`{"${field}":${v}}`)[field]).toEqual(DEFAULT_SAVE[field]);
+      }
+    }
+    expect(parseSave('{"viewScale":80}').viewScale).toBe(80);
+    expect(parseSave('{"fireMode":"toggle"}').fireMode).toBe('toggle');
+  });
+
+  it('rejects fixed, unknown, repeated or non-string keys', () => {
+    expect(parseSave('{"keyBindings":{"pause":"Escape"}}').keyBindings).toEqual(
+      DEFAULT_KEY_BINDINGS,
+    );
+    expect(parseSave('{"keyBindings":{"fire":"<img onerror=x>"}}').keyBindings.fire).toBe('Space');
+    expect(parseSave('{"keyBindings":{"fire":"KeyW"}}').keyBindings).toEqual(DEFAULT_KEY_BINDINGS);
+    expect(parseSave('{"keyBindings":"KeyW"}').keyBindings).toEqual(DEFAULT_KEY_BINDINGS);
+    expect(parseSave('{"keyBindings":{"fire":"KeyF"}}').keyBindings.fire).toBe('KeyF');
+    expect(parseSave('{"padBindings":{"fire":16}}').padBindings).toEqual(DEFAULT_PAD_BINDINGS);
+  });
+
+  it('prototype keys inside the bindings are ignored and pollute nothing', () => {
+    const raw =
+      '{"keyBindings":{"__proto__":{"fire":"KeyZ"},"fire":"KeyF"},"padBindings":{"__proto__":{"fire":0}}}';
+    const save = parseSave(raw);
+    expect(save.keyBindings.fire).toBe('KeyF');
+    expect(save.padBindings).toEqual(DEFAULT_PAD_BINDINGS);
+    expect(({} as Record<string, unknown>).fire).toBeUndefined();
+    expect(Object.getPrototypeOf(save.keyBindings)).toBe(Object.prototype);
+  });
+
+  it('extra unknown fields are dropped on the next save', () => {
+    const save = parseSave('{"keyBindings":{"fire":"KeyF","jump":"KeyJ"},"cheats":true}');
+    const written = JSON.parse(serializeSave(save)) as Record<string, unknown>;
+    expect(written.cheats).toBeUndefined();
+    expect((written.keyBindings as Record<string, unknown>).jump).toBeUndefined();
+  });
+
+  it('a full save with every setting still fits well under the size limit', () => {
+    expect(serializeSave(sampleSave()).length).toBeLessThan(MAX_SAVE_LENGTH / 5);
+  });
+
+  it('the defaults never share objects with a parsed save', () => {
+    const save = parseSave(null);
+    save.keyBindings.fire = 'KeyF';
+    save.padBindings.fire = 0;
+    expect(DEFAULT_SAVE.keyBindings.fire).toBe('Space');
+    expect(DEFAULT_SAVE.padBindings.fire).toBe(PAD_BUTTON.rt);
   });
 });

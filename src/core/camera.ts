@@ -63,3 +63,13 @@ export function updateShake(cam: Camera, cfg: Readonly<ShakeConfig>, dt: number)
   cam.offsetX = amp * (0.6 * Math.sin(t) + 0.4 * Math.sin(t * 2.3 + 1.7));
   cam.offsetY = amp * (0.6 * Math.sin(t * 1.3 + 0.5) + 0.4 * Math.sin(t * 2.9 + 4.1));
 }
+
+/** World px shown per CSS px for a «Campo de visión» percent (100 = 1, the game before it). */
+export function viewFactor(viewScalePercent: number): number {
+  return viewScalePercent / 100;
+}
+
+/** Screen position (CSS px) of a world coordinate on one axis, for a camera centered at `cam`. */
+export function worldToScreen(world: number, cam: number, viewPx: number, factor: number): number {
+  return (world - cam) / factor + viewPx / 2;
+}

@@ -11,6 +11,8 @@ export interface RunStats {
   /** The run beat the stored best time of its difficulty. */
   newRecord: boolean;
   difficulty: DifficultyId;
+  /** «Apuntado asistido» aimed at least once during the run. */
+  aimAssist: boolean;
 }
 
 export type EndVariant = 'victory' | 'defeat';
@@ -126,6 +128,8 @@ export function createEndScreen(root: HTMLElement): EndScreen {
   const kills = statRow(t('statKills'));
   const level = statRow(t('statLevel'));
   const difficulty = statRow(t('statDifficulty'));
+  const assist = statRow(t('statAimAssist'));
+  assist.value.textContent = t('statYes');
   const retry = button('ds-button', t('retry'));
   const menu = button('ds-button ds-button-secondary', t('menuButton'));
   panel.append(
@@ -137,6 +141,7 @@ export function createEndScreen(root: HTMLElement): EndScreen {
     kills.row,
     level.row,
     difficulty.row,
+    assist.row,
     retry,
     menu,
   );
@@ -165,6 +170,7 @@ export function createEndScreen(root: HTMLElement): EndScreen {
       kills.value.textContent = String(stats.kills);
       level.value.textContent = String(stats.level);
       difficulty.value.textContent = difficultyName(stats.difficulty);
+      assist.row.hidden = !stats.aimAssist;
       overlay.hidden = false;
       retry.focus();
     },
@@ -185,8 +191,8 @@ export interface MainMenuInfo {
   totalKills: number;
   muted: boolean;
   reducedMotion: boolean;
-  /** Show the touch controls summary instead of the keyboard one. */
-  touch: boolean;
+  /** Controls summary for the device in use (keyboard, touch or gamepad), with the assigned keys. */
+  controlsText: string;
 }
 
 export interface MainMenu {
@@ -201,6 +207,8 @@ export interface MainMenuHandlers {
   onPlay(): void;
   onToggleMute(): void;
   onToggleReducedMotion(): void;
+  /** «Controles»: the host opens the panel and calls `reopen` when it closes. */
+  onOpenControls(reopen: () => void): void;
   /** Second press of «Borrar datos guardados»: the host clears the save and shows the menu again. */
   onClearData(): void;
   /** A difficulty button was pressed; the host saves it and shows the menu again. */
@@ -233,6 +241,7 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
   const kills = statRow(t('totalKills'));
   const sound = button('ds-button ds-button-secondary', '');
   const motion = button('ds-button ds-button-secondary', '');
+  const controlsButton = button('ds-button ds-button-secondary', t('controlsButton'));
   const controls = el('p', 'ds-controls');
   const contentNote = el('p', 'ds-controls', t('contentNote'));
   const legalButton = button('ds-button ds-button-secondary', t('legalTitle'));
@@ -252,6 +261,7 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
     kills.row,
     sound,
     motion,
+    controlsButton,
     controls,
     contentNote,
     legalButton,
@@ -269,6 +279,14 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
   play.addEventListener('click', handlers.onPlay);
   sound.addEventListener('click', handlers.onToggleMute);
   motion.addEventListener('click', handlers.onToggleReducedMotion);
+  controlsButton.addEventListener('click', () => {
+    disarmClear();
+    overlay.hidden = true;
+    handlers.onOpenControls(() => {
+      overlay.hidden = false;
+      controlsButton.focus();
+    });
+  });
   legalButton.addEventListener('click', () => {
     disarmClear();
     overlay.hidden = true;
@@ -303,7 +321,7 @@ export function createMainMenu(root: HTMLElement, handlers: MainMenuHandlers): M
       kills.value.textContent = String(info.totalKills);
       sound.textContent = soundLabel(info.muted);
       motion.textContent = motionLabel(info.reducedMotion);
-      controls.textContent = info.touch ? t('controlsTouch') : t('controlsDesktop');
+      controls.textContent = info.controlsText;
       // Shown again after picking a difficulty: the focus stays on that button.
       if (!overlay.hidden) return;
       overlay.hidden = false;
@@ -339,6 +357,8 @@ export interface PauseHandlers {
   onToggleReducedMotion(): void;
   /** The metrics checkbox changed; the host decides the new state and calls `setShowDebug`. */
   onToggleDebug(): void;
+  /** «Controles»: the host opens the panel and calls `reopen` when it closes. */
+  onOpenControls(reopen: () => void): void;
   onQuit(): void;
 }
 
@@ -353,13 +373,21 @@ export function createPauseMenu(root: HTMLElement, handlers: PauseHandlers): Pau
   const debugBox = el('input', 'ds-check-box');
   debugBox.type = 'checkbox';
   debugRow.append(debugBox, el('span', '', t('showDebug')));
+  const controls = button('ds-button ds-button-secondary', t('controlsButton'));
   const quit = button('ds-button ds-button-secondary', t('quitToMenu'));
-  panel.append(title, difficulty, resume, sound, motion, debugRow, quit);
+  panel.append(title, difficulty, resume, sound, motion, controls, debugRow, quit);
 
   resume.addEventListener('click', handlers.onResume);
   sound.addEventListener('click', handlers.onToggleMute);
   motion.addEventListener('click', handlers.onToggleReducedMotion);
   debugBox.addEventListener('change', handlers.onToggleDebug);
+  controls.addEventListener('click', () => {
+    overlay.hidden = true;
+    handlers.onOpenControls(() => {
+      overlay.hidden = false;
+      controls.focus();
+    });
+  });
   quit.addEventListener('click', handlers.onQuit);
 
   return {

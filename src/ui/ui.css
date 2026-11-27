@@ -439,3 +439,66 @@
   color: #b8c2b2;
   font-size: 13px;
 }
+
+.ds-stat[hidden] {
+  display: none;
+}
+
+/* «Controles»: one row per action, the name on the left and its key on the right. */
+.ds-controls-panel .ds-legal-heading {
+  text-align: left;
+}
+
+.ds-controls-panel .ds-controls {
+  margin-top: 4px;
+  text-align: left;
+}
+
+.ds-bind-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px 16px;
+  margin-top: 10px;
+}
+
+.ds-bind {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ds-bind-name {
+  color: #dfe6da;
+  font-size: 15px;
+  text-align: left;
+}
+
+.ds-bind-key {
+  min-width: 128px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 2px solid #3b4a36;
+  border-radius: 8px;
+  background: #262d25;
+  color: #f2f7ee;
+  font:
+    700 15px system-ui,
+    sans-serif;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ds-bind-key:hover {
+  border-color: #6f8a5f;
+}
+
+.ds-bind-key:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.ds-controls-status {
+  min-height: 1.45em;
+  color: #c8f03c;
+}

@@ -1,4 +1,5 @@
-import { setVec } from '../core/math';
+import { normalizeInPlace, setVec } from '../core/math';
+import { AIM_ASSIST } from '../data/controls';
 import {
   MANUAL_KEYS,
   MANUAL_ORDER,
@@ -16,7 +17,14 @@ import {
 } from '../data/weapons';
 import { emit } from './events';
 import type { Player } from './player';
-import { createWeapon, fireVolley, statsAt, swingArc, type WeaponInstance } from './weapons';
+import {
+  createWeapon,
+  findNearestEnemy,
+  fireVolley,
+  statsAt,
+  swingArc,
+  type WeaponInstance,
+} from './weapons';
 import type { World } from './world';
 
 /** One manual weapon the player owns, with its own ammo (always 0 / 0 for the melee one). */
@@ -284,13 +292,40 @@ function updateMelee(world: World, m: ManualState, aimAngle: number): void {
   emit(world.events, 'meleeSwing', world.player.pos.x, world.player.pos.y);
 }
 
+/** How far a gun's shots fly (speed × lifetime), capped by the assist's search range. */
+export function assistRange(m: Readonly<ManualState>): number {
+  const s = gunStats(m);
+  return Math.min(s.speed * s.lifetime, AIM_ASSIST.maxRange);
+}
+
+/**
+ * «Apuntado asistido»: points `world.aim` at the nearest zombie a gun can reach. Only for guns
+ * (the Broom keeps facing where Mati walks). Returns false when there is nothing to aim at.
+ */
+export function assistAim(world: World): boolean {
+  const p = world.player;
+  const m = p.manual;
+  if (!isGun(activeEntry(m))) return false;
+  const target = findNearestEnemy(world, p.pos.x, p.pos.y, assistRange(m));
+  if (!target) return false;
+  setVec(world.aim, target.pos.x - p.pos.x, target.pos.y - p.pos.y);
+  if (normalizeInPlace(world.aim) === 0) return false;
+  world.aimAssistUsed = true;
+  return true;
+}
+
 /** Aim, trigger, reload and weapon switching for the manual weapons. */
 export function manualWeaponSystem(world: World, dt: number): void {
   const p = world.player;
   const m = p.manual;
-  // With a mouse/aim stick the character faces the aim; keyboard-only, the aim follows movement.
-  if (world.aimActive) setVec(p.facing, world.aim.x, world.aim.y);
-  else setVec(world.aim, p.facing.x, p.facing.y);
+  // The assist (when on and a zombie is in reach) wins over the mouse; then the mouse or aim
+  // stick; keyboard-only, the aim follows movement. The host turns the assist off while a
+  // touch or gamepad stick is aiming.
+  if ((world.aimAssist && assistAim(world)) || world.aimActive) {
+    setVec(p.facing, world.aim.x, world.aim.y);
+  } else {
+    setVec(world.aim, p.facing.x, p.facing.y);
+  }
 
   for (const e of m.owned) e.weapon.cooldown = Math.max(0, e.weapon.cooldown - dt);
   const swapped =

@@ -1,164 +1,56 @@
+import { createPadReader, type PadSnapshot } from './gamepad';
+import {
+  digitKey,
+  joystickToAxis,
+  keyAction,
+  keysToAxis,
+  moveKey,
+  readAim,
+  toggleLatch,
+  touchRole,
+  type AimResult,
+  type JoystickConfig,
+  type JoystickState,
+  type KeyState,
+  type MouseState,
+} from './input-logic';
+import { keyLookup } from './bindings';
 import { normalizeInPlace, setVec, type Vec2 } from './math';
+import {
+  DEFAULT_FIRE_MODE,
+  DEFAULT_KEY_BINDINGS,
+  DEFAULT_PAD_BINDINGS,
+  DEFAULT_SENSITIVITY,
+  PAD_ACTIONS,
+  PAD_BUTTON,
+  PAD_SENSITIVITY,
+  type FireMode,
+  type KeyBindings,
+  type PadBindings,
+  type StickConfig,
+} from '../data/controls';
 
-export interface KeyState {
-  up: boolean;
-  down: boolean;
-  left: boolean;
-  right: boolean;
-}
-
-/** Floating virtual joystick, in CSS pixels relative to the target element. */
-export interface JoystickState {
-  active: boolean;
-  pointerId: number;
-  originX: number;
-  originY: number;
-  knobX: number;
-  knobY: number;
-}
-
-export interface JoystickConfig {
-  /** Max knob distance from origin (CSS px); full speed at this distance. */
-  radius: number;
-  /** Fraction of `radius` ignored as noise. */
-  deadZone: number;
-}
-
-const KEY_MAP: Readonly<Record<string, keyof KeyState>> = {
-  KeyW: 'up',
-  ArrowUp: 'up',
-  KeyS: 'down',
-  ArrowDown: 'down',
-  KeyA: 'left',
-  ArrowLeft: 'left',
-  KeyD: 'right',
-  ArrowRight: 'right',
-};
-
-/** One-shot actions bound to keys (held keys such as movement and Space are handled apart). */
-export type KeyAction = 'swap' | 'reload' | 'pause' | 'mute' | 'debug';
-
-const ACTION_KEYS: Readonly<Record<string, KeyAction>> = {
-  KeyQ: 'swap',
-  KeyR: 'reload',
-  Escape: 'pause',
-  KeyP: 'pause',
-  KeyM: 'mute',
-  F3: 'debug',
-};
-
-export function keyAction(code: string): KeyAction | undefined {
-  return ACTION_KEYS[code];
-}
-
-/** 1-9 for the number keys (top row or numpad), 0 for anything else. */
-export function digitKey(code: string): number {
-  const match = /^(?:Digit|Numpad)([1-9])$/.exec(code);
-  return match ? Number(match[1]) : 0;
-}
-
-/** Keyboard direction, normalized so diagonals are not faster. */
-export function keysToAxis(keys: KeyState, out: Vec2): Vec2 {
-  setVec(out, (keys.right ? 1 : 0) - (keys.left ? 1 : 0), (keys.down ? 1 : 0) - (keys.up ? 1 : 0));
-  normalizeInPlace(out);
-  return out;
-}
-
-/** Analog joystick direction with magnitude in [0, 1], remapped past the dead zone. */
-export function joystickToAxis(joy: JoystickState, cfg: JoystickConfig, out: Vec2): Vec2 {
-  setVec(out, 0, 0);
-  if (!joy.active) return out;
-  setVec(out, joy.knobX - joy.originX, joy.knobY - joy.originY);
-  const dist = normalizeInPlace(out);
-  const t = Math.min(dist / cfg.radius, 1);
-  const mag = t <= cfg.deadZone ? 0 : (t - cfg.deadZone) / (1 - cfg.deadZone);
-  out.x *= mag;
-  out.y *= mag;
-  return out;
-}
-
-/** Joystick wins while it is pushed past the dead zone; otherwise keyboard. */
-export function combineAxis(
-  keys: KeyState,
-  joy: JoystickState,
-  cfg: JoystickConfig,
-  out: Vec2,
-): Vec2 {
-  joystickToAxis(joy, cfg, out);
-  if (out.x !== 0 || out.y !== 0) return out;
-  return keysToAxis(keys, out);
-}
-
-/** Touches on the left part of the screen move; the rest aim (and fire). */
-export function touchRole(x: number, viewW: number, moveFraction = 0.5): 'move' | 'aim' {
-  return x < viewW * moveFraction ? 'move' : 'aim';
-}
-
-/** Unit direction from (originX, originY) to (targetX, targetY); false if they coincide. */
-export function aimFromScreen(
-  targetX: number,
-  targetY: number,
-  originX: number,
-  originY: number,
-  out: Vec2,
-): boolean {
-  setVec(out, targetX - originX, targetY - originY);
-  return normalizeInPlace(out) > 1e-6;
-}
-
-export interface MouseState {
-  /** The mouse has moved over the game at least once (it then drives the aim). */
-  seen: boolean;
-  x: number;
-  y: number;
-  down: boolean;
-}
-
-export interface AimResult {
-  /** Unit aim direction (valid when `active`). */
-  dir: Vec2;
-  /** A mouse or aim stick is steering the aim. */
-  active: boolean;
-  trigger: boolean;
-}
-
-/**
- * Aim priority: aim stick (pushed past its dead zone: aims and fires), then the mouse
- * (aims; fires with the button or Space), else none (Space still fires).
- */
-export function readAim(
-  aimStick: Readonly<JoystickState>,
-  mouse: Readonly<MouseState>,
-  fireKey: boolean,
-  playerScreenX: number,
-  playerScreenY: number,
-  cfg: Readonly<JoystickConfig>,
-  out: AimResult,
-): AimResult {
-  joystickToAxis(aimStick, cfg, out.dir);
-  if (out.dir.x !== 0 || out.dir.y !== 0) {
-    normalizeInPlace(out.dir);
-    out.active = true;
-    out.trigger = true;
-    return out;
-  }
-  out.active = mouse.seen && aimFromScreen(mouse.x, mouse.y, playerScreenX, playerScreenY, out.dir);
-  out.trigger = fireKey || (mouse.seen && mouse.down);
-  return out;
-}
+export * from './input-logic';
 
 export interface Input {
   readonly keys: KeyState;
   readonly joystick: Readonly<JoystickState>;
   readonly aimStick: Readonly<JoystickState>;
   readonly mouse: Readonly<MouseState>;
-  readonly joystickConfig: JoystickConfig;
+  /** Touch joysticks (changes with «Sensibilidad táctil»). */
+  readonly joystickConfig: Readonly<JoystickConfig>;
   getMoveAxis(out: Vec2): Vec2;
   /** Aim and trigger for a player drawn at (playerScreenX, playerScreenY) in CSS px. */
   getAim(playerScreenX: number, playerScreenY: number, out: AimResult): AimResult;
   /** The last pointer used was a finger (touch hints and buttons). */
   readonly touchMode: boolean;
-  /** One-shot presses since the last call (Q / wheel / touch button, R, Esc / P, M). */
+  /** A gamepad is connected (read on the last poll). */
+  readonly padConnected: boolean;
+  /** The gamepad's right stick is pushed past its dead zone (it steers the aim). */
+  readonly padAiming: boolean;
+  /** Reads the gamepad; call once per frame before consuming presses. */
+  poll(now: number): void;
+  /** One-shot presses since the last call (keys, wheel, touch buttons or gamepad). */
   consumeSwap(): boolean;
   consumeReload(): boolean;
   consumePause(): boolean;
@@ -167,10 +59,24 @@ export interface Input {
   consumeDebug(): boolean;
   /** Number key pressed since the last call (1-9, from the top row or the numpad), 0 = none. */
   consumeSelect(): number;
-  /** Drops pending gameplay presses (swap, reload, number keys) e.g. while a menu is open. */
+  /** Gamepad menu navigation since the last call: -1 previous, +1 next, 0 none. */
+  consumeNavStep(): -1 | 0 | 1;
+  /** Gamepad bottom button (confirm) / right button (back) pressed since the last call. */
+  consumeNavConfirm(): boolean;
+  consumeNavBack(): boolean;
+  /** First gamepad button (0-15) pressed since the last call, or -1 (controls menu capture). */
+  consumePadButton(): number;
+  /** Drops pending gameplay presses (swap, reload, number keys, toggled fire) e.g. in a menu. */
   clearEdges(): void;
+  /** Drops every pending press, global ones included (while capturing a gamepad button). */
+  clearAll(): void;
   requestSwap(): void;
   requestReload(): void;
+  setKeyBindings(bindings: Readonly<KeyBindings>): void;
+  setPadBindings(bindings: Readonly<PadBindings>): void;
+  setJoystickConfig(cfg: Readonly<JoystickConfig>): void;
+  setStickConfig(cfg: Readonly<StickConfig>): void;
+  setFireMode(mode: FireMode): void;
   dispose(): void;
 }
 
@@ -186,12 +92,30 @@ const newStick = (): JoystickState => ({
 /** Minimum time between two wheel-triggered swaps (trackpads fire many events), ms. */
 const WHEEL_SWAP_COOLDOWN_MS = 200;
 
-export function createInput(target: HTMLElement, joystickConfig: JoystickConfig): Input {
+/** The first connected pad, or null (the browser may lack the API or block it in an iframe). */
+function firstPad(): PadSnapshot | null {
+  try {
+    const pads = navigator.getGamepads?.() ?? [];
+    for (const pad of pads) if (pad?.connected) return pad;
+  } catch {
+    // Blocked by a permissions policy: play on without a pad.
+  }
+  return null;
+}
+
+export function createInput(target: HTMLElement, initialJoystick: JoystickConfig): Input {
   const keys: KeyState = { up: false, down: false, left: false, right: false };
   const joystick = newStick();
   const aimStick = newStick();
   const mouse: MouseState = { seen: false, x: 0, y: 0, down: false };
+  let joystickConfig: Readonly<JoystickConfig> = initialJoystick;
+  let stickConfig: Readonly<StickConfig> = PAD_SENSITIVITY[DEFAULT_SENSITIVITY];
+  let lookup = keyLookup(DEFAULT_KEY_BINDINGS);
+  let padBindings: Readonly<PadBindings> = DEFAULT_PAD_BINDINGS;
+  let fireMode: FireMode = DEFAULT_FIRE_MODE;
   let fireKey = false;
+  /** «Alternar»: firing until the next press. */
+  let fireLatched = false;
   let swapPressed = false;
   let reloadPressed = false;
   let pausePressed = false;
@@ -202,16 +126,39 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   let touchMode = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   let lastWheelSwap = 0;
 
+  // Gamepad state, refreshed by `poll` (no objects created per frame).
+  const pad = createPadReader();
+  const padMove = pad.move;
+  const padAim = pad.aim;
+  let navStepPending: -1 | 0 | 1 = 0;
+  let navConfirm = false;
+  let navBack = false;
+  let padButtonPressed = -1;
+
+  const pressFire = (): void => {
+    fireLatched = toggleLatch(fireLatched, true);
+  };
+
+  /**
+   * Game keys skip the browser default (page scroll, Alt menu) except on a focused button or
+   * field, where Space and Enter must still press it.
+   */
+  const claim = (e: KeyboardEvent): void => {
+    const onControl = e.target instanceof Element && e.target.closest('button, input, a') !== null;
+    if (!onControl) e.preventDefault();
+  };
+
   const onKeyDown = (e: KeyboardEvent): void => {
-    const dir = KEY_MAP[e.code];
+    const dir = moveKey(e.code, lookup);
     if (dir) {
       keys[dir] = true;
-      e.preventDefault();
+      claim(e);
       return;
     }
-    if (e.code === 'Space') {
+    if (lookup.get(e.code) === 'fire') {
       fireKey = true;
-      e.preventDefault();
+      if (!e.repeat) pressFire();
+      claim(e);
       return;
     }
     const digit = digitKey(e.code);
@@ -219,9 +166,10 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       if (!e.repeat) selectPressed = digit;
       return;
     }
-    const action = keyAction(e.code);
-    // F3 is "find next" in most browsers, even while held.
+    const action = keyAction(e.code, lookup);
+    // F3 is "find next" in most browsers, even while held. Esc keeps its browser meaning.
     if (action === 'debug') e.preventDefault();
+    else if (action && e.code !== 'Escape') claim(e);
     if (e.repeat) return;
     switch (action) {
       case 'swap':
@@ -244,9 +192,9 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     }
   };
   const onKeyUp = (e: KeyboardEvent): void => {
-    const dir = KEY_MAP[e.code];
+    const dir = moveKey(e.code, lookup);
     if (dir) keys[dir] = false;
-    else if (e.code === 'Space') fireKey = false;
+    else if (lookup.get(e.code) === 'fire') fireKey = false;
   };
 
   const releaseStick = (stick: JoystickState): void => {
@@ -257,6 +205,7 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
   const releaseAll = (): void => {
     keys.up = keys.down = keys.left = keys.right = false;
     fireKey = false;
+    fireLatched = false;
     mouse.down = false;
     releaseStick(joystick);
     releaseStick(aimStick);
@@ -282,7 +231,10 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       mouse.seen = true;
       mouse.x = localX(e);
       mouse.y = localY(e);
-      if (e.button === 0) mouse.down = true;
+      if (e.button === 0) {
+        mouse.down = true;
+        pressFire();
+      }
       e.preventDefault();
       return;
     }
@@ -337,6 +289,46 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
 
   const preventDefault = (e: Event): void => e.preventDefault();
 
+  /** A new gamepad press: menu confirm / back, the capture in «Controles» and assigned actions. */
+  const padPress = (button: number): void => {
+    if (padButtonPressed < 0) padButtonPressed = button;
+    if (button === PAD_BUTTON.bottom) navConfirm = true;
+    if (button === PAD_BUTTON.right) navBack = true;
+    for (const action of PAD_ACTIONS) {
+      if (padBindings[action] !== button) continue;
+      switch (action) {
+        case 'fire':
+          pressFire();
+          break;
+        case 'reload':
+          reloadPressed = true;
+          break;
+        case 'swap':
+          swapPressed = true;
+          break;
+        case 'pause':
+          pausePressed = true;
+          break;
+        case 'mute':
+          mutePressed = true;
+          break;
+      }
+    }
+  };
+
+  const poll = (now: number): void => {
+    const step = pad.poll(firstPad(), stickConfig, now, padPress);
+    if (step !== 0) navStepPending = step;
+    // The right stick takes over the aim: the mouse crosshair hides until the mouse moves again.
+    if (padAim.x !== 0 || padAim.y !== 0) mouse.seen = false;
+  };
+
+  /** The fire button after the fire mode: held, or toggled on. */
+  const fireHeld = (): boolean =>
+    fireMode === 'toggle'
+      ? fireLatched
+      : fireKey || (mouse.seen && mouse.down) || pad.held(padBindings.fire);
+
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
   window.addEventListener('blur', releaseAll);
@@ -353,12 +345,36 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
     joystick,
     aimStick,
     mouse,
-    joystickConfig,
-    getMoveAxis: (out) => combineAxis(keys, joystick, joystickConfig, out),
-    getAim: (px, py, out) => readAim(aimStick, mouse, fireKey, px, py, joystickConfig, out),
+    get joystickConfig() {
+      return joystickConfig;
+    },
+    getMoveAxis(out) {
+      // Touch joystick, then the gamepad, then the keyboard.
+      joystickToAxis(joystick, joystickConfig, out);
+      if (out.x !== 0 || out.y !== 0) return out;
+      if (padMove.x !== 0 || padMove.y !== 0) return setVec(out, padMove.x, padMove.y);
+      return keysToAxis(keys, out);
+    },
+    getAim(px, py, out) {
+      if (!aimStick.active && (padAim.x !== 0 || padAim.y !== 0)) {
+        setVec(out.dir, padAim.x, padAim.y);
+        normalizeInPlace(out.dir);
+        out.active = true;
+        out.trigger = fireHeld();
+        return out;
+      }
+      return readAim(aimStick, mouse, fireHeld(), px, py, joystickConfig, out);
+    },
     get touchMode() {
       return touchMode;
     },
+    get padConnected() {
+      return pad.connected;
+    },
+    get padAiming() {
+      return padAim.x !== 0 || padAim.y !== 0;
+    },
+    poll,
     consumePause() {
       const v = pausePressed;
       pausePressed = false;
@@ -389,16 +405,63 @@ export function createInput(target: HTMLElement, joystickConfig: JoystickConfig)
       reloadPressed = false;
       return v;
     },
+    consumeNavStep() {
+      const v = navStepPending;
+      navStepPending = 0;
+      return v;
+    },
+    consumeNavConfirm() {
+      const v = navConfirm;
+      navConfirm = false;
+      return v;
+    },
+    consumeNavBack() {
+      const v = navBack;
+      navBack = false;
+      return v;
+    },
+    consumePadButton() {
+      const v = padButtonPressed;
+      padButtonPressed = -1;
+      return v;
+    },
     clearEdges() {
       swapPressed = false;
       reloadPressed = false;
       selectPressed = 0;
+      fireLatched = false;
+    },
+    clearAll() {
+      swapPressed = reloadPressed = pausePressed = mutePressed = debugPressed = false;
+      selectPressed = 0;
+      fireLatched = false;
+      navStepPending = 0;
+      navConfirm = navBack = false;
+      padButtonPressed = -1;
     },
     requestSwap() {
       swapPressed = true;
     },
     requestReload() {
       reloadPressed = true;
+    },
+    setKeyBindings(bindings) {
+      lookup = keyLookup(bindings);
+      // A key held under its old meaning would otherwise never be released.
+      releaseAll();
+    },
+    setPadBindings(bindings) {
+      padBindings = { ...bindings };
+    },
+    setJoystickConfig(cfg) {
+      joystickConfig = cfg;
+    },
+    setStickConfig(cfg) {
+      stickConfig = cfg;
+    },
+    setFireMode(mode) {
+      fireMode = mode;
+      fireLatched = false;
     },
     dispose() {
       window.removeEventListener('keydown', onKeyDown);

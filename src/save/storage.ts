@@ -1,3 +1,19 @@
+import { parseKeyBindings, parsePadBindings } from '../core/bindings';
+import {
+  DEFAULT_FIRE_MODE,
+  DEFAULT_KEY_BINDINGS,
+  DEFAULT_PAD_BINDINGS,
+  DEFAULT_SENSITIVITY,
+  DEFAULT_VIEW_SCALE,
+  FIRE_MODES,
+  SENSITIVITY_LEVELS,
+  VIEW_SCALES,
+  type FireMode,
+  type KeyBindings,
+  type PadBindings,
+  type SensitivityLevel,
+  type ViewScale,
+} from '../data/controls';
 import { DEFAULT_DIFFICULTY, DIFFICULTY_IDS, type DifficultyId } from '../data/difficulty';
 import { SHIFT } from '../data/shift';
 import { parseDifficulty } from '../game/difficulty';
@@ -29,6 +45,16 @@ export interface SaveData {
   /** «Reducir movimiento» chosen in the menu, or null to follow `prefers-reduced-motion`. */
   reducedMotion: boolean | null;
   records: Record<DifficultyId, DifficultyRecord>;
+  /** «Controles»: assigned keys (`KeyboardEvent.code`) and gamepad buttons. */
+  keyBindings: KeyBindings;
+  padBindings: PadBindings;
+  /** «Campo de visión», percent of the default view. */
+  viewScale: ViewScale;
+  touchSensitivity: SensitivityLevel;
+  padSensitivity: SensitivityLevel;
+  /** «Apuntado asistido» for the Pistol and Shotgun. */
+  aimAssist: boolean;
+  fireMode: FireMode;
 }
 
 const emptyRecords = (): Record<DifficultyId, DifficultyRecord> => ({
@@ -44,11 +70,28 @@ export const DEFAULT_SAVE: Readonly<SaveData> = {
   difficulty: DEFAULT_DIFFICULTY,
   reducedMotion: null,
   records: emptyRecords(),
+  keyBindings: { ...DEFAULT_KEY_BINDINGS },
+  padBindings: { ...DEFAULT_PAD_BINDINGS },
+  viewScale: DEFAULT_VIEW_SCALE,
+  touchSensitivity: DEFAULT_SENSITIVITY,
+  padSensitivity: DEFAULT_SENSITIVITY,
+  aimAssist: false,
+  fireMode: DEFAULT_FIRE_MODE,
 };
 
-/** A fresh default save (its `records` can be modified without touching `DEFAULT_SAVE`). */
+/** A fresh default save (its nested objects can be modified without touching `DEFAULT_SAVE`). */
 export function defaultSave(): SaveData {
-  return { ...DEFAULT_SAVE, records: emptyRecords() };
+  return {
+    ...DEFAULT_SAVE,
+    records: emptyRecords(),
+    keyBindings: { ...DEFAULT_KEY_BINDINGS },
+    padBindings: { ...DEFAULT_PAD_BINDINGS },
+  };
+}
+
+/** `v` if it is one of `allowed` (compared by identity: no coercion of "100" to 100). */
+function oneOf<T>(v: unknown, allowed: readonly T[], fallback: T): T {
+  return allowed.find((a) => a === v) ?? fallback;
 }
 
 const boolOr = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
@@ -117,6 +160,17 @@ export function parseSave(raw: string | null): SaveData {
     difficulty: parseDifficulty(data.difficulty) ?? DEFAULT_SAVE.difficulty,
     reducedMotion: boolOrNull(data.reducedMotion),
     records: parseRecords(data),
+    keyBindings: parseKeyBindings(data.keyBindings),
+    padBindings: parsePadBindings(data.padBindings),
+    viewScale: oneOf(data.viewScale, VIEW_SCALES, DEFAULT_SAVE.viewScale),
+    touchSensitivity: oneOf(
+      data.touchSensitivity,
+      SENSITIVITY_LEVELS,
+      DEFAULT_SAVE.touchSensitivity,
+    ),
+    padSensitivity: oneOf(data.padSensitivity, SENSITIVITY_LEVELS, DEFAULT_SAVE.padSensitivity),
+    aimAssist: boolOr(data.aimAssist, DEFAULT_SAVE.aimAssist),
+    fireMode: oneOf(data.fireMode, FIRE_MODES, DEFAULT_SAVE.fireMode),
   };
 }
 
