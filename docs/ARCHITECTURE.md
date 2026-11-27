@@ -15,12 +15,13 @@ interfaz y sonido). Así la lógica se prueba sin navegador y el aspecto cambia 
 ```
 src/
   main.ts        punto de entrada: conecta bucle, entrada, estado, dibujo, interfaz y guardado
-  core/          piezas genéricas: bucle de paso fijo, entrada, cámara, matemática, RNG, pools, rejilla espacial
+  core/          piezas genéricas: bucle de paso fijo, entrada (teclado, mouse, táctil y mando), cámara,
+                 matemática, RNG, pools, rejilla espacial
   data/          contenido y balance: armas, enemigos, mejoras, oleadas, dificultades, textos, constantes
   game/          estado y reglas de la partida (sin DOM ni canvas)
   game/systems/  sistemas del mundo: movimiento, colisión, daño, muerte, estados, góndolas
   render/        dibujo del mundo, HUD, iluminación, partículas y números flotantes
-  ui/            menús y pantallas en DOM, controles táctiles, estilos
+  ui/            menús y pantallas en DOM (también «Controles»), controles táctiles, navegación con mando, estilos
   audio/         efectos sintetizados con WebAudio
   save/          lectura y escritura validada de localStorage
 tests/           tests de la lógica pura (Vitest)
@@ -32,7 +33,7 @@ docs/            documentación pública y la portada (`cover.png`, generada con
 ## Capas
 
 ```
-  entrada (teclado, mouse, táctil)
+  entrada (teclado, mouse, táctil, mando)
             |
             v
   core/loop --(paso fijo, 60 Hz)--> game/ updateWorld --> estado (World)
@@ -87,14 +88,30 @@ ese frame, `main.ts` dibuja con el estado y la fracción de interpolación.
 - **Guardado mínimo y validado.** Solo se guardan ajustes y récords (`src/save/storage.ts`, clave `deadshift:v1`). Los
   parámetros de la URL se interpretan en un módulo puro (`src/game/debug-options.ts`) y las partidas con ayudas que
   alteran el juego no registran récords.
+- **Controles configurables.** Las acciones, sus teclas y botones por defecto, las teclas que se pueden asignar y los
+  niveles de campo de visión y sensibilidad están en `src/data/controls.ts`. `src/core/bindings.ts` valida y reparte
+  las asignaciones (si una tecla ya estaba en uso, las dos acciones se intercambian) y `src/core/input-logic.ts`
+  traduce cada tecla a su acción. Las teclas se identifican por su posición física (`KeyboardEvent.code`); el nombre
+  que se muestra sale de `src/ui/key-labels.ts`. El mando se lee una vez por frame con la Gamepad API del navegador,
+  con la detección de pulsaciones y la zona muerta en un módulo puro (`src/core/gamepad.ts`), y los menús se recorren
+  con él desde `src/ui/pad-nav.ts`.
+- **Campo de visión.** Solo cambia cuánto mundo se dibuja: el render escala el mundo y la iluminación, no el HUD. El
+  anillo donde aparecen los zombis se calcula con la vista real del mundo, así siguen apareciendo fuera de pantalla en
+  cualquier nivel.
+- **Apuntado asistido.** Es una regla de la partida (`assistAim` en `src/game/manual.ts`): con la pistola o la
+  escopeta, la mira busca al zombi más cercano que sus disparos alcanzan. El host la desactiva mientras un joystick
+  táctil o el stick del mando apuntan, y la partida registra si se usó para mostrarlo en la pantalla final.
 - **Accesibilidad.** Ningún aviso parpadea más de 3 veces por segundo y ninguno se apaga del todo: se desvanecen con
   suavidad (`PULSE` en `src/data/render.ts`). El ajuste «Reducir movimiento» quita el temblor de cámara y deja esos
-  avisos fijos; su valor inicial sigue la preferencia del sistema (`prefers-reduced-motion`).
+  avisos fijos; su valor inicial sigue la preferencia del sistema (`prefers-reduced-motion`). En el menú «Controles»
+  Esc cancela la captura de una tecla y Tab nunca se captura, para que el teclado no quede atrapado; todos los menús se
+  pueden usar con teclado, mando o táctil.
 
 ## Cómo se prueba
 
 Los tests (`tests/`, Vitest, entorno Node) cubren la lógica pura: matemática, RNG, pools, rejilla espacial, bucle,
-colisiones, daño, armas, evoluciones, dificultades, progresión, guardado y formato de texto. No se prueban el dibujo
+colisiones, daño, armas, evoluciones, dificultades, progresión, guardado (también con datos manipulados), asignación
+de teclas y botones, lectura del mando, campo de visión, apuntado asistido y formato de texto. No se prueban el dibujo
 ni el audio real. `npm run lint` ejecuta ESLint, `npm run test` los tests y `npm run build` comprueba tipos y compila.
 El workflow de despliegue (`.github/workflows/deploy.yml`) ejecuta las tres cosas antes de publicar.
 
@@ -115,4 +132,9 @@ El workflow de despliegue (`.github/workflows/deploy.yml`) ejecuta las tres cosa
 - El rendimiento depende del dispositivo y del navegador. El diseño busca mantener la fluidez con cientos de
   enemigos, pero esa fluidez no se ha medido en todos los dispositivos.
 - Los récords viven en el navegador del jugador: no hay clasificación en línea ni sincronización entre dispositivos.
+- Las teclas se guardan por posición física. El nombre real de cada tecla (por ejemplo «Ñ» en un teclado español) solo
+  se muestra en los navegadores que informan la distribución del teclado; en los demás se muestra el de un teclado
+  estadounidense.
+- El mando solo se reconoce bien si el navegador le asigna la disposición estándar; otros mandos pueden tener los
+  botones cambiados.
 - El audio se sintetiza en vivo, por lo que el resultado puede variar entre navegadores.

@@ -87,6 +87,9 @@ headless (`document.body.dataset.fps`, etc.):
 | `difficulty`                                  | Dificultad de la partida (`easy`, `normal` o `hard`)                                                                  |
 | `frenzy`                                      | `true` desde el Frenesí de las 5 AM (Hito 12)                                                                         |
 | `muted`, `showDebug`                          | Ajustes guardados                                                                                                     |
+| `viewScale`, `aimAssist`, `fireMode`          | Campo de visión (`80` a `130`), apuntado asistido y modo de disparo (`hold` o `toggle`) guardados en «Controles»      |
+| `aimAssistUsed`                               | `true` si el apuntado asistido apuntó al menos una vez en la partida                                                  |
+| `pad`                                         | `true` si hay un mando conectado                                                                                      |
 
 ## Reporte de balance
 

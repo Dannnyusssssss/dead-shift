@@ -49,26 +49,53 @@ Sobrevive hasta las **6:00 AM** con lo que encuentres en las góndolas.
 - **Ganas** si llegas a las 6:00 AM con vida: amanece y los zombis se desmayan. Tu mejor hora y tus bajas totales
   quedan guardadas en el navegador (la mejor hora y las victorias, por dificultad).
 - **Opciones del menú:** sonido, «Reducir movimiento» (quita el temblor de cámara y deja fijos los avisos que
-  parpadean; también está en la pausa), «Privacidad y créditos» y «Borrar datos guardados».
+  parpadean; también está en la pausa), «Controles», «Privacidad y créditos» y «Borrar datos guardados».
+- **Menú «Controles»** (en el menú principal y en la pausa):
+  - **Teclas y botones del mando:** pulsa el botón de una acción y después la tecla o el botón nuevo. Si ya lo usaba
+    otra acción, las dos se intercambian. Esc cancela. Las flechas, Esc, Tab, 1-9 y F3 no se pueden cambiar.
+    «Restablecer teclas y botones» vuelve a los de siempre.
+  - **Campo de visión:** de 80 % a 130 %; con más campo ves más supermercado, todo un poco más chico. El HUD no cambia.
+  - **Sensibilidad** de los joysticks táctiles y de los sticks del mando, de 1 a 5.
+  - **Apuntado asistido:** la pistola y la escopeta apuntan solas al zombi más cercano a su alcance (la escoba no).
+    Tú sigues disparando. El joystick de apuntado o el stick derecho del mando mandan sobre la asistencia. Las
+    partidas con asistencia guardan récords y la pantalla final lo indica.
+  - **Disparo:** «mantener pulsado» o «pulsar para empezar y parar».
 
 ## Controles
 
 ### PC
 
-| Acción                 | Tecla                                    |
-| ---------------------- | ---------------------------------------- |
-| Moverse                | WASD o flechas                           |
-| Apuntar                | Mouse                                    |
-| Disparar / golpear     | Clic izquierdo (mantenido) o Espacio     |
-| Recargar               | R                                        |
-| Elegir arma            | 1 Pistola · 2 Escoba · 3 Escopeta        |
-| Cambiar de arma        | Q o rueda del mouse                      |
-| Pausa                  | Esc o P (también el botón ❚❚)            |
-| Silenciar              | M                                        |
-| Mostrar FPS y métricas | F3 (o la casilla en la pausa)            |
-| Elegir mejora          | 1 / 2 / 3, clic; R para cambiar opciones |
+Teclas por defecto; las marcadas con \* se pueden cambiar en «Controles».
+
+| Acción                 | Tecla                                                 |
+| ---------------------- | ----------------------------------------------------- |
+| Moverse                | WASD\* o flechas                                      |
+| Apuntar                | Mouse                                                 |
+| Disparar / golpear     | Clic izquierdo (mantenido) o Espacio\*                |
+| Recargar               | R\*                                                   |
+| Elegir arma            | 1 Pistola · 2 Escoba · 3 Escopeta                     |
+| Cambiar de arma        | Q\* o rueda del mouse                                 |
+| Pausa                  | Esc o P\* (también el botón ❚❚)                       |
+| Silenciar              | M\*                                                   |
+| Mostrar FPS y métricas | F3 (o la casilla en la pausa)                         |
+| Elegir mejora          | 1 / 2 / 3, clic; la tecla de recargar cambia opciones |
 
 Sin mouse (solo teclado), Mati apunta hacia donde camina y dispara con Espacio.
+
+### Mando
+
+Funciona con mandos que el navegador reconoce con la disposición estándar (Xbox, PlayStation y similares).
+
+| Acción          | Botón por defecto                                                            |
+| --------------- | ---------------------------------------------------------------------------- |
+| Moverse         | Stick izquierdo o cruceta                                                    |
+| Apuntar         | Stick derecho                                                                |
+| Disparar        | RT / R2\*                                                                    |
+| Recargar        | X / □\*                                                                      |
+| Cambiar de arma | RB / R1\*                                                                    |
+| Pausa           | Start / Options\*                                                            |
+| Silenciar       | Back / Share\*                                                               |
+| Menús           | Cruceta o stick izquierdo para moverse, A / ✕ para elegir, B / ○ para volver |
 
 ### Celular / tablet
 
